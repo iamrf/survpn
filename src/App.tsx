@@ -11,6 +11,7 @@ import SettingsPage from "./pages/SettingsPage";
 import AdminPage from "./pages/AdminPage";
 import AdminUserDetailPage from "./pages/AdminUserDetailPage";
 import AdminPendingWithdrawalsPage from "./pages/AdminPendingWithdrawalsPage";
+import AdminUsersPage from "./pages/AdminUsersPage";
 import NotFound from "./pages/NotFound";
 
 import { useEffect } from "react";
@@ -54,6 +55,7 @@ const AppContent = () => {
             {isAdmin &&
               <>
                 <Route path="/admin" element={<AdminPage />} />
+                <Route path="/admin/users" element={<AdminUsersPage />} />
                 <Route path="/admin/user/:id" element={<AdminUserDetailPage />} />
                 <Route path="/admin/withdrawals/pending" element={<AdminPendingWithdrawalsPage />} />
               </>

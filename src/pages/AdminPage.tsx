@@ -26,13 +26,11 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const AdminPage = () => {
-    const [activeTab, setActiveTab] = useState<"overview" | "users" | "withdrawals" | "plans">("overview");
+    const [activeTab, setActiveTab] = useState<"overview" | "withdrawals" | "plans">("overview");
     const [usersList, setUsersList] = useState<any[]>([]);
     const [withdrawalsList, setWithdrawalsList] = useState<any[]>([]);
     const [totalDeposits, setTotalDeposits] = useState<number | null>(null);
-    const [loading, setLoading] = useState(false);
     const [withdrawalsLoading, setWithdrawalsLoading] = useState(false);
-    const [searchQuery, setSearchQuery] = useState("");
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 
     // Withdrawal Detail Drawer State
@@ -79,12 +77,10 @@ const AdminPage = () => {
     ];
 
     const fetchAllUsers = async () => {
-        setLoading(true);
         const result = await getUsers();
         if (result.success && result.users) {
             setUsersList(result.users);
         }
-        setLoading(false);
     };
 
     const fetchAllWithdrawals = async () => {
@@ -206,7 +202,6 @@ const AdminPage = () => {
     };
 
     useEffect(() => {
-        if (activeTab === "users") fetchAllUsers();
         if (activeTab === "withdrawals") fetchAllWithdrawals();
         if (activeTab === "plans") fetchPlans();
         if (activeTab === "overview") {
@@ -272,11 +267,6 @@ const AdminPage = () => {
         }
     };
 
-    const filteredUsers = usersList.filter(user =>
-        user.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.id?.toString().includes(searchQuery)
-    );
 
     return (
         <div className="min-h-screen flex flex-col pb-28 bg-background" dir="rtl">
@@ -303,13 +293,6 @@ const AdminPage = () => {
                     >
                         <Activity size={16} />
                         نمای کلی
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("users")}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-medium transition-all duration-300 ${activeTab === "users" ? "bg-primary text-primary-foreground shadow-lg" : "text-muted-foreground hover:text-white"}`}
-                    >
-                        <Users size={16} />
-                        کاربران
                     </button>
                     <button
                         onClick={() => setActiveTab("withdrawals")}
@@ -343,8 +326,11 @@ const AdminPage = () => {
                                         initial={{ opacity: 0, scale: 0.95 }}
                                         animate={{ opacity: 1, scale: 1 }}
                                         transition={{ delay: index * 0.1 }}
-                                        onClick={() => index === 1 && navigate('/admin/withdrawals/pending')}
-                                        className={`glass p-5 rounded-3xl flex items-center justify-between border border-white/5 shadow-xl ${index === 1 ? 'cursor-pointer hover:bg-white/5 active:scale-95 transition-all' : ''}`}
+                                        onClick={() => {
+                                            if (index === 0) navigate('/admin/users');
+                                            if (index === 1) navigate('/admin/withdrawals/pending');
+                                        }}
+                                        className={`glass p-5 rounded-3xl flex items-center justify-between border border-white/5 shadow-xl ${index <= 1 ? 'cursor-pointer hover:bg-white/5 active:scale-95 transition-all' : ''}`}
                                     >
                                         <div className="flex items-center gap-4">
                                             <div className={`p-3 rounded-2xl bg-white/5 ${stat.color}`}>
@@ -355,7 +341,7 @@ const AdminPage = () => {
                                                 <p className="text-xl font-bold font-mono">{stat.value}</p>
                                             </div>
                                         </div>
-                                        {index === 1 && <ChevronRight size={16} className="text-muted-foreground rotate-180" />}
+                                        {index <= 1 && <ChevronRight size={16} className="text-muted-foreground rotate-180" />}
                                     </motion.div>
                                 ))}
                             </div>
@@ -373,20 +359,20 @@ const AdminPage = () => {
                                         className="h-8 text-xs font-vazir border-white/10 hover:bg-white/5"
                                         onClick={() => setIsBonusDrawerOpen(true)}
                                     >
-                                        مدیریت
+                                        ویرایش
                                     </Button>
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-right">
-                                        <p className="text-[10px] text-muted-foreground font-vazir mb-1">حجم هدیه</p>
                                         <div className="flex items-end gap-1">
+                                            <span className="text-[10px] text-muted-foreground font-vazir mb-1">حجم هدیه</span>
                                             <span className="text-xl font-bold font-mono text-primary">{configs['welcome_bonus_traffic'] || '5'}</span>
                                             <span className="text-[10px] text-muted-foreground font-vazir mb-1">GB</span>
                                         </div>
                                     </div>
                                     <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-right">
-                                        <p className="text-[10px] text-muted-foreground font-vazir mb-1">مدت زمان</p>
                                         <div className="flex items-end gap-1">
+                                            <span className="text-[10px] text-muted-foreground font-vazir mb-1">مدت زمان</span>
                                             <span className="text-xl font-bold font-mono text-primary">{configs['welcome_bonus_duration'] || '30'}</span>
                                             <span className="text-[10px] text-muted-foreground font-vazir mb-1">روز</span>
                                         </div>
@@ -410,81 +396,6 @@ const AdminPage = () => {
                                         پشتیبان‌گیری
                                     </button>
                                 </div>
-                            </div>
-                        </motion.div>
-                    ) : activeTab === "users" ? (
-                        <motion.div
-                            key="users"
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -20 }}
-                            className="space-y-4"
-                        >
-                            <div className="relative flex items-center gap-3">
-                                <div className="relative flex-1">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                                    <input
-                                        type="text"
-                                        placeholder="جستجوی کاربر..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-primary/50 transition-colors font-vazir text-right"
-                                    />
-                                </div>
-                                <button
-                                    onClick={fetchAllUsers}
-                                    className={`p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors ${loading ? "animate-spin" : ""}`}
-                                >
-                                    <RefreshCcw size={18} />
-                                </button>
-                            </div>
-
-                            <div className="space-y-3">
-                                {loading ? (
-                                    <div className="py-12 text-center text-muted-foreground text-sm font-vazir">در حال بارگذاری...</div>
-                                ) : filteredUsers.length > 0 ? (
-                                    filteredUsers.map((user) => (
-                                        <motion.div
-                                            key={user.id}
-                                            layout
-                                            initial={{ opacity: 0 }}
-                                            animate={{ opacity: 1 }}
-                                            whileHover={{ backgroundColor: "rgba(255, 255, 255, 0.08)" }}
-                                            whileTap={{ scale: 0.98 }}
-                                            onClick={() => navigate(`/admin/user/${user.id}`)}
-                                            className="glass p-4 rounded-2xl border border-white/5 flex items-center justify-between cursor-pointer transition-all text-right group"
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                {user.photo_url ? (
-                                                    <img src={user.photo_url} alt="" className="w-10 h-10 rounded-full border border-white/10" />
-                                                ) : (
-                                                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
-                                                        {user.first_name?.[0] || "?"}
-                                                    </div>
-                                                )}
-                                                <div className="overflow-hidden text-right">
-                                                    <p className="font-medium text-sm truncate max-w-[120px] font-vazir group-hover:text-primary transition-colors">{user.first_name} {user.last_name}</p>
-                                                    <p dir="ltr" className="text-[10px] text-muted-foreground truncate">@{user.username || user.id}</p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <div className="text-right flex flex-col items-end gap-1">
-                                                    {user.role === 'admin' ? (
-                                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium border border-primary/20 font-vazir">مدیر</span>
-                                                    ) : (
-                                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-muted-foreground font-medium border border-white/5 font-vazir">کاربر</span>
-                                                    )}
-                                                    <p className="text-[9px] text-muted-foreground font-vazir">
-                                                        {new Date(user.last_seen).toLocaleDateString('fa-IR')}
-                                                    </p>
-                                                </div>
-                                                <ChevronRight size={16} className="text-muted-foreground rotate-180 group-hover:text-primary transition-colors" />
-                                            </div>
-                                        </motion.div>
-                                    ))
-                                ) : (
-                                    <div className="py-12 text-center text-muted-foreground text-sm font-vazir">کاربری یافت نشد.</div>
-                                )}
                             </div>
                         </motion.div>
                     ) : activeTab === "withdrawals" ? (
