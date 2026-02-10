@@ -46,3 +46,16 @@ CREATE TABLE IF NOT EXISTS withdrawals (
 CREATE INDEX IF NOT EXISTS idx_users_username ON users (username);
 
 CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions (user_id);
+
+CREATE TABLE IF NOT EXISTS configs (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+INSERT OR IGNORE INTO
+    configs (key, value)
+VALUES ('welcome_bonus_traffic', '5');
+
+INSERT OR IGNORE INTO
+    configs (key, value)
+VALUES ('welcome_bonus_duration', '7');

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Copy, QrCode, ExternalLink, Check, Zap, HardDrive, ShieldCheck } from 'lucide-react';
+import { Copy, QrCode, ExternalLink, Check, Zap, HardDrive, ShieldCheck, Calendar, Activity, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/components/ui/use-toast';
 import {
@@ -17,9 +17,12 @@ interface SubscriptionLinkCardProps {
     url: string;
     dataLimit: number;
     dataUsed: number;
+    expire?: number;
+    status?: string;
+    username?: string;
 }
 
-const SubscriptionLinkCard: React.FC<SubscriptionLinkCardProps> = ({ url, dataLimit, dataUsed }) => {
+const SubscriptionLinkCard: React.FC<SubscriptionLinkCardProps> = ({ url, dataLimit, dataUsed, expire, status = 'active', username }) => {
     const { toast } = useToast();
     const [copied, setCopied] = useState(false);
 
@@ -44,6 +47,23 @@ const SubscriptionLinkCard: React.FC<SubscriptionLinkCardProps> = ({ url, dataLi
     const usagePercent = dataLimit > 0 ? Math.min((dataUsed / dataLimit) * 100, 100) : 0;
     const remainingData = Math.max(0, dataLimit - dataUsed);
 
+    // Calculate days remaining
+    const now = Math.floor(Date.now() / 1000);
+    const secondsRemaining = expire ? expire - now : null;
+    const daysRemaining = secondsRemaining ? Math.ceil(secondsRemaining / 86400) : null;
+
+    const getStatusLabel = (s: string) => {
+        switch (s) {
+            case 'active': return { label: 'فعال', color: 'bg-green-500/10 text-green-500 border-green-500/20' };
+            case 'limited': return { label: 'محدود شده', color: 'bg-orange-500/10 text-orange-500 border-orange-500/20' };
+            case 'expired': return { label: 'منقضی شده', color: 'bg-red-500/10 text-red-500 border-red-500/20' };
+            case 'disabled': return { label: 'غیرفعال', color: 'bg-gray-500/10 text-gray-500 border-gray-500/20' };
+            default: return { label: s, color: 'bg-primary/10 text-primary border-primary/20' };
+        }
+    };
+
+    const statusObj = getStatusLabel(status);
+
     if (!url) return null;
 
     return (
@@ -62,15 +82,41 @@ const SubscriptionLinkCard: React.FC<SubscriptionLinkCardProps> = ({ url, dataLi
                     <div className="flex justify-between items-center">
                         <CardTitle className="text-xl font-black font-vazir flex items-center gap-2">
                             <ShieldCheck className="w-5 h-5 text-primary" />
-                            وضعیت اشتراک فعال
+                            اشتراک V2Ray
                         </CardTitle>
-                        <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 font-vazir">
-                            متصل
+                        <Badge variant="outline" className={`${statusObj.color} font-vazir border`}>
+                            {statusObj.label}
                         </Badge>
                     </div>
                 </CardHeader>
 
                 <CardContent className="space-y-6">
+                    {/* Info Grid */}
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-white/5 rounded-2xl p-3 border border-white/5 flex flex-col justify-center">
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                                <User className="w-3 h-3" />
+                                <span>نام سرویس</span>
+                            </div>
+                            <div className="font-mono text-sm font-bold truncate dir-ltr text-right">
+                                {username || '---'}
+                            </div>
+                        </div>
+                        <div className="bg-white/5 rounded-2xl p-3 border border-white/5 flex flex-col justify-center">
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                                <Calendar className="w-3 h-3" />
+                                <span>زمان باقیمانده</span>
+                            </div>
+                            <div className="font-vazir text-sm font-bold text-foreground">
+                                {expire ? (
+                                    daysRemaining && daysRemaining > 0 ? `${daysRemaining} روز` : 'منقضی'
+                                ) : (
+                                    'نامحدود'
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Usage Progress */}
                     <div className="space-y-2">
                         <div className="flex justify-between text-xs font-vazir text-muted-foreground">
@@ -165,3 +211,4 @@ const SubscriptionLinkCard: React.FC<SubscriptionLinkCardProps> = ({ url, dataLi
 };
 
 export default SubscriptionLinkCard;
+

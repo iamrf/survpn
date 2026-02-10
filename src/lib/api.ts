@@ -17,6 +17,9 @@ export async function syncUser(user: TelegramUser): Promise<{
     subscriptionUrl?: string;
     dataLimit?: number;
     dataUsed?: number;
+    expire?: number;
+    status?: string;
+    username?: string;
 }> {
     try {
         const response = await fetch(`${API_URL}/api/sync-user`, {
@@ -45,7 +48,10 @@ export async function syncUser(user: TelegramUser): Promise<{
             hasPasskey: data.hasPasskey,
             subscriptionUrl: data.subscriptionUrl,
             dataLimit: data.dataLimit,
-            dataUsed: data.dataUsed
+            dataUsed: data.dataUsed,
+            expire: data.expire,
+            status: data.status,
+            username: data.username
         };
     } catch (error) {
         console.error('Error syncing user with backend:', error);
@@ -294,6 +300,33 @@ export async function createCustomSubscription(userId: number, traffic: number, 
         return await response.json();
     } catch (error) {
         console.error('Error creating custom subscription:', error);
+        return { success: false, error: 'Internal server error' };
+    }
+}
+
+export async function getConfigs(): Promise<{ success: boolean; configs?: Record<string, string> }> {
+    try {
+        const response = await fetch(`${API_URL}/api/admin/configs`);
+        if (!response.ok) throw new Error('Failed to fetch configs');
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching configs:', error);
+        return { success: false };
+    }
+}
+
+export async function updateConfig(key: string, value: string): Promise<{ success: boolean; message?: string; error?: string }> {
+    try {
+        const response = await fetch(`${API_URL}/api/admin/configs`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ key, value }),
+        });
+        return await response.json();
+    } catch (error) {
+        console.error('Error updating config:', error);
         return { success: false, error: 'Internal server error' };
     }
 }

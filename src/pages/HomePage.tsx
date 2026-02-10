@@ -19,6 +19,9 @@ const HomePage = () => {
     url: string;
     limit: number;
     used: number;
+    expire?: number;
+    status?: string;
+    username?: string;
   } | null>(null);
   const { toast } = useToast();
 
@@ -37,7 +40,10 @@ const HomePage = () => {
           setSubscriptionData({
             url: result.subscriptionUrl,
             limit: result.dataLimit || 0,
-            used: result.dataUsed || 0
+            used: result.dataUsed || 0,
+            expire: result.expire,
+            status: result.status,
+            username: result.username
           });
         }
       });
@@ -63,7 +69,10 @@ const HomePage = () => {
           setSubscriptionData({
             url: syncResult.subscriptionUrl,
             limit: syncResult.dataLimit || 0,
-            used: syncResult.dataUsed || 0
+            used: syncResult.dataUsed || 0,
+            expire: syncResult.expire,
+            status: syncResult.status,
+            username: syncResult.username
           });
         }
       } else {
@@ -103,6 +112,9 @@ const HomePage = () => {
                   url={subscriptionData.url}
                   dataLimit={subscriptionData.limit}
                   dataUsed={subscriptionData.used}
+                  expire={subscriptionData.expire}
+                  status={subscriptionData.status}
+                  username={subscriptionData.username}
                 />
               </div>
             )}

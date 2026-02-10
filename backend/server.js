@@ -130,22 +130,37 @@ app.post('/api/sync-user', async (req, res) => {
         let subscriptionUrl = '';
         let dataLimit = 0;
         let dataUsed = 0;
+        let mUser = null;
 
         try {
-            let mUser = await marzban.getUser(marzbanUsername);
+            mUser = await marzban.getUser(marzbanUsername);
 
-            // Welcome Bonus Logic (5GB = 5 * 1024^3 bytes)
-            const WELCOME_BONUS = 5 * 1024 * 1024 * 1024;
+            // Welcome Bonus Logic
+            let welcomeTraffic = 5; // Default 5GB
+            let welcomeDuration = 7; // Default 7 days
+
+            const confTraffic = db.prepare("SELECT value FROM configs WHERE key = 'welcome_bonus_traffic'").get();
+            if (confTraffic) welcomeTraffic = Number(confTraffic.value);
+
+            const confDuration = db.prepare("SELECT value FROM configs WHERE key = 'welcome_bonus_duration'").get();
+            if (confDuration) welcomeDuration = Number(confDuration.value);
+
+            const WELCOME_BONUS = welcomeTraffic * 1024 * 1024 * 1024;
+            const WELCOME_EXPIRE = Math.floor(Date.now() / 1000) + (welcomeDuration * 24 * 60 * 60);
 
             if (!mUser) {
-                console.log(`Creating Marzban user with 5GB Welcome Bonus: ${marzbanUsername}`);
-                mUser = await marzban.createUser(marzbanUsername, WELCOME_BONUS);
+                console.log(`Creating Marzban user with ${welcomeTraffic}GB and ${welcomeDuration} days Welcome Bonus: ${marzbanUsername}`);
+                mUser = await marzban.createUser(marzbanUsername, WELCOME_BONUS, WELCOME_EXPIRE);
                 db.prepare('UPDATE users SET has_welcome_bonus = 1 WHERE id = ?').run(id);
             } else if (user.has_welcome_bonus === 0) {
-                console.log(`Granting 5GB Welcome Bonus to existing Marzban user: ${marzbanUsername}`);
-                // Add 5GB to whatever they have (if they have something)
+                console.log(`Granting ${welcomeTraffic}GB and extending ${welcomeDuration} days Welcome Bonus to existing user: ${marzbanUsername}`);
+                // Add to existing limit
                 const newLimit = (mUser.data_limit || 0) + WELCOME_BONUS;
-                mUser = await marzban.updateUser(marzbanUsername, { data_limit: newLimit });
+                // Update limit AND expiration
+                mUser = await marzban.updateUser(marzbanUsername, {
+                    data_limit: newLimit,
+                    expire: WELCOME_EXPIRE
+                });
                 db.prepare('UPDATE users SET has_welcome_bonus = 1 WHERE id = ?').run(id);
             }
 
@@ -169,6 +184,9 @@ app.post('/api/sync-user', async (req, res) => {
             subscriptionUrl,
             dataLimit,
             dataUsed,
+            expire: mUser?.expire,
+            status: mUser?.status,
+            username: marzbanUsername,
             languageCode: user?.language_code,
             walletAddress: user?.wallet_address,
             hasPasskey: !!user?.withdrawal_passkey
@@ -360,6 +378,35 @@ app.get('/api/admin/stats/total-deposits', (req, res) => {
         res.json({ success: true, total });
     } catch (error) {
         console.error('Error calculating total deposits:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: Get Configs
+app.get('/api/admin/configs', (req, res) => {
+    try {
+        const configs = db.prepare('SELECT * FROM configs').all();
+        const configMap = {};
+        configs.forEach(c => configMap[c.key] = c.value);
+        res.json({ success: true, configs: configMap });
+    } catch (error) {
+        console.error('Error fetching configs:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: Update Configs
+app.post('/api/admin/configs', (req, res) => {
+    const { key, value } = req.body;
+    if (!key || value === undefined) {
+        return res.status(400).json({ error: 'Key and value are required' });
+    }
+
+    try {
+        db.prepare('INSERT INTO configs (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, String(value));
+        res.json({ success: true, message: 'Config updated successfully' });
+    } catch (error) {
+        console.error('Error updating config:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

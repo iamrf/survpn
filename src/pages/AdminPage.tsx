@@ -3,9 +3,11 @@ import { ShieldCheck, Users, Settings, Database, Activity, Search, RefreshCcw, C
 import BottomNav from "@/components/BottomNav";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
-import { getUsers, getAllWithdrawals, updateWithdrawalStatus, getTotalDeposits, getUserFinanceSummary } from "@/lib/api";
+import { getUsers, getAllWithdrawals, updateWithdrawalStatus, getTotalDeposits, getUserFinanceSummary, getConfigs, updateConfig } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger, DrawerClose, DrawerFooter } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -41,6 +43,11 @@ const AdminPage = () => {
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const [confirmType, setConfirmType] = useState<'completed' | 'failed' | null>(null);
 
+    // Config State
+    const [configs, setConfigs] = useState<Record<string, string>>({});
+    const [saveConfigLoading, setSaveConfigLoading] = useState(false);
+    const [isBonusDrawerOpen, setIsBonusDrawerOpen] = useState(false);
+
     const navigate = useNavigate();
     const { toast } = useToast();
 
@@ -75,6 +82,25 @@ const AdminPage = () => {
         }
     };
 
+    const fetchConfigs = async () => {
+        const result = await getConfigs();
+        if (result.success && result.configs) {
+            setConfigs(result.configs);
+        }
+    };
+
+    const handleUpdateConfig = async (key: string, value: string) => {
+        setSaveConfigLoading(true);
+        const result = await updateConfig(key, value);
+        setSaveConfigLoading(false);
+        if (result.success) {
+            toast({ title: "تنظیمات ذخیره شد", description: "تغییرات با موفقیت اعمال شد" });
+            fetchConfigs();
+        } else {
+            toast({ title: "خطا", description: "خطا در ذخیره تنظیمات", variant: "destructive" });
+        }
+    };
+
     useEffect(() => {
         if (activeTab === "users") fetchAllUsers();
         if (activeTab === "withdrawals") fetchAllWithdrawals();
@@ -82,6 +108,7 @@ const AdminPage = () => {
             fetchAllUsers();
             fetchAllWithdrawals();
             fetchTotalDeposits();
+            fetchConfigs();
         }
     }, [activeTab]);
 
@@ -221,6 +248,40 @@ const AdminPage = () => {
                                 ))}
                             </div>
 
+                            {/* Welcome Bonus Section */}
+                            <div className="glass rounded-3xl p-6 border border-white/5 shadow-xl space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-lg font-semibold flex items-center gap-2 font-vazir">
+                                        <Wallet size={20} className="text-primary" />
+                                        بونوس خوش‌آمدگویی
+                                    </h2>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 text-xs font-vazir border-white/10 hover:bg-white/5"
+                                        onClick={() => setIsBonusDrawerOpen(true)}
+                                    >
+                                        مدیریت
+                                    </Button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-right">
+                                        <p className="text-[10px] text-muted-foreground font-vazir mb-1">حجم هدیه</p>
+                                        <div className="flex items-end gap-1">
+                                            <span className="text-xl font-bold font-mono text-primary">{configs['welcome_bonus_traffic'] || '5'}</span>
+                                            <span className="text-[10px] text-muted-foreground font-vazir mb-1">GB</span>
+                                        </div>
+                                    </div>
+                                    <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-right">
+                                        <p className="text-[10px] text-muted-foreground font-vazir mb-1">مدت زمان</p>
+                                        <div className="flex items-end gap-1">
+                                            <span className="text-xl font-bold font-mono text-primary">{configs['welcome_bonus_duration'] || '30'}</span>
+                                            <span className="text-[10px] text-muted-foreground font-vazir mb-1">روز</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="glass rounded-3xl p-6 border border-white/5 shadow-xl space-y-4">
                                 <h2 className="text-lg font-semibold flex items-center gap-2 font-vazir">
                                     <Settings size={20} className="text-primary" />
@@ -235,9 +296,6 @@ const AdminPage = () => {
                                     </button>
                                     <button className="p-4 rounded-2xl bg-white/5 hover:bg-white/10 transition-colors text-xs font-medium border border-white/5 font-vazir">
                                         پشتیبان‌گیری
-                                    </button>
-                                    <button className="p-4 rounded-2xl bg-primary/20 hover:bg-primary/30 transition-colors text-xs font-medium border border-primary/20 text-primary font-vazir">
-                                        بروزرسانی
                                     </button>
                                 </div>
                             </div>
@@ -571,7 +629,69 @@ const AdminPage = () => {
                 </AlertDialogContent>
             </AlertDialog>
 
+            {/* Bonus Config Drawer */}
+            <Drawer open={isBonusDrawerOpen} onOpenChange={setIsBonusDrawerOpen}>
+                <DrawerContent className="max-w-md mx-auto bg-card/95 backdrop-blur-xl border-white/10 font-vazir" dir="rtl">
+                    <div className="mx-auto mt-4 h-1.5 w-12 rounded-full bg-white/10" />
+                    <div className="p-6 space-y-6">
+                        <DrawerHeader className="p-0 text-right">
+                            <DrawerTitle className="text-xl font-black">مدیریت بونوس خوش‌آمدگویی</DrawerTitle>
+                            <DrawerDescription className="font-vazir text-muted-foreground">
+                                تنظیم مقدار حجم و زمان هدیه برای کاربران جدید
+                            </DrawerDescription>
+                        </DrawerHeader>
+
+                        <div className="space-y-4">
+                            <div className="space-y-2 text-right">
+                                <Label htmlFor="traffic">حجم هدیه (گیگابایت)</Label>
+                                <div className="relative">
+                                    <Input
+                                        id="traffic"
+                                        type="number"
+                                        className="bg-white/5 border-white/10 rounded-xl pl-10 font-mono text-left"
+                                        value={configs['welcome_bonus_traffic'] || '5'}
+                                        onChange={(e) => setConfigs({ ...configs, welcome_bonus_traffic: e.target.value })}
+                                    />
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">GB</span>
+                                </div>
+                            </div>
+                            <div className="space-y-2 text-right">
+                                <Label htmlFor="duration">مدت زمان (روز)</Label>
+                                <div className="relative">
+                                    <Input
+                                        id="duration"
+                                        type="number"
+                                        className="bg-white/5 border-white/10 rounded-xl pl-10 font-mono text-left"
+                                        value={configs['welcome_bonus_duration'] || '30'}
+                                        onChange={(e) => setConfigs({ ...configs, welcome_bonus_duration: e.target.value })}
+                                    />
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-vazir">روز</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <DrawerFooter className="p-0 gap-3">
+                            <Button
+                                className="w-full rounded-xl font-bold h-12"
+                                onClick={async () => {
+                                    await handleUpdateConfig('welcome_bonus_traffic', configs['welcome_bonus_traffic']);
+                                    await handleUpdateConfig('welcome_bonus_duration', configs['welcome_bonus_duration']);
+                                    setIsBonusDrawerOpen(false);
+                                }}
+                                disabled={saveConfigLoading}
+                            >
+                                {saveConfigLoading ? 'در حال ذخیره...' : 'ذخیره تغییرات'}
+                            </Button>
+                            <DrawerClose asChild>
+                                <Button variant="ghost" className="rounded-xl h-12">انصراف</Button>
+                            </DrawerClose>
+                        </DrawerFooter>
+                    </div>
+                </DrawerContent>
+            </Drawer>
+
             <BottomNav />
+            <br />
         </div>
     );
 };
