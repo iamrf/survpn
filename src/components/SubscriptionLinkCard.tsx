@@ -20,9 +20,11 @@ interface SubscriptionLinkCardProps {
     expire?: number;
     status?: string;
     username?: string;
+    planName?: string;
+    isBonus?: boolean;
 }
 
-const SubscriptionLinkCard: React.FC<SubscriptionLinkCardProps> = ({ url, dataLimit, dataUsed, expire, status = 'active', username }) => {
+const SubscriptionLinkCard: React.FC<SubscriptionLinkCardProps> = ({ url, dataLimit, dataUsed, expire, status = 'active', username, planName, isBonus = false }) => {
     const { toast } = useToast();
     const [copied, setCopied] = useState(false);
 
@@ -63,6 +65,14 @@ const SubscriptionLinkCard: React.FC<SubscriptionLinkCardProps> = ({ url, dataLi
     };
 
     const statusObj = getStatusLabel(status);
+    
+    // Determine title
+    const getTitle = () => {
+        if (isBonus) {
+            return 'اشتراک رایگان';
+        }
+        return planName || 'اشتراک V2Ray';
+    };
 
     if (!url) return null;
 
@@ -71,40 +81,45 @@ const SubscriptionLinkCard: React.FC<SubscriptionLinkCardProps> = ({ url, dataLi
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4 }}
+            dir="rtl"
         >
             <Card className="relative overflow-hidden border-none bg-gradient-to-br from-primary/5 to-secondary/10 backdrop-blur-xl border border-white/5 shadow-2xl rounded-[2rem]">
                 {/* Decoration */}
-                <div className="absolute top-0 right-0 p-4 opacity-5">
+                <div className="absolute top-0 left-0 p-4 opacity-5">
                     <Zap className="w-32 h-32" />
                 </div>
 
-                <CardHeader className="pb-2">
-                    <div className="flex justify-between items-center">
-                        <CardTitle className="text-xl font-black font-vazir flex items-center gap-2">
-                            <ShieldCheck className="w-5 h-5 text-primary" />
-                            اشتراک V2Ray
-                        </CardTitle>
-                        <Badge variant="outline" className={`${statusObj.color} font-vazir border`}>
+                <CardHeader className="pb-4 text-right">
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 flex-1">
+                            <div className="p-3 rounded-2xl bg-primary/10 text-primary shrink-0">
+                                <ShieldCheck className="w-5 h-5" />
+                            </div>
+                            <CardTitle className="text-xl font-black font-vazir">
+                                {getTitle()}
+                            </CardTitle>
+                        </div>
+                        <Badge variant="outline" className={`${statusObj.color} font-vazir border shrink-0`}>
                             {statusObj.label}
                         </Badge>
                     </div>
                 </CardHeader>
 
-                <CardContent className="space-y-6">
+                <CardContent className="space-y-6 text-right">
                     {/* Info Grid */}
                     <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-white/5 rounded-2xl p-3 border border-white/5 flex flex-col justify-center">
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-                                <User className="w-3 h-3" />
+                        <div className="bg-white/5 rounded-2xl p-4 border border-white/5 text-right">
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2 font-vazir">
+                                <User className="w-4 h-4 shrink-0" />
                                 <span>نام سرویس</span>
                             </div>
-                            <div className="font-mono text-sm font-bold truncate dir-ltr text-right">
+                            <div className="font-mono text-sm font-bold truncate dir-ltr text-left">
                                 {username || '---'}
                             </div>
                         </div>
-                        <div className="bg-white/5 rounded-2xl p-3 border border-white/5 flex flex-col justify-center">
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-                                <Calendar className="w-3 h-3" />
+                        <div className="bg-white/5 rounded-2xl p-4 border border-white/5 text-right">
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2 font-vazir">
+                                <Calendar className="w-4 h-4 shrink-0" />
                                 <span>زمان باقیمانده</span>
                             </div>
                             <div className="font-vazir text-sm font-bold text-foreground">
@@ -118,30 +133,33 @@ const SubscriptionLinkCard: React.FC<SubscriptionLinkCardProps> = ({ url, dataLi
                     </div>
 
                     {/* Usage Progress */}
-                    <div className="space-y-2">
-                        <div className="flex justify-between text-xs font-vazir text-muted-foreground">
-                            <span>{formatBytes(dataUsed)} مصرف شده</span>
-                            <span>{formatBytes(dataLimit)} کل</span>
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between text-xs font-vazir text-muted-foreground">
+                            <span className="flex items-center gap-1.5">
+                                <Activity className="w-3.5 h-3.5" />
+                                <span>{formatBytes(dataUsed)} مصرف شده</span>
+                            </span>
+                            <span className="font-bold">{formatBytes(dataLimit)} کل</span>
                         </div>
                         <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden border border-white/5 p-[2px]">
                             <motion.div
                                 initial={{ width: 0 }}
                                 animate={{ width: `${usagePercent}%` }}
-                                className={`h-full rounded-full bg-gradient-to-r ${usagePercent > 80 ? 'from-red-500 to-orange-500' : 'from-primary to-primary/60'}`}
+                                className={`h-full rounded-full bg-gradient-to-l ${usagePercent > 80 ? 'from-red-500 to-orange-500' : 'from-primary to-primary/60'}`}
                             />
                         </div>
-                        <div className="flex items-center gap-1.5 text-[10px] font-vazir text-primary/80">
-                            <HardDrive className="w-3 h-3" />
-                            <span>باقیمانده: {formatBytes(remainingData)}</span>
+                        <div className="flex items-center gap-2 text-xs font-vazir text-primary/90">
+                            <HardDrive className="w-4 h-4" />
+                            <span className="font-medium">باقیمانده: {formatBytes(remainingData)}</span>
                         </div>
                     </div>
 
                     {/* URL Display */}
                     <div className="relative group">
-                        <div className="p-4 rounded-2xl bg-black/20 border border-white/5 font-mono text-xs overflow-hidden text-ellipsis whitespace-nowrap pr-12 text-muted-foreground group-hover:text-foreground transition-colors">
+                        <div className="p-4 rounded-2xl bg-black/20 border border-white/5 font-mono text-xs overflow-hidden text-ellipsis whitespace-nowrap pl-12 text-muted-foreground group-hover:text-foreground transition-colors dir-ltr text-left">
                             {url}
                         </div>
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                        <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                             <Button
                                 size="icon"
                                 variant="ghost"
@@ -164,13 +182,13 @@ const SubscriptionLinkCard: React.FC<SubscriptionLinkCardProps> = ({ url, dataLi
                     </div>
                 </CardContent>
 
-                <CardFooter className="flex gap-3">
+                <CardFooter className="flex gap-3 flex-row-reverse">
                     <Button
                         className="flex-1 h-12 rounded-2xl font-vazir font-bold flex items-center gap-2 shadow-lg shadow-primary/20"
                         onClick={() => window.open(url, '_blank')}
                     >
+                        <span>اتصال مستقیم</span>
                         <ExternalLink className="w-4 h-4" />
-                        اتصال مستقیم
                     </Button>
 
                     <Dialog>

@@ -1,13 +1,15 @@
 import { useNavigate } from "react-router-dom";
-import { ShieldCheck, Users, Settings, Database, Activity, Search, RefreshCcw, ChevronRight, ArrowUpRight, Copy, Check, X as Close, Wallet, Banknote, User, TrendingUp, TrendingDown, Clock, ExternalLink } from "lucide-react";
+import { ShieldCheck, Users, Settings, Database, Activity, Search, RefreshCcw, ChevronRight, ArrowUpRight, Copy, Check, X as Close, Wallet, Banknote, User, TrendingUp, TrendingDown, Clock, ExternalLink, Package, Plus, Edit, Trash2 } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
-import { getUsers, getAllWithdrawals, updateWithdrawalStatus, getTotalDeposits, getUserFinanceSummary, getConfigs, updateConfig } from "@/lib/api";
+import { getUsers, getAllWithdrawals, updateWithdrawalStatus, getTotalDeposits, getUserFinanceSummary, getConfigs, updateConfig, getAdminPlans, createPlan, updatePlan, deletePlan } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger, DrawerClose, DrawerFooter } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -24,7 +26,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const AdminPage = () => {
-    const [activeTab, setActiveTab] = useState<"overview" | "users" | "withdrawals">("overview");
+    const [activeTab, setActiveTab] = useState<"overview" | "users" | "withdrawals" | "plans">("overview");
     const [usersList, setUsersList] = useState<any[]>([]);
     const [withdrawalsList, setWithdrawalsList] = useState<any[]>([]);
     const [totalDeposits, setTotalDeposits] = useState<number | null>(null);
@@ -47,6 +49,25 @@ const AdminPage = () => {
     const [configs, setConfigs] = useState<Record<string, string>>({});
     const [saveConfigLoading, setSaveConfigLoading] = useState(false);
     const [isBonusDrawerOpen, setIsBonusDrawerOpen] = useState(false);
+
+    // Plans State
+    const [plansList, setPlansList] = useState<any[]>([]);
+    const [plansLoading, setPlansLoading] = useState(false);
+    const [isPlanDrawerOpen, setIsPlanDrawerOpen] = useState(false);
+    const [selectedPlan, setSelectedPlan] = useState<any>(null);
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+    const [planToDelete, setPlanToDelete] = useState<string | null>(null);
+    const [savePlanLoading, setSavePlanLoading] = useState(false);
+    const [planForm, setPlanForm] = useState({
+        id: '',
+        name: '',
+        traffic: '',
+        duration: '',
+        price: '',
+        description: '',
+        is_active: true,
+        display_order: 0
+    });
 
     const navigate = useNavigate();
     const { toast } = useToast();
@@ -89,6 +110,15 @@ const AdminPage = () => {
         }
     };
 
+    const fetchPlans = async () => {
+        setPlansLoading(true);
+        const result = await getAdminPlans();
+        if (result.success && result.plans) {
+            setPlansList(result.plans);
+        }
+        setPlansLoading(false);
+    };
+
     const handleUpdateConfig = async (key: string, value: string) => {
         setSaveConfigLoading(true);
         const result = await updateConfig(key, value);
@@ -101,9 +131,84 @@ const AdminPage = () => {
         }
     };
 
+    const handleOpenPlanDrawer = (plan?: any) => {
+        if (plan) {
+            setSelectedPlan(plan);
+            setPlanForm({
+                id: plan.id,
+                name: plan.name,
+                traffic: plan.traffic.toString(),
+                duration: plan.duration.toString(),
+                price: plan.price.toString(),
+                description: plan.description || '',
+                is_active: plan.is_active === 1,
+                display_order: plan.display_order || 0
+            });
+        } else {
+            setSelectedPlan(null);
+            setPlanForm({
+                id: '',
+                name: '',
+                traffic: '',
+                duration: '',
+                price: '',
+                description: '',
+                is_active: true,
+                display_order: 0
+            });
+        }
+        setIsPlanDrawerOpen(true);
+    };
+
+    const handleSavePlan = async () => {
+        if (!planForm.id || !planForm.name || !planForm.traffic || !planForm.duration || !planForm.price) {
+            toast({ title: "خطا", description: "لطفا تمام فیلدهای الزامی را پر کنید", variant: "destructive" });
+            return;
+        }
+
+        setSavePlanLoading(true);
+        const planData = {
+            id: planForm.id,
+            name: planForm.name,
+            traffic: parseInt(planForm.traffic),
+            duration: parseInt(planForm.duration),
+            price: parseFloat(planForm.price),
+            description: planForm.description,
+            is_active: planForm.is_active,
+            display_order: planForm.display_order
+        };
+
+        const result = selectedPlan
+            ? await updatePlan(selectedPlan.id, planData)
+            : await createPlan(planData);
+
+        setSavePlanLoading(false);
+        if (result.success) {
+            toast({ title: "موفقیت", description: result.message || "پلن با موفقیت ذخیره شد" });
+            setIsPlanDrawerOpen(false);
+            fetchPlans();
+        } else {
+            toast({ title: "خطا", description: result.error || "خطا در ذخیره پلن", variant: "destructive" });
+        }
+    };
+
+    const handleDeletePlan = async () => {
+        if (!planToDelete) return;
+        const result = await deletePlan(planToDelete);
+        if (result.success) {
+            toast({ title: "موفقیت", description: result.message || "پلن با موفقیت حذف شد" });
+            setIsDeleteConfirmOpen(false);
+            setPlanToDelete(null);
+            fetchPlans();
+        } else {
+            toast({ title: "خطا", description: result.error || "خطا در حذف پلن", variant: "destructive" });
+        }
+    };
+
     useEffect(() => {
         if (activeTab === "users") fetchAllUsers();
         if (activeTab === "withdrawals") fetchAllWithdrawals();
+        if (activeTab === "plans") fetchPlans();
         if (activeTab === "overview") {
             fetchAllUsers();
             fetchAllWithdrawals();
@@ -212,6 +317,13 @@ const AdminPage = () => {
                     >
                         <ArrowUpRight size={16} />
                         برداشت‌ها
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("plans")}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-medium transition-all duration-300 ${activeTab === "plans" ? "bg-primary text-primary-foreground shadow-lg" : "text-muted-foreground hover:text-white"}`}
+                    >
+                        <Package size={16} />
+                        پلن‌ها
                     </button>
                 </div>
 
@@ -375,7 +487,7 @@ const AdminPage = () => {
                                 )}
                             </div>
                         </motion.div>
-                    ) : (
+                    ) : activeTab === "withdrawals" ? (
                         <motion.div
                             key="withdrawals"
                             initial={{ opacity: 0, x: 20 }}
@@ -431,7 +543,109 @@ const AdminPage = () => {
                                 )}
                             </div>
                         </motion.div>
-                    )}
+                    ) : activeTab === "plans" ? (
+                        <motion.div
+                            key="plans"
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            className="space-y-4"
+                        >
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-bold font-vazir">مدیریت پلن‌ها</h3>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={fetchPlans}
+                                        className={`p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors ${plansLoading ? "animate-spin" : ""}`}
+                                    >
+                                        <RefreshCcw size={16} />
+                                    </button>
+                                    <Button
+                                        size="sm"
+                                        onClick={() => handleOpenPlanDrawer()}
+                                        className="h-9 rounded-xl gap-2 font-vazir"
+                                    >
+                                        <Plus size={16} />
+                                        افزودن پلن
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                {plansLoading ? (
+                                    <div className="py-12 text-center text-muted-foreground text-sm font-vazir">در حال بارگذاری...</div>
+                                ) : plansList.length > 0 ? (
+                                    plansList.map((plan) => (
+                                        <motion.div
+                                            key={plan.id}
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className="glass p-5 rounded-3xl border border-white/5 space-y-4 shadow-lg"
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="p-3 rounded-2xl bg-primary/10 text-primary">
+                                                        <Package size={20} />
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="flex items-center gap-2">
+                                                            <h4 className="font-bold text-base font-vazir">{plan.name}</h4>
+                                                            {plan.is_active === 0 && (
+                                                                <Badge variant="secondary" className="bg-red-500/10 text-red-500 border-red-500/20 text-[10px]">غیرفعال</Badge>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-xs text-muted-foreground font-vazir mt-1">{plan.description || 'بدون توضیحات'}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-left space-y-1">
+                                                    <p className="text-lg font-bold font-mono text-primary">${plan.price}</p>
+                                                    <p className="text-[10px] text-muted-foreground font-vazir">ID: {plan.id}</p>
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-3">
+                                                <div className="bg-white/5 p-3 rounded-xl border border-white/5 text-center">
+                                                    <p className="text-[10px] text-muted-foreground font-vazir mb-1">حجم</p>
+                                                    <p className="text-sm font-bold font-mono">{plan.traffic} GB</p>
+                                                </div>
+                                                <div className="bg-white/5 p-3 rounded-xl border border-white/5 text-center">
+                                                    <p className="text-[10px] text-muted-foreground font-vazir mb-1">مدت زمان</p>
+                                                    <p className="text-sm font-bold font-mono">{plan.duration} روز</p>
+                                                </div>
+                                                <div className="bg-white/5 p-3 rounded-xl border border-white/5 text-center">
+                                                    <p className="text-[10px] text-muted-foreground font-vazir mb-1">ترتیب</p>
+                                                    <p className="text-sm font-bold font-mono">{plan.display_order || 0}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2 pt-2 border-t border-white/5">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="flex-1 rounded-xl gap-2 font-vazir border-white/10 hover:bg-white/5"
+                                                    onClick={() => handleOpenPlanDrawer(plan)}
+                                                >
+                                                    <Edit size={14} />
+                                                    ویرایش
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="rounded-xl gap-2 font-vazir text-red-500 hover:bg-red-500/10 hover:text-red-500"
+                                                    onClick={() => {
+                                                        setPlanToDelete(plan.id);
+                                                        setIsDeleteConfirmOpen(true);
+                                                    }}
+                                                >
+                                                    <Trash2 size={14} />
+                                                </Button>
+                                            </div>
+                                        </motion.div>
+                                    ))
+                                ) : (
+                                    <div className="py-12 text-center text-muted-foreground text-sm font-vazir">پلنی یافت نشد.</div>
+                                )}
+                            </div>
+                        </motion.div>
+                    ) : null}
                 </AnimatePresence>
             </div>
 
@@ -689,6 +903,157 @@ const AdminPage = () => {
                     </div>
                 </DrawerContent>
             </Drawer>
+
+            {/* Plan Edit/Create Drawer */}
+            <Drawer open={isPlanDrawerOpen} onOpenChange={setIsPlanDrawerOpen}>
+                <DrawerContent className="max-w-md mx-auto bg-card/95 backdrop-blur-xl border-white/10 font-vazir" dir="rtl">
+                    <div className="mx-auto mt-4 h-1.5 w-12 rounded-full bg-white/10" />
+                    <ScrollArea className="max-h-[85vh] overflow-y-auto">
+                        <div className="p-6 space-y-6">
+                            <DrawerHeader className="p-0 text-right">
+                                <DrawerTitle className="text-xl font-black">
+                                    {selectedPlan ? 'ویرایش پلن' : 'افزودن پلن جدید'}
+                                </DrawerTitle>
+                                <DrawerDescription className="font-vazir text-muted-foreground">
+                                    {selectedPlan ? 'ویرایش اطلاعات و ویژگی‌های پلن' : 'ایجاد پلن جدید برای کاربران'}
+                                </DrawerDescription>
+                            </DrawerHeader>
+
+                            <div className="space-y-4">
+                                <div className="space-y-2 text-right">
+                                    <Label htmlFor="plan-id">شناسه پلن (ID)</Label>
+                                    <Input
+                                        id="plan-id"
+                                        className="bg-white/5 border-white/10 rounded-xl font-mono"
+                                        value={planForm.id}
+                                        onChange={(e) => setPlanForm({ ...planForm, id: e.target.value })}
+                                        disabled={!!selectedPlan}
+                                        placeholder="مثال: bronze"
+                                    />
+                                    <p className="text-[10px] text-muted-foreground">شناسه یکتا برای پلن (فقط حروف انگلیسی و اعداد)</p>
+                                </div>
+
+                                <div className="space-y-2 text-right">
+                                    <Label htmlFor="plan-name">نام پلن</Label>
+                                    <Input
+                                        id="plan-name"
+                                        className="bg-white/5 border-white/10 rounded-xl font-vazir"
+                                        value={planForm.name}
+                                        onChange={(e) => setPlanForm({ ...planForm, name: e.target.value })}
+                                        placeholder="مثال: برنز (اقتصادی)"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-2 text-right">
+                                        <Label htmlFor="plan-traffic">حجم (GB)</Label>
+                                        <Input
+                                            id="plan-traffic"
+                                            type="number"
+                                            className="bg-white/5 border-white/10 rounded-xl font-mono text-left"
+                                            value={planForm.traffic}
+                                            onChange={(e) => setPlanForm({ ...planForm, traffic: e.target.value })}
+                                            placeholder="10"
+                                        />
+                                    </div>
+                                    <div className="space-y-2 text-right">
+                                        <Label htmlFor="plan-duration">مدت زمان (روز)</Label>
+                                        <Input
+                                            id="plan-duration"
+                                            type="number"
+                                            className="bg-white/5 border-white/10 rounded-xl font-mono text-left"
+                                            value={planForm.duration}
+                                            onChange={(e) => setPlanForm({ ...planForm, duration: e.target.value })}
+                                            placeholder="30"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-2 text-right">
+                                        <Label htmlFor="plan-price">قیمت ($)</Label>
+                                        <Input
+                                            id="plan-price"
+                                            type="number"
+                                            step="0.01"
+                                            className="bg-white/5 border-white/10 rounded-xl font-mono text-left"
+                                            value={planForm.price}
+                                            onChange={(e) => setPlanForm({ ...planForm, price: e.target.value })}
+                                            placeholder="2.00"
+                                        />
+                                    </div>
+                                    <div className="space-y-2 text-right">
+                                        <Label htmlFor="plan-order">ترتیب نمایش</Label>
+                                        <Input
+                                            id="plan-order"
+                                            type="number"
+                                            className="bg-white/5 border-white/10 rounded-xl font-mono text-left"
+                                            value={planForm.display_order}
+                                            onChange={(e) => setPlanForm({ ...planForm, display_order: parseInt(e.target.value) || 0 })}
+                                            placeholder="0"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2 text-right">
+                                    <Label htmlFor="plan-description">توضیحات</Label>
+                                    <Textarea
+                                        id="plan-description"
+                                        className="bg-white/5 border-white/10 rounded-xl font-vazir resize-none"
+                                        rows={3}
+                                        value={planForm.description}
+                                        onChange={(e) => setPlanForm({ ...planForm, description: e.target.value })}
+                                        placeholder="توضیحات پلن..."
+                                    />
+                                </div>
+
+                                <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
+                                    <Label htmlFor="plan-active" className="cursor-pointer font-vazir">فعال بودن پلن</Label>
+                                    <Switch
+                                        id="plan-active"
+                                        checked={planForm.is_active}
+                                        onCheckedChange={(checked) => setPlanForm({ ...planForm, is_active: checked })}
+                                    />
+                                </div>
+                            </div>
+
+                            <DrawerFooter className="p-0 gap-3">
+                                <Button
+                                    className="w-full rounded-xl font-bold h-12"
+                                    onClick={handleSavePlan}
+                                    disabled={savePlanLoading}
+                                >
+                                    {savePlanLoading ? 'در حال ذخیره...' : selectedPlan ? 'ذخیره تغییرات' : 'ایجاد پلن'}
+                                </Button>
+                                <DrawerClose asChild>
+                                    <Button variant="ghost" className="rounded-xl h-12">انصراف</Button>
+                                </DrawerClose>
+                            </DrawerFooter>
+                        </div>
+                    </ScrollArea>
+                </DrawerContent>
+            </Drawer>
+
+            {/* Delete Plan Confirmation */}
+            <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+                <AlertDialogContent className="font-vazir text-right" dir="rtl">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>حذف پلن</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            آیا از حذف این پلن اطمینان دارید؟ این عمل غیرقابل بازگشت است.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="gap-3 sm:gap-0">
+                        <AlertDialogCancel className="rounded-xl font-vazir">انصراف</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDeletePlan}
+                            className="rounded-xl font-vazir bg-red-600 hover:bg-red-700"
+                        >
+                            بله، حذف کن
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             <BottomNav />
             <br />

@@ -59,3 +59,25 @@ VALUES ('welcome_bonus_traffic', '5');
 INSERT OR IGNORE INTO
     configs (key, value)
 VALUES ('welcome_bonus_duration', '7');
+
+CREATE TABLE IF NOT EXISTS plans (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    traffic INTEGER NOT NULL, -- in GB
+    duration INTEGER NOT NULL, -- in days
+    price DECIMAL(18, 8) NOT NULL,
+    description TEXT,
+    is_active BOOLEAN DEFAULT 1,
+    display_order INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_plans_active ON plans (is_active);
+CREATE INDEX IF NOT EXISTS idx_plans_order ON plans (display_order);
+
+-- Insert default plans
+INSERT OR IGNORE INTO plans (id, name, traffic, duration, price, description, display_order) VALUES
+    ('bronze', 'برنز (اقتصادی)', 10, 30, 2, 'مناسب برای وب‌گردی روزمره', 1),
+    ('silver', 'نقره‌ای (استاندارد)', 50, 60, 7, 'پیشنهاد ویژه برای استفاده مداوم', 2),
+    ('gold', 'طلایی (نامحدود*)', 200, 90, 15, 'برترین کیفیت بدون نگرانی از حجم', 3);

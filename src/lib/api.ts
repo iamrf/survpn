@@ -339,3 +339,87 @@ export async function checkBackendHealth(): Promise<boolean> {
         return false;
     }
 }
+
+// Admin Plan Management
+export async function getAdminPlans(): Promise<{ success: boolean; plans?: any[] }> {
+    try {
+        const response = await fetch(`${API_URL}/api/admin/plans`);
+        if (!response.ok) throw new Error('Failed to fetch plans');
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching admin plans:', error);
+        return { success: false };
+    }
+}
+
+export async function getAdminPlan(planId: string): Promise<{ success: boolean; plan?: any }> {
+    try {
+        const response = await fetch(`${API_URL}/api/admin/plans/${planId}`);
+        if (!response.ok) throw new Error('Failed to fetch plan');
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching admin plan:', error);
+        return { success: false };
+    }
+}
+
+export async function createPlan(plan: {
+    id: string;
+    name: string;
+    traffic: number;
+    duration: number;
+    price: number;
+    description?: string;
+    is_active?: boolean;
+    display_order?: number;
+}): Promise<{ success: boolean; message?: string; error?: string }> {
+    try {
+        const response = await fetch(`${API_URL}/api/admin/plans`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(plan),
+        });
+        return await response.json();
+    } catch (error) {
+        console.error('Error creating plan:', error);
+        return { success: false, error: 'Internal server error' };
+    }
+}
+
+export async function updatePlan(planId: string, plan: {
+    name?: string;
+    traffic?: number;
+    duration?: number;
+    price?: number;
+    description?: string;
+    is_active?: boolean;
+    display_order?: number;
+}): Promise<{ success: boolean; message?: string; error?: string }> {
+    try {
+        const response = await fetch(`${API_URL}/api/admin/plans/${planId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(plan),
+        });
+        return await response.json();
+    } catch (error) {
+        console.error('Error updating plan:', error);
+        return { success: false, error: 'Internal server error' };
+    }
+}
+
+export async function deletePlan(planId: string): Promise<{ success: boolean; message?: string; error?: string }> {
+    try {
+        const response = await fetch(`${API_URL}/api/admin/plans/${planId}`, {
+            method: 'DELETE',
+        });
+        return await response.json();
+    } catch (error) {
+        console.error('Error deleting plan:', error);
+        return { success: false, error: 'Internal server error' };
+    }
+}

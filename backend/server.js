@@ -411,6 +411,143 @@ app.post('/api/admin/configs', (req, res) => {
     }
 });
 
+// Admin: Get All Plans (including inactive)
+app.get('/api/admin/plans', (req, res) => {
+    try {
+        const plans = db.prepare('SELECT * FROM plans ORDER BY display_order ASC, created_at DESC').all();
+        res.json({ success: true, plans });
+    } catch (error) {
+        console.error('Error fetching plans for admin:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: Get Single Plan
+app.get('/api/admin/plans/:id', (req, res) => {
+    const { id } = req.params;
+    try {
+        const plan = db.prepare('SELECT * FROM plans WHERE id = ?').get(id);
+        if (!plan) {
+            return res.status(404).json({ error: 'Plan not found' });
+        }
+        res.json({ success: true, plan });
+    } catch (error) {
+        console.error('Error fetching plan for admin:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: Create Plan
+app.post('/api/admin/plans', (req, res) => {
+    const { id, name, traffic, duration, price, description, is_active, display_order } = req.body;
+
+    if (!id || !name || traffic === undefined || duration === undefined || price === undefined) {
+        return res.status(400).json({ error: 'ID, name, traffic, duration, and price are required' });
+    }
+
+    try {
+        db.prepare(`
+            INSERT INTO plans (id, name, traffic, duration, price, description, is_active, display_order, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `).run(
+            id,
+            name,
+            traffic,
+            duration,
+            price,
+            description || null,
+            is_active !== undefined ? (is_active ? 1 : 0) : 1,
+            display_order || 0
+        );
+        res.json({ success: true, message: 'Plan created successfully' });
+    } catch (error) {
+        if (error.message.includes('UNIQUE constraint')) {
+            return res.status(400).json({ error: 'Plan ID already exists' });
+        }
+        console.error('Error creating plan:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: Update Plan
+app.put('/api/admin/plans/:id', (req, res) => {
+    const { id } = req.params;
+    const { name, traffic, duration, price, description, is_active, display_order } = req.body;
+
+    try {
+        const existingPlan = db.prepare('SELECT * FROM plans WHERE id = ?').get(id);
+        if (!existingPlan) {
+            return res.status(404).json({ error: 'Plan not found' });
+        }
+
+        // Build update query dynamically based on provided fields
+        const updates = [];
+        const values = [];
+
+        if (name !== undefined) {
+            updates.push('name = ?');
+            values.push(name);
+        }
+        if (traffic !== undefined) {
+            updates.push('traffic = ?');
+            values.push(traffic);
+        }
+        if (duration !== undefined) {
+            updates.push('duration = ?');
+            values.push(duration);
+        }
+        if (price !== undefined) {
+            updates.push('price = ?');
+            values.push(price);
+        }
+        if (description !== undefined) {
+            updates.push('description = ?');
+            values.push(description);
+        }
+        if (is_active !== undefined) {
+            updates.push('is_active = ?');
+            values.push(is_active ? 1 : 0);
+        }
+        if (display_order !== undefined) {
+            updates.push('display_order = ?');
+            values.push(display_order);
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({ error: 'No fields to update' });
+        }
+
+        updates.push('updated_at = CURRENT_TIMESTAMP');
+        values.push(id);
+
+        db.prepare(`
+            UPDATE plans 
+            SET ${updates.join(', ')}
+            WHERE id = ?
+        `).run(...values);
+
+        res.json({ success: true, message: 'Plan updated successfully' });
+    } catch (error) {
+        console.error('Error updating plan:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: Delete Plan
+app.delete('/api/admin/plans/:id', (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = db.prepare('DELETE FROM plans WHERE id = ?').run(id);
+        if (result.changes === 0) {
+            return res.status(404).json({ error: 'Plan not found' });
+        }
+        res.json({ success: true, message: 'Plan deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting plan:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Create Payment Invoice
 app.post('/api/payment/create', async (req, res) => {
     const { userId, amount, currency = 'USD' } = req.body;
@@ -642,16 +779,20 @@ app.post('/api/telegram/webhook', (req, res) => {
     res.status(200).send('OK');
 });
 
-// Subscription Plans Definition
-const SUBSCRIPTION_PLANS = [
-    { id: 'bronze', name: 'برنز (اقتصادی)', traffic: 10, duration: 30, price: 2, description: 'مناسب برای وب‌گردی روزمره' },
-    { id: 'silver', name: 'نقره‌ای (استاندارد)', traffic: 50, duration: 60, price: 7, description: 'پیشنهاد ویژه برای استفاده مداوم' },
-    { id: 'gold', name: 'طلایی (نامحدود*)', traffic: 200, duration: 90, price: 15, description: 'برترین کیفیت بدون نگرانی از حجم' }
-];
-
 // Get Available Plans
 app.get('/api/plans', (req, res) => {
-    res.json({ success: true, plans: SUBSCRIPTION_PLANS });
+    try {
+        const plans = db.prepare(`
+            SELECT id, name, traffic, duration, price, description 
+            FROM plans 
+            WHERE is_active = 1 
+            ORDER BY display_order ASC
+        `).all();
+        res.json({ success: true, plans });
+    } catch (error) {
+        console.error('Error fetching plans:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 // Purchase Subscription Plan
@@ -662,7 +803,7 @@ app.post('/api/purchase-plan', async (req, res) => {
         return res.status(400).json({ error: 'User ID and plan ID are required' });
     }
 
-    const plan = SUBSCRIPTION_PLANS.find(p => p.id === planId);
+    const plan = db.prepare('SELECT * FROM plans WHERE id = ? AND is_active = 1').get(planId);
     if (!plan) {
         return res.status(404).json({ error: 'Plan not found' });
     }

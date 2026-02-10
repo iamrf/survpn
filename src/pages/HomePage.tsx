@@ -4,7 +4,8 @@ import WelcomeSection from "@/components/WelcomeSection";
 import BottomNav from "@/components/BottomNav";
 import SubscriptionPlan from "@/components/SubscriptionPlan";
 import CustomSubscriptionDialog from "@/components/CustomSubscriptionDialog";
-import SubscriptionLinkCard from "@/components/SubscriptionLinkCard";
+import MinimalSubscriptionCard from "@/components/MinimalSubscriptionCard";
+import SubscriptionDrawer from "@/components/SubscriptionDrawer";
 import { getPlans, purchasePlan, syncUser } from "@/lib/api";
 import { getTelegramUser } from "@/lib/telegram";
 import { useToast } from "@/components/ui/use-toast";
@@ -15,6 +16,7 @@ const HomePage = () => {
   const [plans, setPlans] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [purchasingPlanId, setPurchasingPlanId] = useState<string | null>(null);
+  const [isSubscriptionDrawerOpen, setIsSubscriptionDrawerOpen] = useState(false);
   const [subscriptionData, setSubscriptionData] = useState<{
     url: string;
     limit: number;
@@ -22,8 +24,39 @@ const HomePage = () => {
     expire?: number;
     status?: string;
     username?: string;
+    planName?: string;
+    isBonus?: boolean;
   } | null>(null);
   const { toast } = useToast();
+  
+  // Helper function to determine plan name and if it's bonus
+  const getPlanInfo = (dataLimit: number, expire?: number, availablePlans: any[] = []) => {
+    // Convert bytes to GB
+    const limitGB = dataLimit / (1024 * 1024 * 1024);
+    
+    // Check if it matches any plan
+    const matchingPlan = availablePlans.find(plan => {
+      const planLimitGB = plan.traffic;
+      // Allow some tolerance (within 1GB)
+      return Math.abs(planLimitGB - limitGB) < 1;
+    });
+    
+    if (matchingPlan) {
+      return { planName: matchingPlan.name, isBonus: false };
+    }
+    
+    // Check if it's likely a welcome bonus (typically 5GB or less, short duration)
+    // Welcome bonus is usually 5GB for 7 days
+    if (limitGB <= 5 && expire) {
+      const now = Math.floor(Date.now() / 1000);
+      const daysRemaining = expire ? Math.ceil((expire - now) / 86400) : null;
+      if (daysRemaining && daysRemaining <= 30) {
+        return { planName: undefined, isBonus: true };
+      }
+    }
+    
+    return { planName: undefined, isBonus: false };
+  };
 
   useEffect(() => {
     getPlans().then(result => {
@@ -37,13 +70,34 @@ const HomePage = () => {
     if (user) {
       syncUser(user).then(result => {
         if (result.success && result.subscriptionUrl) {
-          setSubscriptionData({
-            url: result.subscriptionUrl,
-            limit: result.dataLimit || 0,
-            used: result.dataUsed || 0,
-            expire: result.expire,
-            status: result.status,
-            username: result.username
+          // Get plan info after plans are loaded
+          getPlans().then(plansResult => {
+            if (plansResult.success) {
+              const planInfo = getPlanInfo(result.dataLimit || 0, result.expire, plansResult.plans || []);
+              setSubscriptionData({
+                url: result.subscriptionUrl,
+                limit: result.dataLimit || 0,
+                used: result.dataUsed || 0,
+                expire: result.expire,
+                status: result.status,
+                username: result.username,
+                planName: planInfo.planName,
+                isBonus: planInfo.isBonus
+              });
+            } else {
+              // Fallback if plans not loaded
+              const planInfo = getPlanInfo(result.dataLimit || 0, result.expire, []);
+              setSubscriptionData({
+                url: result.subscriptionUrl,
+                limit: result.dataLimit || 0,
+                used: result.dataUsed || 0,
+                expire: result.expire,
+                status: result.status,
+                username: result.username,
+                planName: planInfo.planName,
+                isBonus: planInfo.isBonus
+              });
+            }
           });
         }
       });
@@ -66,13 +120,16 @@ const HomePage = () => {
         // Refresh subscription data
         const syncResult = await syncUser(user);
         if (syncResult.success && syncResult.subscriptionUrl) {
+          const planInfo = getPlanInfo(syncResult.dataLimit || 0, syncResult.expire, plans);
           setSubscriptionData({
             url: syncResult.subscriptionUrl,
             limit: syncResult.dataLimit || 0,
             used: syncResult.dataUsed || 0,
             expire: syncResult.expire,
             status: syncResult.status,
-            username: syncResult.username
+            username: syncResult.username,
+            planName: planInfo.planName,
+            isBonus: planInfo.isBonus
           });
         }
       } else {
@@ -107,14 +164,17 @@ const HomePage = () => {
             <div className="absolute inset-0 bg-primary/5 blur-[120px] rounded-full -z-10" />
 
             {subscriptionData && (
-              <div className="mb-12">
-                <SubscriptionLinkCard
+              <div className="mb-6">
+                <MinimalSubscriptionCard
                   url={subscriptionData.url}
                   dataLimit={subscriptionData.limit}
                   dataUsed={subscriptionData.used}
                   expire={subscriptionData.expire}
                   status={subscriptionData.status}
                   username={subscriptionData.username}
+                  planName={subscriptionData.planName}
+                  isBonus={subscriptionData.isBonus}
+                  onClick={() => setIsSubscriptionDrawerOpen(true)}
                 />
               </div>
             )}
@@ -163,6 +223,15 @@ const HomePage = () => {
           </div>
         </section>
       </div>
+      
+      {subscriptionData && (
+        <SubscriptionDrawer
+          isOpen={isSubscriptionDrawerOpen}
+          onClose={() => setIsSubscriptionDrawerOpen(false)}
+          subscriptionData={subscriptionData}
+        />
+      )}
+      
       <BottomNav />
     </div>
   );
