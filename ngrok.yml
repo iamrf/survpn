@@ -1,0 +1,9 @@
+# ngrok start --all --config ./ngrok.yml
+
+version: "2"
+authtoken: 39JWa1wgxhEd1l5ubYBrV9Yt0rS_5qnggbJnmK6UF4SZWUF8D # Add your token here
+tunnels:
+  frontend:
+    proto: http
+    addr: 8080
+    domain: astigmic-unbloodily-zavier.ngrok-free.dev
