@@ -4,7 +4,8 @@ import WelcomeSection from "@/components/WelcomeSection";
 import BottomNav from "@/components/BottomNav";
 import SubscriptionPlan from "@/components/SubscriptionPlan";
 import CustomSubscriptionDialog from "@/components/CustomSubscriptionDialog";
-import { getPlans, purchasePlan } from "@/lib/api";
+import SubscriptionLinkCard from "@/components/SubscriptionLinkCard";
+import { getPlans, purchasePlan, syncUser } from "@/lib/api";
 import { getTelegramUser } from "@/lib/telegram";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
@@ -14,6 +15,11 @@ const HomePage = () => {
   const [plans, setPlans] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [purchasingPlanId, setPurchasingPlanId] = useState<string | null>(null);
+  const [subscriptionData, setSubscriptionData] = useState<{
+    url: string;
+    limit: number;
+    used: number;
+  } | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -23,6 +29,19 @@ const HomePage = () => {
       }
       setIsLoading(false);
     });
+
+    const user = getTelegramUser();
+    if (user) {
+      syncUser(user).then(result => {
+        if (result.success && result.subscriptionUrl) {
+          setSubscriptionData({
+            url: result.subscriptionUrl,
+            limit: result.dataLimit || 0,
+            used: result.dataUsed || 0
+          });
+        }
+      });
+    }
   }, []);
 
   const handlePurchase = async (plan: any) => {
@@ -34,16 +53,24 @@ const HomePage = () => {
       const result = await purchasePlan(user.id, plan.id);
       if (result.success) {
         toast({
-          title: "Purchase Successful",
+          title: "خرید موفق",
           description: result.message,
         });
-        // We might want to trigger a balance update in ProfileCard if we had a global state
-        // For now, syncUser happens on mount/refresh
+
+        // Refresh subscription data
+        const syncResult = await syncUser(user);
+        if (syncResult.success && syncResult.subscriptionUrl) {
+          setSubscriptionData({
+            url: syncResult.subscriptionUrl,
+            limit: syncResult.dataLimit || 0,
+            used: syncResult.dataUsed || 0
+          });
+        }
       } else {
         toast({
           variant: "destructive",
-          title: "Purchase Failed",
-          description: result.error || "Something went wrong",
+          title: "خطا در خرید",
+          description: result.error || "مشکلی پیش آمد",
         });
       }
     } catch (error) {
@@ -69,6 +96,16 @@ const HomePage = () => {
             animate={{ opacity: 1, y: 0 }}
           >
             <div className="absolute inset-0 bg-primary/5 blur-[120px] rounded-full -z-10" />
+
+            {subscriptionData && (
+              <div className="mb-12">
+                <SubscriptionLinkCard
+                  url={subscriptionData.url}
+                  dataLimit={subscriptionData.limit}
+                  dataUsed={subscriptionData.used}
+                />
+              </div>
+            )}
 
             <div className="flex flex-col items-center text-center space-y-2">
               <h2 className="text-3xl font-black tracking-tight font-vazir bg-clip-text text-transparent bg-gradient-to-r from-white to-white/50">

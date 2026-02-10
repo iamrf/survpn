@@ -14,6 +14,9 @@ export async function syncUser(user: TelegramUser): Promise<{
     languageCode?: string;
     walletAddress?: string;
     hasPasskey?: boolean;
+    subscriptionUrl?: string;
+    dataLimit?: number;
+    dataUsed?: number;
 }> {
     try {
         const response = await fetch(`${API_URL}/api/sync-user`, {
@@ -39,7 +42,10 @@ export async function syncUser(user: TelegramUser): Promise<{
             lastSeen: data.lastSeen,
             languageCode: data.languageCode,
             walletAddress: data.walletAddress,
-            hasPasskey: data.hasPasskey
+            hasPasskey: data.hasPasskey,
+            subscriptionUrl: data.subscriptionUrl,
+            dataLimit: data.dataLimit,
+            dataUsed: data.dataUsed
         };
     } catch (error) {
         console.error('Error syncing user with backend:', error);

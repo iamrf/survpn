@@ -53,16 +53,15 @@ export const marzban = {
         }
     },
 
-    async createUser(username) {
+    async createUser(username, dataLimit = 0, expire = 0) {
         try {
             const token = await getToken();
-            // Default settings for new users: active but with no traffic/expiry yet
-            // This avoids the 'on_hold' requirements and 'inbounds' naming conflicts
+            // Default settings for new users
             const userData = {
                 username,
                 status: 'active',
-                data_limit: 0,
-                expire: 0,
+                data_limit: dataLimit,
+                expire: expire,
                 proxies: { vless: {} }, // VLESS is usually enabled; avoids disabled VMess errors
                 inbounds: {} // Empty means all inbounds
             };

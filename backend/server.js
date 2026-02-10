@@ -117,7 +117,7 @@ app.post('/api/sync-user', async (req, res) => {
 
         stmt.run(id, first_name, last_name || null, username || null, language_code || null, photo_url || null, role, phone_number || null);
 
-        let user = db.prepare('SELECT balance, referral_code, phone_number, created_at, last_seen, language_code, wallet_address, withdrawal_passkey FROM users WHERE id = ?').get(id);
+        let user = db.prepare('SELECT balance, referral_code, phone_number, created_at, last_seen, language_code, wallet_address, withdrawal_passkey, has_welcome_bonus FROM users WHERE id = ?').get(id);
 
         if (!user.referral_code) {
             const newCode = getUniqueReferralCode();
@@ -127,18 +127,36 @@ app.post('/api/sync-user', async (req, res) => {
 
         // Marzban User Integration
         const marzbanUsername = username || `user_${id}`;
+        let subscriptionUrl = '';
+        let dataLimit = 0;
+        let dataUsed = 0;
+
         try {
-            const mUser = await marzban.getUser(marzbanUsername);
+            let mUser = await marzban.getUser(marzbanUsername);
+
+            // Welcome Bonus Logic (5GB = 5 * 1024^3 bytes)
+            const WELCOME_BONUS = 5 * 1024 * 1024 * 1024;
+
             if (!mUser) {
-                console.log(`Creating Marzban user: ${marzbanUsername}`);
-                await marzban.createUser(marzbanUsername);
+                console.log(`Creating Marzban user with 5GB Welcome Bonus: ${marzbanUsername}`);
+                mUser = await marzban.createUser(marzbanUsername, WELCOME_BONUS);
+                db.prepare('UPDATE users SET has_welcome_bonus = 1 WHERE id = ?').run(id);
+            } else if (user.has_welcome_bonus === 0) {
+                console.log(`Granting 5GB Welcome Bonus to existing Marzban user: ${marzbanUsername}`);
+                // Add 5GB to whatever they have (if they have something)
+                const newLimit = (mUser.data_limit || 0) + WELCOME_BONUS;
+                mUser = await marzban.updateUser(marzbanUsername, { data_limit: newLimit });
+                db.prepare('UPDATE users SET has_welcome_bonus = 1 WHERE id = ?').run(id);
             }
+
+            subscriptionUrl = mUser?.subscription_url || '';
+            dataLimit = mUser?.data_limit || 0;
+            dataUsed = mUser?.used_traffic || 0;
         } catch (mErr) {
             console.error(`Error syncing with Marzban for ${marzbanUsername}:`, mErr.message);
-            // Don't fail the whole sync if Marzban is down, but log it
         }
 
-        console.log(`User ${id} synced. Role: ${role}, Balance: ${user?.balance || 0}, Referral: ${user?.referral_code}, Phone: ${user?.phone_number}, Received Phone: ${phone_number}`);
+        console.log(`User ${id} synced. Role: ${role}, Bonus: ${user.has_welcome_bonus}, Link: ${subscriptionUrl}`);
         res.json({
             success: true,
             message: 'User synchronized successfully',
@@ -148,6 +166,9 @@ app.post('/api/sync-user', async (req, res) => {
             phoneNumber: user?.phone_number,
             createdAt: user?.created_at,
             lastSeen: user?.last_seen,
+            subscriptionUrl,
+            dataLimit,
+            dataUsed,
             languageCode: user?.language_code,
             walletAddress: user?.wallet_address,
             hasPasskey: !!user?.withdrawal_passkey

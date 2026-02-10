@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
     phone_number TEXT,
     wallet_address TEXT,
     withdrawal_passkey TEXT,
+    has_welcome_bonus BOOLEAN DEFAULT 0,
     last_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
