@@ -29,9 +29,9 @@ const SubscriptionDrawer: React.FC<SubscriptionDrawerProps> = ({ isOpen, onClose
                     <div className="flex items-center justify-between">
                         <div>
                             <DrawerTitle className="text-2xl font-black font-vazir">جزئیات اشتراک</DrawerTitle>
-                            <DrawerDescription className="font-vazir text-muted-foreground mt-2">
-                                مشاهده و مدیریت اشتراک V2Ray
-                            </DrawerDescription>
+                            {/* <DrawerDescription className="font-vazir text-muted-foreground mt-2">
+                                مشاهده و مدیریت اشتراک
+                            </DrawerDescription> */}
                         </div>
                         <DrawerClose asChild>
                             <Button variant="ghost" size="icon" className="rounded-xl">

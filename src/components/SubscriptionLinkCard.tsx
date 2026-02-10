@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Copy, QrCode, ExternalLink, Check, Zap, HardDrive, ShieldCheck, Calendar, Activity, User } from 'lucide-react';
+import { Copy, QrCode, ExternalLink, Check, Zap, HardDrive, ShieldCheck, Calendar, Activity, User, Link2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/components/ui/use-toast';
 import {
@@ -155,8 +155,16 @@ const SubscriptionLinkCard: React.FC<SubscriptionLinkCardProps> = ({ url, dataLi
                     </div>
 
                     {/* URL Display */}
+                    <div className="flex items-center gap-3 flex-1">
+                        <div className="p-3 rounded-2xl bg-primary/10 text-primary shrink-0">
+                            <Link2 className="w-5 h-5" />
+                        </div>
+                        <CardTitle className="text-xl font-black font-vazir">
+                            لینک اشتراک
+                        </CardTitle>
+                    </div>
                     <div className="relative group">
-                        <div className="p-4 rounded-2xl bg-black/20 border border-white/5 font-mono text-xs overflow-hidden text-ellipsis whitespace-nowrap pl-12 text-muted-foreground group-hover:text-foreground transition-colors dir-ltr text-left">
+                        <div dir='ltr' className="p-4 rounded-2xl bg-black/20 border border-white/5 font-mono text-xs overflow-hidden text-ellipsis whitespace-nowrap pl-12 text-muted-foreground group-hover:text-foreground transition-colors dir-ltr text-left">
                             {url}
                         </div>
                         <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
