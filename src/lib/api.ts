@@ -1,3 +1,22 @@
+/**
+ * @deprecated This file contains legacy API functions.
+ * Please use RTK Query hooks from @/store/api instead for better caching, error handling, and state management.
+ * 
+ * Migration guide:
+ * - syncUser -> useSyncUserMutation
+ * - updateWalletAddress -> useUpdateWalletAddressMutation
+ * - updateWithdrawalPasskey -> useUpdateWithdrawalPasskeyMutation
+ * - createPayment -> useCreatePaymentMutation
+ * - getTransactionHistory -> useGetTransactionHistoryQuery
+ * - requestWithdrawal -> useRequestWithdrawalMutation
+ * - cancelWithdrawal -> useCancelWithdrawalMutation
+ * - getPlans -> useGetPlansQuery
+ * - purchasePlan -> usePurchasePlanMutation
+ * - createCustomSubscription -> useCreateCustomSubscriptionMutation
+ * 
+ * Admin functions still use these for now, but should be migrated to RTK Query hooks.
+ */
+
 import { TelegramUser } from "./telegram";
 import { config } from "./config";
 

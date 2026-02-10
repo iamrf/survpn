@@ -2,7 +2,8 @@ import { motion } from "framer-motion";
 import { Settings, User, Phone, Shield, ChevronLeft, CreditCard, Share2, LogOut } from "lucide-react";
 import { useState, useEffect } from "react";
 import { getTelegramUser } from "@/lib/telegram";
-import { syncUser, updateWalletAddress, updateWithdrawalPasskey } from "@/lib/api";
+import { useSyncUserMutation, useUpdateWalletAddressMutation, useUpdateWithdrawalPasskeyMutation } from "@/store/api";
+import { useAppSelector } from "@/store/hooks";
 import BottomNav from "@/components/BottomNav";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "@/hooks/use-toast";
@@ -13,80 +14,88 @@ import { Label } from "@/components/ui/label";
 
 const SettingsPage = () => {
   const tgUser = getTelegramUser();
-  const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
-  const [walletAddress, setWalletAddress] = useState<string>("");
+  const currentUser = useAppSelector((state) => state.user.currentUser);
   const [newWalletAddress, setNewWalletAddress] = useState<string>("");
-  const [hasPasskey, setHasPasskey] = useState<boolean>(false);
   const [newPasskey, setNewPasskey] = useState<string>("");
   const [isWalletDrawerOpen, setIsWalletDrawerOpen] = useState(false);
   const [isPasskeyDrawerOpen, setIsPasskeyDrawerOpen] = useState(false);
-  const [updating, setUpdating] = useState(false);
-  const [extraData, setExtraData] = useState<{
-    createdAt?: string;
-    lastSeen?: string;
-    languageCode?: string;
-    balance?: number;
-    referralCode?: string;
-  }>({});
-  const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
 
-  const fetchUserData = async () => {
-    if (tgUser) {
-      setLoading(true);
-      const result = await syncUser(tgUser);
-      if (result.success) {
-        if (result.phoneNumber) setPhoneNumber(result.phoneNumber);
-        if (result.isAdmin !== undefined) setIsAdmin(result.isAdmin);
-        if (result.walletAddress) {
-          setWalletAddress(result.walletAddress);
-          setNewWalletAddress(result.walletAddress);
-        }
-        if (result.hasPasskey !== undefined) setHasPasskey(result.hasPasskey);
-        setExtraData({
-          createdAt: result.createdAt,
-          lastSeen: result.lastSeen,
-          languageCode: result.languageCode,
-          balance: result.balance,
-          referralCode: result.referralCode
-        });
-      }
-      setLoading(false);
-    }
+  // RTK Query hooks
+  const [syncUser] = useSyncUserMutation();
+  const [updateWalletAddress, { isLoading: updatingWallet }] = useUpdateWalletAddressMutation();
+  const [updateWithdrawalPasskey, { isLoading: updatingPasskey }] = useUpdateWithdrawalPasskeyMutation();
+
+  const phoneNumber = currentUser?.phoneNumber || null;
+  const walletAddress = currentUser?.walletAddress || "";
+  const hasPasskey = currentUser?.hasPasskey || false;
+  const isAdmin = currentUser?.isAdmin || false;
+  const extraData = {
+    createdAt: currentUser?.createdAt,
+    lastSeen: currentUser?.lastSeen,
+    languageCode: currentUser?.languageCode,
+    balance: currentUser?.balance,
+    referralCode: currentUser?.referralCode
   };
 
   useEffect(() => {
-    fetchUserData();
-  }, []);
+    if (tgUser && !currentUser) {
+      syncUser(tgUser).unwrap().catch(console.error);
+    }
+    if (currentUser?.walletAddress) {
+      setNewWalletAddress(currentUser.walletAddress);
+    }
+  }, [tgUser, currentUser, syncUser]);
 
   const handleUpdateWallet = async () => {
-    if (!newWalletAddress) return;
-    setUpdating(true);
-    const result = await updateWalletAddress(tgUser.id, newWalletAddress);
-    if (result.success) {
-      setWalletAddress(newWalletAddress);
-      setIsWalletDrawerOpen(false);
-      toast({ title: "موفقیت", description: "آدرس ولت با موفقیت بروزرسانی شد" });
-    } else {
-      toast({ title: "خطا", description: "بروزرسانی آدرس ولت با خطا مواجه شد", variant: "destructive" });
+    if (!newWalletAddress || !tgUser) return;
+    try {
+      const result = await updateWalletAddress({
+        userId: tgUser.id,
+        walletAddress: newWalletAddress
+      }).unwrap();
+      
+      if (result.success) {
+        // Refresh user data
+        await syncUser(tgUser).unwrap();
+        setIsWalletDrawerOpen(false);
+        toast({ title: "موفقیت", description: "آدرس ولت با موفقیت بروزرسانی شد" });
+      } else {
+        toast({ title: "خطا", description: "بروزرسانی آدرس ولت با خطا مواجه شد", variant: "destructive" });
+      }
+    } catch (error: any) {
+      toast({ 
+        title: "خطا", 
+        description: error?.data?.error || "بروزرسانی آدرس ولت با خطا مواجه شد", 
+        variant: "destructive" 
+      });
     }
-    setUpdating(false);
   };
 
   const handleUpdatePasskey = async () => {
-    if (!newPasskey) return;
-    setUpdating(true);
-    const result = await updateWithdrawalPasskey(tgUser.id, newPasskey);
-    if (result.success) {
-      setHasPasskey(true);
-      setNewPasskey("");
-      setIsPasskeyDrawerOpen(false);
-      toast({ title: "موفقیت", description: "رمز عبور برداشت با موفقیت تنظیم شد" });
-    } else {
-      toast({ title: "خطا", description: "تنظیم رمز عبور با خطا مواجه شد", variant: "destructive" });
+    if (!newPasskey || !tgUser) return;
+    try {
+      const result = await updateWithdrawalPasskey({
+        userId: tgUser.id,
+        passkey: newPasskey
+      }).unwrap();
+      
+      if (result.success) {
+        // Refresh user data
+        await syncUser(tgUser).unwrap();
+        setNewPasskey("");
+        setIsPasskeyDrawerOpen(false);
+        toast({ title: "موفقیت", description: "رمز عبور برداشت با موفقیت تنظیم شد" });
+      } else {
+        toast({ title: "خطا", description: "تنظیم رمز عبور با خطا مواجه شد", variant: "destructive" });
+      }
+    } catch (error: any) {
+      toast({ 
+        title: "خطا", 
+        description: error?.data?.error || "تنظیم رمز عبور با خطا مواجه شد", 
+        variant: "destructive" 
+      });
     }
-    setUpdating(false);
   };
 
   const formatDate = (dateStr?: string) => {
@@ -229,7 +238,7 @@ const SettingsPage = () => {
             <SettingItem
               icon={Phone}
               label="شماره موبایل"
-              value={loading ? "در حال بارگذاری..." : (phoneNumber || "تایید نشده")}
+              value={phoneNumber || "تایید نشده"}
               color={phoneNumber ? "green-500" : "primary"}
               onClick={!phoneNumber ? handleVerifyPhone : undefined}
               ltr={!!phoneNumber}
@@ -311,8 +320,8 @@ const SettingsPage = () => {
                   </div>
                   <DrawerFooter className="flex flex-row-reverse gap-2 px-0">
                     {!walletAddress ? (
-                      <Button onClick={handleUpdateWallet} disabled={updating} className="flex-1">
-                        {updating ? "در حال ثبت..." : "ذخیره تغییرات"}
+                      <Button onClick={handleUpdateWallet} disabled={updatingWallet} className="flex-1">
+                        {updatingWallet ? "در حال ثبت..." : "ذخیره تغییرات"}
                       </Button>
                     ) : (
                       <DrawerClose asChild>
@@ -364,8 +373,8 @@ const SettingsPage = () => {
                   </div>
                   <DrawerFooter className="flex flex-row-reverse gap-2 px-0">
                     {!hasPasskey ? (
-                      <Button onClick={handleUpdatePasskey} disabled={updating || newPasskey.length !== 4} className="flex-1">
-                        {updating ? "در حال ثبت..." : "تنظیم رمز عبور"}
+                      <Button onClick={handleUpdatePasskey} disabled={updatingPasskey || newPasskey.length !== 4} className="flex-1">
+                        {updatingPasskey ? "در حال ثبت..." : "تنظیم رمز عبور"}
                       </Button>
                     ) : (
                       <DrawerClose asChild>

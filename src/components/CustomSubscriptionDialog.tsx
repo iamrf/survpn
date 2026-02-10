@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Settings2, SendHorizontal } from 'lucide-react';
-import { createCustomSubscription } from '@/lib/api';
+import { useCreateCustomSubscriptionMutation } from '@/store/api';
 import { useToast } from '@/components/ui/use-toast';
 import { getTelegramUser } from '@/lib/telegram';
 
@@ -21,18 +21,23 @@ const CustomSubscriptionDialog: React.FC = () => {
     const [traffic, setTraffic] = useState<string>('50');
     const [duration, setDuration] = useState<string>('30');
     const [notes, setNotes] = useState<string>('');
-    const [isLoading, setIsLoading] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
     const { toast } = useToast();
+    const [createCustomSubscription, { isLoading }] = useCreateCustomSubscriptionMutation();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const user = getTelegramUser();
         if (!user) return;
 
-        setIsLoading(true);
         try {
-            const result = await createCustomSubscription(user.id, parseInt(traffic), parseInt(duration), notes);
+            const result = await createCustomSubscription({
+                userId: user.id,
+                traffic: parseInt(traffic),
+                duration: parseInt(duration),
+                notes
+            }).unwrap();
+            
             if (result.success) {
                 toast({
                     title: "Request Submitted",
@@ -46,14 +51,12 @@ const CustomSubscriptionDialog: React.FC = () => {
                     description: result.error || "Failed to submit request",
                 });
             }
-        } catch (error) {
+        } catch (error: any) {
             toast({
                 variant: "destructive",
                 title: "Error",
-                description: "Something went wrong",
+                description: error?.data?.error || "Something went wrong",
             });
-        } finally {
-            setIsLoading(false);
         }
     };
 

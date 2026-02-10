@@ -5,15 +5,19 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Provider } from "react-redux";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
-import HomePage from "./pages/HomePage";
-import WalletPage from "./pages/WalletPage";
-import MissionsPage from "./pages/MissionsPage";
-import SettingsPage from "./pages/SettingsPage";
-import AdminPage from "./pages/AdminPage";
-import AdminUserDetailPage from "./pages/AdminUserDetailPage";
-import AdminPendingWithdrawalsPage from "./pages/AdminPendingWithdrawalsPage";
-import AdminUsersPage from "./pages/AdminUsersPage";
-import NotFound from "./pages/NotFound";
+import { Suspense, lazy } from "react";
+import { LoadingFallback } from "./components/LoadingFallback";
+
+// Lazy load pages
+const HomePage = lazy(() => import("./pages/HomePage"));
+const WalletPage = lazy(() => import("./pages/WalletPage"));
+const MissionsPage = lazy(() => import("./pages/MissionsPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const AdminPage = lazy(() => import("./pages/AdminPage"));
+const AdminUserDetailPage = lazy(() => import("./pages/AdminUserDetailPage"));
+const AdminPendingWithdrawalsPage = lazy(() => import("./pages/AdminPendingWithdrawalsPage"));
+const AdminUsersPage = lazy(() => import("./pages/AdminUsersPage"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 import { useEffect } from "react";
 import { getTelegramUser } from "./lib/telegram";
@@ -73,21 +77,23 @@ const AppContent = () => {
       <Sonner />
       <BrowserRouter>
         <AnimatePresence mode="wait">
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/wallet" element={<WalletPage />} />
-            <Route path="/missions" element={<MissionsPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            {isAdmin &&
-              <>
-                <Route path="/admin" element={<AdminPage />} />
-                <Route path="/admin/users" element={<AdminUsersPage />} />
-                <Route path="/admin/user/:id" element={<AdminUserDetailPage />} />
-                <Route path="/admin/withdrawals/pending" element={<AdminPendingWithdrawalsPage />} />
-              </>
-            }
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <Suspense fallback={<LoadingFallback />}>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/wallet" element={<WalletPage />} />
+              <Route path="/missions" element={<MissionsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              {isAdmin &&
+                <>
+                  <Route path="/admin" element={<AdminPage />} />
+                  <Route path="/admin/users" element={<AdminUsersPage />} />
+                  <Route path="/admin/user/:id" element={<AdminUserDetailPage />} />
+                  <Route path="/admin/withdrawals/pending" element={<AdminPendingWithdrawalsPage />} />
+                </>
+              }
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
         </AnimatePresence>
       </BrowserRouter>
     </TooltipProvider>

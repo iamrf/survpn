@@ -1,18 +1,36 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi, fetchBaseQuery, BaseQueryFn } from '@reduxjs/toolkit/query/react';
 import { config } from '../lib/config';
 
 const API_URL = config.apiUrl || '';
 
-// Define base query with error handling
-const baseQuery = fetchBaseQuery({
-    baseUrl: API_URL,
-    prepareHeaders: (headers) => {
-        headers.set('Content-Type', 'application/json');
-        return headers;
-    },
-    // Add timeout and better error handling
-    timeout: 30000,
-});
+// Define base query with error handling and retry logic
+const baseQueryWithRetry: BaseQueryFn = async (args, api, extraOptions) => {
+    const baseQueryFn = fetchBaseQuery({
+        baseUrl: API_URL,
+        prepareHeaders: (headers) => {
+            headers.set('Content-Type', 'application/json');
+            return headers;
+        },
+        timeout: 30000,
+    });
+
+    let result = await baseQueryFn(args, api, extraOptions);
+
+    // Retry logic for network errors
+    if (result.error && 'status' in result.error) {
+        const status = result.error.status;
+        // Retry on network errors (status 0 or 500-599)
+        if (status === 'FETCH_ERROR' || (typeof status === 'number' && status >= 500 && status < 600)) {
+            // Retry once after 1 second
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            result = await baseQueryFn(args, api, extraOptions);
+        }
+    }
+
+    return result;
+};
+
+const baseQuery = baseQueryWithRetry;
 
 export const api = createApi({
     reducerPath: 'api',

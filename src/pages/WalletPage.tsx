@@ -8,51 +8,52 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, Dr
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import BottomNav from "@/components/BottomNav";
-import { createPayment, syncUser, getTransactionHistory, requestWithdrawal, cancelWithdrawal } from "@/lib/api";
+import { WalletBalanceSkeleton, TransactionSkeleton } from "@/components/skeletons";
 import { motion } from "framer-motion";
+import { getTelegramUser } from "@/lib/telegram";
+import { useAppSelector } from "@/store/hooks";
+import { 
+  useCreatePaymentMutation, 
+  useSyncUserMutation, 
+  useGetTransactionHistoryQuery, 
+  useRequestWithdrawalMutation, 
+  useCancelWithdrawalMutation 
+} from "@/store/api";
 
 const WalletPage = () => {
-  const [balance, setBalance] = useState<number>(0);
-  const [walletAddress, setWalletAddress] = useState<string>("");
-  const [hasPasskey, setHasPasskey] = useState<boolean>(false);
+  const tgUser = getTelegramUser();
+  const currentUser = useAppSelector((state) => state.user.currentUser);
   const [amount, setAmount] = useState<string>("");
-  const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState<any[]>([]);
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawPasskey, setWithdrawPasskey] = useState("");
-  const [withdrawLoading, setWithdrawLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState<string | null>(null);
   const { toast } = useToast();
 
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
-  const fetchBalance = async () => {
-    const tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
-    if (tgUser) {
-      const result = await syncUser(tgUser);
-      if (result.success) {
-        if (result.balance !== undefined) setBalance(result.balance);
-        if (result.walletAddress) setWalletAddress(result.walletAddress);
-        if (result.hasPasskey !== undefined) setHasPasskey(result.hasPasskey);
-      }
-    }
-  };
+  // RTK Query hooks
+  const [syncUser] = useSyncUserMutation();
+  const [createPayment, { isLoading: paymentLoading }] = useCreatePaymentMutation();
+  const [requestWithdrawal, { isLoading: withdrawLoading }] = useRequestWithdrawalMutation();
+  const [cancelWithdrawal] = useCancelWithdrawalMutation();
+  
+  const { data: historyData, isLoading: historyLoading, refetch: refetchHistory } = useGetTransactionHistoryQuery(
+    tgUser?.id || 0,
+    { skip: !tgUser?.id }
+  );
 
-  const fetchHistory = async () => {
-    const tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
-    if (tgUser) {
-      const result = await getTransactionHistory(tgUser.id);
-      if (result.success && result.history) {
-        setHistory(result.history);
-      }
-    }
-  };
+  const history = historyData?.history || [];
+  const balance = currentUser?.balance || 0;
+  const walletAddress = currentUser?.walletAddress || "";
+  const hasPasskey = currentUser?.hasPasskey || false;
 
+  // Sync user data on mount
   useEffect(() => {
-    fetchBalance();
-    fetchHistory();
-  }, []);
+    if (tgUser && !currentUser) {
+      syncUser(tgUser).unwrap().catch(console.error);
+    }
+  }, [tgUser, currentUser, syncUser]);
 
   const handleTopUp = async () => {
     const numAmount = parseFloat(amount);
@@ -65,19 +66,17 @@ const WalletPage = () => {
       return;
     }
 
-    setLoading(true);
-    try {
-      const tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
-      if (!tgUser) {
-        toast({
-          title: "خطا",
-          description: "اطلاعات کاربر یافت نشد",
-          variant: "destructive",
-        });
-        return;
-      }
+    if (!tgUser) {
+      toast({
+        title: "خطا",
+        description: "اطلاعات کاربر یافت نشد",
+        variant: "destructive",
+      });
+      return;
+    }
 
-      const result = await createPayment(tgUser.id, numAmount);
+    try {
+      const result = await createPayment({ userId: tgUser.id, amount: numAmount }).unwrap();
       if (result.success && result.invoice_url) {
         window.location.href = result.invoice_url;
       } else {
@@ -87,14 +86,12 @@ const WalletPage = () => {
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "خطا",
-        description: "مشکلی در اتصال به سرور پیش آمد",
+        description: error?.data?.error || "مشکلی در اتصال به سرور پیش آمد",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -128,45 +125,62 @@ const WalletPage = () => {
       return;
     }
 
-    setWithdrawLoading(true);
+    if (!tgUser) return;
+
     try {
-      const tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
-      const result = await requestWithdrawal(tgUser.id, numAmount, "USD", withdrawPasskey);
+      const result = await requestWithdrawal({
+        userId: tgUser.id,
+        amount: numAmount,
+        currency: "USD",
+        passkey: withdrawPasskey
+      }).unwrap();
+      
       if (result.success) {
         toast({ title: "موفقیت", description: "درخواست برداشت ثبت شد و در حال بررسی است" });
         setWithdrawAmount("");
         setWithdrawPasskey("");
-        fetchBalance();
-        fetchHistory();
+        // Refresh user data and history
+        await syncUser(tgUser).unwrap();
+        refetchHistory();
         setIsWithdrawOpen(false);
       } else {
         toast({ title: "خطا", description: result.error || "خطا در ثبت درخواست", variant: "destructive" });
       }
-    } catch (err) {
-      toast({ title: "خطا", description: "خطا در ارتباط با سرور", variant: "destructive" });
-    } finally {
-      setWithdrawLoading(false);
+    } catch (error: any) {
+      toast({ 
+        title: "خطا", 
+        description: error?.data?.error || "خطا در ارتباط با سرور", 
+        variant: "destructive" 
+      });
     }
   };
 
   const handleCancelWithdrawal = async (withdrawalId: string) => {
     if (!confirm("آیا از لغو این درخواست اطمینان دارید؟")) return;
 
+    if (!tgUser) return;
+
     setCancelLoading(withdrawalId);
     try {
-      const tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
-      if (!tgUser) return;
-
-      const result = await cancelWithdrawal(tgUser.id, withdrawalId);
+      const result = await cancelWithdrawal({
+        userId: tgUser.id,
+        withdrawalId
+      }).unwrap();
+      
       if (result.success) {
         toast({ title: "موفقیت", description: "درخواست با موفقیت لغو شد و مبلغ به موجودی شما بازگشت" });
-        fetchBalance();
-        fetchHistory();
+        // Refresh user data and history
+        await syncUser(tgUser).unwrap();
+        refetchHistory();
       } else {
         toast({ title: "خطا", description: result.error || "خطا در لغو درخواست", variant: "destructive" });
       }
-    } catch (err) {
-      toast({ title: "خطا", description: "خطا در ارتباط با سرور", variant: "destructive" });
+    } catch (error: any) {
+      toast({ 
+        title: "خطا", 
+        description: error?.data?.error || "خطا در ارتباط با سرور", 
+        variant: "destructive" 
+      });
     } finally {
       setCancelLoading(null);
     }
@@ -199,20 +213,18 @@ const WalletPage = () => {
         </motion.div>
 
         {/* Current Balance Card */}
-        <Card className="bg-gradient-to-br from-primary/90 to-primary text-primary-foreground border-none">
-          <CardHeader className="pb-4">
-            <CardDescription className="text-primary-foreground/80 font-vazir">موجودی حساب</CardDescription>
-            <CardTitle className="text-3xl font-bold font-vazir text-left">
-              $ {balance.toLocaleString()}
-            </CardTitle>
-          </CardHeader>
-          {/* <CardContent className="flex justify-end pt-4">
-            <div className="flex items-center gap-1 text-xs bg-white/20 px-2 py-1 rounded-full">
-              <ArrowUpRight className="w-3 h-3" />
-              <span>پرداخت سریع</span>
-            </div>
-          </CardContent> */}
-        </Card>
+        {!currentUser ? (
+          <WalletBalanceSkeleton />
+        ) : (
+          <Card className="bg-gradient-to-br from-primary/90 to-primary text-primary-foreground border-none">
+            <CardHeader className="pb-4">
+              <CardDescription className="text-primary-foreground/80 font-vazir">موجودی حساب</CardDescription>
+              <CardTitle className="text-3xl font-bold font-vazir text-left">
+                $ {balance.toLocaleString()}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+        )}
 
         {/* Action Buttons */}
         <div className="grid grid-cols-2 gap-4">
@@ -282,7 +294,7 @@ const WalletPage = () => {
 
           <Drawer open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
             <DrawerTrigger asChild>
-              <Button variant="outline" className="flex flex-col h-20 gap-2 border-dashed" onClick={fetchHistory}>
+              <Button variant="outline" className="flex flex-col h-20 gap-2 border-dashed" onClick={() => refetchHistory()}>
                 <History className="w-5 h-5" />
                 <span className="text-xs font-vazir">تاریخچه</span>
               </Button>
@@ -295,7 +307,9 @@ const WalletPage = () => {
                 </DrawerHeader>
                 <ScrollArea className="h-[60vh] pr-4">
                   <div className="space-y-4">
-                    {history.length === 0 ? (
+                    {historyLoading ? (
+                      Array(3).fill(0).map((_, i) => <TransactionSkeleton key={i} />)
+                    ) : history.length === 0 ? (
                       <div className="text-center py-10 text-muted-foreground font-vazir">تراکنشی یافت نشد</div>
                     ) : (
                       history.map((tx) => (
@@ -375,9 +389,9 @@ const WalletPage = () => {
             <Button
               className="w-full h-12 gap-2 mt-4 font-vazir"
               onClick={handleTopUp}
-              disabled={loading}
+              disabled={paymentLoading}
             >
-              {loading ? (
+              {paymentLoading ? (
                 "در حال اتصال..."
               ) : (
                 <>

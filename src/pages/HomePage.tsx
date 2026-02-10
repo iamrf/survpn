@@ -6,6 +6,7 @@ import SubscriptionPlan from "@/components/SubscriptionPlan";
 import CustomSubscriptionDialog from "@/components/CustomSubscriptionDialog";
 import MinimalSubscriptionCard from "@/components/MinimalSubscriptionCard";
 import SubscriptionDrawer from "@/components/SubscriptionDrawer";
+import { SubscriptionPlanSkeleton, SubscriptionCardSkeleton } from "@/components/skeletons";
 import { getTelegramUser } from "@/lib/telegram";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
@@ -138,7 +139,7 @@ const HomePage = () => {
           <div className="grid gap-6 grid-cols-1 md:grid-cols-3">
             {isLoading ? (
               Array(3).fill(0).map((_, i) => (
-                <div key={i} className="h-80 rounded-3xl bg-white/5 animate-pulse border border-white/5" />
+                <SubscriptionPlanSkeleton key={i} />
               ))
             ) : (
               plans.map((plan) => (
