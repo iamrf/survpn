@@ -249,6 +249,49 @@ export async function getUserFinanceSummary(userId: number): Promise<{ success: 
     }
 }
 
+export async function getPlans(): Promise<{ success: boolean; plans?: any[] }> {
+    try {
+        const response = await fetch(`${API_URL}/api/plans`);
+        if (!response.ok) throw new Error('Failed to fetch plans');
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching plans:', error);
+        return { success: false };
+    }
+}
+
+export async function purchasePlan(userId: number, planId: string): Promise<{ success: boolean; message?: string; error?: string; newBalance?: number }> {
+    try {
+        const response = await fetch(`${API_URL}/api/purchase-plan`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ userId, planId }),
+        });
+        return await response.json();
+    } catch (error) {
+        console.error('Error purchasing plan:', error);
+        return { success: false, error: 'Internal server error' };
+    }
+}
+
+export async function createCustomSubscription(userId: number, traffic: number, duration: number, notes: string): Promise<{ success: boolean; message?: string; error?: string }> {
+    try {
+        const response = await fetch(`${API_URL}/api/create-custom-subscription`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ userId, traffic, duration, notes }),
+        });
+        return await response.json();
+    } catch (error) {
+        console.error('Error creating custom subscription:', error);
+        return { success: false, error: 'Internal server error' };
+    }
+}
+
 export async function checkBackendHealth(): Promise<boolean> {
     try {
         const response = await fetch(`${API_URL}/health`);

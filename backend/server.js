@@ -6,11 +6,12 @@ import axios from 'axios';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import db, { initDB } from './database/db.js';
-
-dotenv.config();
+import { marzban } from './marzban.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+dotenv.config({ path: join(__dirname, '.env') });
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -89,7 +90,7 @@ app.post('/api/user/passkey', (req, res) => {
 });
 
 // Sync User Data
-app.post('/api/sync-user', (req, res) => {
+app.post('/api/sync-user', async (req, res) => {
     const { id, first_name, last_name, username, language_code, photo_url, phone_number } = req.body;
 
     if (!id) {
@@ -122,6 +123,19 @@ app.post('/api/sync-user', (req, res) => {
             const newCode = getUniqueReferralCode();
             db.prepare('UPDATE users SET referral_code = ? WHERE id = ?').run(newCode, id);
             user.referral_code = newCode;
+        }
+
+        // Marzban User Integration
+        const marzbanUsername = username || `user_${id}`;
+        try {
+            const mUser = await marzban.getUser(marzbanUsername);
+            if (!mUser) {
+                console.log(`Creating Marzban user: ${marzbanUsername}`);
+                await marzban.createUser(marzbanUsername);
+            }
+        } catch (mErr) {
+            console.error(`Error syncing with Marzban for ${marzbanUsername}:`, mErr.message);
+            // Don't fail the whole sync if Marzban is down, but log it
         }
 
         console.log(`User ${id} synced. Admin: ${isAdmin}, Balance: ${user?.balance || 0}, Referral: ${user?.referral_code}, Phone: ${user?.phone_number}, Received Phone: ${phone_number}`);
@@ -558,6 +572,101 @@ app.post('/api/telegram/webhook', (req, res) => {
         }
     }
     res.status(200).send('OK');
+});
+
+// Subscription Plans Definition
+const SUBSCRIPTION_PLANS = [
+    { id: 'starter', name: 'Starter', traffic: 10, duration: 30, price: 2 },
+    { id: 'standard', name: 'Standard', traffic: 30, duration: 30, price: 5 },
+    { id: 'gold', name: 'Gold', traffic: 100, duration: 90, price: 12 }
+];
+
+// Get Available Plans
+app.get('/api/plans', (req, res) => {
+    res.json({ success: true, plans: SUBSCRIPTION_PLANS });
+});
+
+// Purchase Subscription Plan
+app.post('/api/purchase-plan', async (req, res) => {
+    const { userId, planId } = req.body;
+
+    if (!userId || !planId) {
+        return res.status(400).json({ error: 'User ID and plan ID are required' });
+    }
+
+    const plan = SUBSCRIPTION_PLANS.find(p => p.id === planId);
+    if (!plan) {
+        return res.status(404).json({ error: 'Plan not found' });
+    }
+
+    try {
+        const user = db.prepare('SELECT balance, username FROM users WHERE id = ?').get(userId);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        if (user.balance < plan.price) {
+            return res.status(400).json({ error: 'Insufficient balance' });
+        }
+
+        const marzbanUsername = user.username || `user_${userId}`;
+        const dataLimit = plan.traffic * 1024 * 1024 * 1024; // GB to Bytes
+        const expiry = Math.floor(Date.now() / 1000) + (plan.duration * 24 * 60 * 60);
+
+        // Update Marzban
+        await marzban.updateUser(marzbanUsername, {
+            status: 'active',
+            data_limit: dataLimit,
+            expire: expiry
+        });
+
+        // Deduct Balance and Record Transaction
+        db.transaction(() => {
+            db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(plan.price, userId);
+
+            const transId = `sub_${Date.now()}_${userId}`;
+            db.prepare(`
+                INSERT INTO transactions (id, user_id, amount, currency, status, type)
+                VALUES (?, ?, ?, ?, ?, ?)
+            `).run(transId, userId, plan.price, 'USD', 'completed', 'subscription');
+        })();
+
+        res.json({
+            success: true,
+            message: `Successfully purchased ${plan.name} plan`,
+            newBalance: user.balance - plan.price
+        });
+
+    } catch (error) {
+        console.error('Error purchasing plan:', error);
+        res.status(500).json({ error: error.message || 'Internal server error' });
+    }
+});
+
+// Create Custom Subscription Request
+app.post('/api/create-custom-subscription', (req, res) => {
+    const { userId, traffic, duration, notes } = req.body;
+
+    if (!userId || !traffic || !duration) {
+        return res.status(400).json({ error: 'User ID, traffic, and duration are required' });
+    }
+
+    try {
+        const transId = `custom_${Date.now()}_${userId}`;
+        // For custom requests, we just log it as a pending transaction or send a notification to admin
+        // For now, let's just record it in a separate table if it exists, or use transactions with status 'pending'
+        db.prepare(`
+            INSERT INTO transactions (id, user_id, amount, currency, status, type)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `).run(transId, userId, 0, 'USD', 'pending', 'custom_subscription');
+
+        console.log(`Custom subscription request from user ${userId}: ${traffic}GB for ${duration} days. Notes: ${notes}`);
+
+        res.json({ success: true, message: 'Custom subscription request submitted. Our team will contact you soon.' });
+    } catch (error) {
+        console.error('Error creating custom subscription:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 app.listen(PORT, () => {
