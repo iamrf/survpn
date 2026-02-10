@@ -137,56 +137,6 @@ const ProfileCard = () => {
             {displayName}
           </h2>
 
-          <div className="flex flex-wrap items-center justify-start gap-2 mt-1">
-            {!loading && !phoneNumber && (
-              <motion.button
-                onClick={handleVerifyPhone}
-                disabled={verifying}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-500/10 hover:bg-green-500/20 text-green-500 transition-all duration-300 border border-green-500/20 group"
-              >
-                <span className="text-[10px] font-vazir font-bold">
-                  {verifying ? "در حال تایید..." : "تایید شماره موبایل"}
-                </span>
-                <div className="w-4 h-4 rounded-full bg-green-500/20 flex items-center justify-center">
-                  <Phone className="h-2.5 w-2.5" />
-                </div>
-              </motion.button>
-            )}
-
-            {!loading && phoneNumber && (
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/5 text-blue-400 border border-blue-500/10">
-                <span className="text-[10px] font-vazir opacity-70">کاربر تایید شده</span>
-                <Check className="h-2.5 w-2.5" />
-              </div>
-            )}
-
-            {!loading && walletAddress && (
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-500/5 text-green-400 border border-green-500/10">
-                <span className="text-[10px] font-vazir opacity-70">کیف پول متصل</span>
-                <Check className="h-2.5 w-2.5" />
-              </div>
-            )}
-            <motion.button
-              onClick={handleCopyReferral}
-              disabled={loading}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 hover:bg-primary/20 text-primary transition-all duration-300 border border-primary/20 group"
-            >
-              <span className="text-[10px] font-vazir opacity-70">کد معرف شما: </span>
-              <span dir="ltr" className="text-sm font-mono font-bold tracking-wider">
-                {loading ? "..." : referralCode || "----"}
-              </span>
-              {copied ? (
-                <Check className="h-3 w-3 text-primary animate-in zoom-in" />
-              ) : (
-                <Copy className="h-3 w-3 group-hover:rotate-12 transition-transform" />
-              )}
-            </motion.button>
-
-          </div>
         </div>
       </div>
     </motion.div>
