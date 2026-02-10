@@ -10,6 +10,8 @@ const baseQuery = fetchBaseQuery({
         headers.set('Content-Type', 'application/json');
         return headers;
     },
+    // Add timeout and better error handling
+    timeout: 30000,
 });
 
 export const api = createApi({

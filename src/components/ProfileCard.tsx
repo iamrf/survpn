@@ -4,33 +4,35 @@ import { useState, useEffect } from "react";
 import { getTelegramUser } from "@/lib/telegram";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "@/hooks/use-toast";
-import { syncUser } from "@/lib/api";
+import { useSyncUserMutation } from "@/store/api";
+import { useAppSelector } from "@/store/hooks";
 
 const ProfileCard = () => {
   const tgUser = getTelegramUser();
-  const [referralCode, setReferralCode] = useState<string>("");
-  const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(false);
+  const [syncUser, { isLoading: loading }] = useSyncUserMutation();
+  const currentUser = useAppSelector((state) => state.user.currentUser);
+  
+  const referralCode = currentUser?.referralCode || "";
+  const phoneNumber = currentUser?.phoneNumber || null;
+  const walletAddress = currentUser?.walletAddress || null;
 
   const fetchUserData = async () => {
     if (tgUser) {
-      setLoading(true);
-      const result = await syncUser(tgUser);
-      if (result.success) {
-        if (result.referralCode) setReferralCode(result.referralCode);
-        if (result.phoneNumber) setPhoneNumber(result.phoneNumber);
-        if (result.walletAddress) setWalletAddress(result.walletAddress);
+      try {
+        await syncUser(tgUser).unwrap();
+      } catch (error) {
+        console.error("Error fetching user data:", error);
       }
-      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchUserData();
-  }, []);
+    if (tgUser && !currentUser) {
+      fetchUserData();
+    }
+  }, [tgUser, currentUser]);
 
   const handleVerifyPhone = () => {
     const webApp = (window as any).Telegram?.WebApp;
@@ -47,15 +49,15 @@ const ProfileCard = () => {
           const contact = arg.response?.contact;
           const phoneToSync = contact?.phone_number || null;
 
-          const result = await syncUser({ ...tgUser, ...(phoneToSync ? { phone_number: phoneToSync } : {}) });
-
-          if (result.success) {
-            if (result.phoneNumber) setPhoneNumber(result.phoneNumber);
-            toast({
-              title: "موفقیت",
-              description: "شماره تماس شما تایید شد",
-            });
-          } else {
+          try {
+            const result = await syncUser({ ...tgUser, ...(phoneToSync ? { phone_number: phoneToSync } : {}) }).unwrap();
+            if (result.success) {
+              toast({
+                title: "موفقیت",
+                description: "شماره تماس شما تایید شد",
+              });
+            }
+          } catch (error) {
             // If sync fails but request was sent, maybe bot will update it
             toast({
               title: "در حال بررسی...",

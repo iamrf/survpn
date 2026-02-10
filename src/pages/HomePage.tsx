@@ -30,29 +30,37 @@ const HomePage = () => {
   const [purchasePlan] = usePurchasePlanMutation();
   const [syncUser] = useSyncUserMutation();
 
+  // Get current user from Redux
+  const currentUser = useAppSelector((state) => state.user.currentUser);
+
+  // Update subscription data when plans are loaded and user has subscription
   useEffect(() => {
+    if (currentUser?.subscriptionUrl && plans.length > 0) {
+      const planInfo = getPlanInfo(currentUser.dataLimit || 0, currentUser.expire, plans);
+      dispatch(setSubscriptionData({
+        url: currentUser.subscriptionUrl,
+        limit: currentUser.dataLimit || 0,
+        used: currentUser.dataUsed || 0,
+        expire: currentUser.expire,
+        status: currentUser.status,
+        username: currentUser.username,
+        planName: planInfo.planName,
+        isBonus: planInfo.isBonus
+      }));
+    }
+  }, [dispatch, currentUser?.subscriptionUrl, currentUser?.dataLimit, currentUser?.expire, plans.length]);
+
+  // Refresh user data after purchase
+  const refreshUserData = async () => {
     const user = getTelegramUser();
     if (user) {
-      syncUser(user).unwrap().then(result => {
-        if (result.success && result.subscriptionUrl) {
-          // Get plan info after plans are loaded
-          const planInfo = getPlanInfo(result.dataLimit || 0, result.expire, plans);
-          dispatch(setSubscriptionData({
-            url: result.subscriptionUrl,
-            limit: result.dataLimit || 0,
-            used: result.dataUsed || 0,
-            expire: result.expire,
-            status: result.status,
-            username: result.username,
-            planName: planInfo.planName,
-            isBonus: planInfo.isBonus
-          }));
-        }
-      }).catch((error) => {
-        console.error("Error syncing user:", error);
-      });
+      try {
+        await syncUser(user).unwrap();
+      } catch (error) {
+        console.error("Error refreshing user data:", error);
+      }
     }
-  }, [dispatch, syncUser, plans]);
+  };
 
   const handlePurchase = async (plan: any) => {
     const user = getTelegramUser();
@@ -67,21 +75,8 @@ const HomePage = () => {
           description: result.message,
         });
 
-        // Refresh subscription data
-        const syncResult = await syncUser(user).unwrap();
-        if (syncResult.success && syncResult.subscriptionUrl) {
-          const planInfo = getPlanInfo(syncResult.dataLimit || 0, syncResult.expire, plans);
-          dispatch(setSubscriptionData({
-            url: syncResult.subscriptionUrl,
-            limit: syncResult.dataLimit || 0,
-            used: syncResult.dataUsed || 0,
-            expire: syncResult.expire,
-            status: syncResult.status,
-            username: syncResult.username,
-            planName: planInfo.planName,
-            isBonus: planInfo.isBonus
-          }));
-        }
+        // Refresh user data (will automatically update subscription data via Redux)
+        await refreshUserData();
       } else {
         toast({
           variant: "destructive",

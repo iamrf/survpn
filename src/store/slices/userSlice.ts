@@ -58,19 +58,41 @@ const userSlice = createSlice({
         },
     },
     extraReducers: (builder) => {
-        // Update subscription data when user syncs
+        // Update current user when user syncs
         builder.addMatcher(
             api.endpoints.syncUser.matchFulfilled,
             (state, action) => {
-                if (action.payload.success && action.payload.subscriptionUrl) {
-                    state.subscriptionData = {
-                        url: action.payload.subscriptionUrl,
-                        limit: action.payload.dataLimit || 0,
-                        used: action.payload.dataUsed || 0,
+                if (action.payload.success) {
+                    // Update current user data
+                    state.currentUser = {
+                        id: action.meta.arg?.id,
+                        isAdmin: action.payload.isAdmin,
+                        balance: action.payload.balance,
+                        referralCode: action.payload.referralCode,
+                        phoneNumber: action.payload.phoneNumber,
+                        createdAt: action.payload.createdAt,
+                        lastSeen: action.payload.lastSeen,
+                        languageCode: action.payload.languageCode,
+                        walletAddress: action.payload.walletAddress,
+                        hasPasskey: action.payload.hasPasskey,
+                        subscriptionUrl: action.payload.subscriptionUrl,
+                        dataLimit: action.payload.dataLimit,
+                        dataUsed: action.payload.dataUsed,
                         expire: action.payload.expire,
                         status: action.payload.status,
                         username: action.payload.username,
                     };
+                    // Also update subscription data if available
+                    if (action.payload.subscriptionUrl) {
+                        state.subscriptionData = {
+                            url: action.payload.subscriptionUrl,
+                            limit: action.payload.dataLimit || 0,
+                            used: action.payload.dataUsed || 0,
+                            expire: action.payload.expire,
+                            status: action.payload.status,
+                            username: action.payload.username,
+                        };
+                    }
                 }
             }
         );
