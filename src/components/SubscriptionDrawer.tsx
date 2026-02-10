@@ -41,7 +41,7 @@ const SubscriptionDrawer: React.FC<SubscriptionDrawerProps> = ({ isOpen, onClose
                     </div>
                 </DrawerHeader>
                 <ScrollArea className="px-6 pb-6">
-                    <div className="pb-4">
+                    <div className="w-full pb-4">
                         <SubscriptionLinkCard
                             url={subscriptionData.url}
                             dataLimit={subscriptionData.limit}

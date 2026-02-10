@@ -105,13 +105,13 @@ const SubscriptionLinkCard: React.FC<SubscriptionLinkCardProps> = ({ url, dataLi
                     </div>
                 </CardHeader>
 
-                <CardContent className="space-y-6 text-right">
+                <CardContent className="grid grid-cols-1 space-y-6 text-right">
                     {/* Info Grid */}
                     <div className="grid grid-cols-2 gap-3">
                         <div className="bg-white/5 rounded-2xl p-4 border border-white/5 text-right">
                             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2 font-vazir">
                                 <User className="w-4 h-4 shrink-0" />
-                                <span>نام سرویس</span>
+                                <span>نام کاربری</span>
                             </div>
                             <div className="font-mono text-sm font-bold truncate dir-ltr text-left">
                                 {username || '---'}
@@ -137,9 +137,9 @@ const SubscriptionLinkCard: React.FC<SubscriptionLinkCardProps> = ({ url, dataLi
                         <div className="flex items-center justify-between text-xs font-vazir text-muted-foreground">
                             <span className="flex items-center gap-1.5">
                                 <Activity className="w-3.5 h-3.5" />
-                                <span>{formatBytes(dataUsed)} مصرف شده</span>
+                                <span dir='ltr'>{formatBytes(dataUsed)} :مصرف شده</span>
                             </span>
-                            <span className="font-bold">{formatBytes(dataLimit)} کل</span>
+                            <span dir='ltr' className="font-bold">{formatBytes(dataLimit)} :حجم کل</span>
                         </div>
                         <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden border border-white/5 p-[2px]">
                             <motion.div
@@ -150,7 +150,7 @@ const SubscriptionLinkCard: React.FC<SubscriptionLinkCardProps> = ({ url, dataLi
                         </div>
                         <div className="flex items-center gap-2 text-xs font-vazir text-primary/90">
                             <HardDrive className="w-4 h-4" />
-                            <span className="font-medium">باقیمانده: {formatBytes(remainingData)}</span>
+                            <span dir='ltr' className="font-medium">{formatBytes(remainingData)} مانده</span>
                         </div>
                     </div>
 
