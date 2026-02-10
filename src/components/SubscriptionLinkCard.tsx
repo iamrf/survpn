@@ -71,7 +71,7 @@ const SubscriptionLinkCard: React.FC<SubscriptionLinkCardProps> = ({ url, dataLi
         if (isBonus) {
             return 'اشتراک رایگان';
         }
-        return planName || 'اشتراک V2Ray';
+        return planName || 'اشتراک حرفه ای';
     };
 
     if (!url) return null;
@@ -187,7 +187,7 @@ const SubscriptionLinkCard: React.FC<SubscriptionLinkCardProps> = ({ url, dataLi
                         className="flex-1 h-12 rounded-2xl font-vazir font-bold flex items-center gap-2 shadow-lg shadow-primary/20"
                         onClick={() => window.open(url, '_blank')}
                     >
-                        <span>اتصال مستقیم</span>
+                        <span>راهنمای اتصال</span>
                         <ExternalLink className="w-4 h-4" />
                     </Button>
 
