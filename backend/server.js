@@ -98,11 +98,11 @@ app.post('/api/sync-user', async (req, res) => {
     }
 
     const adminIds = (process.env.ADMIN_IDS || '').split(',').map(id => id.trim());
-    const isAdmin = adminIds.includes(id.toString()) ? 1 : 0;
+    const role = adminIds.includes(id.toString()) ? 'admin' : 'user';
 
     try {
         const stmt = db.prepare(`
-            INSERT INTO users (id, first_name, last_name, username, language_code, photo_url, is_admin, phone_number, last_seen)
+            INSERT INTO users (id, first_name, last_name, username, language_code, photo_url, role, phone_number, last_seen)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(id) DO UPDATE SET
                 first_name = excluded.first_name,
@@ -110,12 +110,12 @@ app.post('/api/sync-user', async (req, res) => {
                 username = excluded.username,
                 language_code = excluded.language_code,
                 photo_url = excluded.photo_url,
-                is_admin = excluded.is_admin,
+                role = excluded.role,
                 phone_number = COALESCE(excluded.phone_number, users.phone_number),
                 last_seen = CURRENT_TIMESTAMP
         `);
 
-        stmt.run(id, first_name, last_name || null, username || null, language_code || null, photo_url || null, isAdmin, phone_number || null);
+        stmt.run(id, first_name, last_name || null, username || null, language_code || null, photo_url || null, role, phone_number || null);
 
         let user = db.prepare('SELECT balance, referral_code, phone_number, created_at, last_seen, language_code, wallet_address, withdrawal_passkey FROM users WHERE id = ?').get(id);
 
@@ -138,11 +138,11 @@ app.post('/api/sync-user', async (req, res) => {
             // Don't fail the whole sync if Marzban is down, but log it
         }
 
-        console.log(`User ${id} synced. Admin: ${isAdmin}, Balance: ${user?.balance || 0}, Referral: ${user?.referral_code}, Phone: ${user?.phone_number}, Received Phone: ${phone_number}`);
+        console.log(`User ${id} synced. Role: ${role}, Balance: ${user?.balance || 0}, Referral: ${user?.referral_code}, Phone: ${user?.phone_number}, Received Phone: ${phone_number}`);
         res.json({
             success: true,
             message: 'User synchronized successfully',
-            isAdmin: !!isAdmin,
+            isAdmin: role === 'admin',
             balance: user?.balance || 0,
             referralCode: user?.referral_code,
             phoneNumber: user?.phone_number,
@@ -163,8 +163,8 @@ app.get('/api/check-admin/:id', (req, res) => {
     const { id } = req.params;
 
     try {
-        const user = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(id);
-        res.json({ isAdmin: !!(user && user.is_admin) });
+        const user = db.prepare('SELECT role FROM users WHERE id = ?').get(id);
+        res.json({ isAdmin: !!(user && user.role === 'admin') });
     } catch (error) {
         console.error('Error checking admin status:', error);
         res.status(500).json({ error: 'Internal server error' });
@@ -639,7 +639,8 @@ app.post('/api/purchase-plan', async (req, res) => {
 
     } catch (error) {
         console.error('Error purchasing plan:', error);
-        res.status(500).json({ error: error.message || 'Internal server error' });
+        const errorMessage = error.response?.data?.detail || error.message || 'Internal server error';
+        res.status(500).json({ error: errorMessage });
     }
 });
 

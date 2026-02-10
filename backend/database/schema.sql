@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT,
     language_code TEXT,
     photo_url TEXT,
-    is_admin BOOLEAN DEFAULT 0,
+    role TEXT DEFAULT 'user',
     balance DECIMAL(18, 8) DEFAULT 0,
     referral_code TEXT UNIQUE,
     phone_number TEXT,
@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS users (
     last_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_users_role ON users (role);
 
 CREATE TABLE IF NOT EXISTS transactions (
     id TEXT PRIMARY KEY,

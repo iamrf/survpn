@@ -220,7 +220,7 @@ const AdminUserDetailPage = () => {
                                     )}
                                 </div>
                                 <div className="pb-1">
-                                    {user.is_admin ? (
+                                    {user.role === 'admin' ? (
                                         <span className="text-xs px-3 py-1 rounded-full bg-primary/20 text-primary font-medium border border-primary/20">مدیر کل</span>
                                     ) : (
                                         <span className="text-xs px-3 py-1 rounded-full bg-white/5 text-muted-foreground font-medium border border-white/5">کاربر سیستم</span>

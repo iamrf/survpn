@@ -299,7 +299,7 @@ const AdminPage = () => {
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <div className="text-right flex flex-col items-end gap-1">
-                                                    {user.is_admin ? (
+                                                    {user.role === 'admin' ? (
                                                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium border border-primary/20 font-vazir">مدیر</span>
                                                     ) : (
                                                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-muted-foreground font-medium border border-white/5 font-vazir">کاربر</span>

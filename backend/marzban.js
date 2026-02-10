@@ -40,7 +40,7 @@ export const marzban = {
     async getUser(username) {
         try {
             const token = await getToken();
-            const response = await axios.get(`${MARZBAN_URL}/api/user/${username}`, {
+            const response = await axios.get(`${MARZBAN_URL}/api/user/${encodeURIComponent(username)}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             return response.data;
@@ -56,18 +56,15 @@ export const marzban = {
     async createUser(username) {
         try {
             const token = await getToken();
-            // Default settings for new users: on hold, no traffic limit yet
+            // Default settings for new users: active but with no traffic/expiry yet
+            // This avoids the 'on_hold' requirements and 'inbounds' naming conflicts
             const userData = {
                 username,
-                status: 'on_hold',
-                proxies: {
-                    vless: {},
-                    vmess: {}
-                },
-                inbounds: {
-                    vless: ['VLESS TCP REALITY', 'VLESS GRPC REALITY'],
-                    vmess: ['VMess TCP', 'VMess Websocket']
-                }
+                status: 'active',
+                data_limit: 0,
+                expire: 0,
+                proxies: { vless: {} }, // VLESS is usually enabled; avoids disabled VMess errors
+                inbounds: {} // Empty means all inbounds
             };
 
             const response = await axios.post(`${MARZBAN_URL}/api/user`, userData, {
@@ -80,14 +77,19 @@ export const marzban = {
         }
     },
 
-    async updateUser(username, data) {
+    async updateUser(username, data, retryIfMissing = true) {
         try {
             const token = await getToken();
-            const response = await axios.put(`${MARZBAN_URL}/api/user/${username}`, data, {
+            const response = await axios.put(`${MARZBAN_URL}/api/user/${encodeURIComponent(username)}`, data, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             return response.data;
         } catch (error) {
+            if (retryIfMissing && error.response?.status === 404) {
+                console.log(`User ${username} missing in Marzban during update. Attempting to create...`);
+                await this.createUser(username);
+                return this.updateUser(username, data, false);
+            }
             console.error(`Marzban UpdateUser Error (${username}):`, error.response?.data || error.message);
             throw error;
         }
