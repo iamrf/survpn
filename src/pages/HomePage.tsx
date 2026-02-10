@@ -8,6 +8,7 @@ import { getPlans, purchasePlan } from "@/lib/api";
 import { getTelegramUser } from "@/lib/telegram";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
+import { Star } from "lucide-react";
 
 const HomePage = () => {
   const [plans, setPlans] = useState<any[]>([]);
@@ -57,21 +58,33 @@ const HomePage = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col pb-24 bg-gradient-to-b from-background to-secondary/20">
+    <div className="min-h-screen flex flex-col pb-24 bg-background selection:bg-primary/30">
       <ProfileCard />
-      <div className="px-4 space-y-8 mt-4">
-        <WelcomeSection />
 
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold tracking-tight">Subscription Plans</h2>
-            <div className="h-px flex-1 bg-border mx-4 hidden sm:block" />
-          </div>
+      <div className="px-5 space-y-12 mt-6">
 
-          <div className="grid gap-4 sm:grid-cols-2">
+        <section className="relative space-y-8">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <div className="absolute inset-0 bg-primary/5 blur-[120px] rounded-full -z-10" />
+
+            <div className="flex flex-col items-center text-center space-y-2">
+              <h2 className="text-3xl font-black tracking-tight font-vazir bg-clip-text text-transparent bg-gradient-to-r from-white to-white/50">
+                انتخاب سرویس هوشمند
+              </h2>
+              <p className="text-muted-foreground text-sm font-vazir">
+                بهترین پلن را متناسب با نیاز خود انتخاب کنید
+              </p>
+            </div>
+          </motion.div>
+
+
+          <div className="grid gap-6 grid-cols-1 md:grid-cols-3">
             {isLoading ? (
               Array(3).fill(0).map((_, i) => (
-                <div key={i} className="h-48 rounded-xl bg-muted animate-pulse" />
+                <div key={i} className="h-80 rounded-3xl bg-white/5 animate-pulse border border-white/5" />
               ))
             ) : (
               plans.map((plan) => (
@@ -86,11 +99,19 @@ const HomePage = () => {
           </div>
         </section>
 
-        <section className="space-y-4 pb-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold tracking-tight">Need Something Special?</h2>
+        <section className="relative overflow-hidden p-8 rounded-[2.5rem] bg-gradient-to-br from-primary/10 to-transparent border border-white/5">
+          <div className="absolute top-0 right-0 p-8 opacity-10">
+            <Star className="w-24 h-24 text-primary" />
           </div>
-          <CustomSubscriptionDialog />
+          <div className="relative space-y-4 max-w-sm">
+            <h2 className="text-2xl font-black tracking-tight font-vazir">سرویس اختصاصی می‌خواهید؟</h2>
+            <p className="text-sm text-muted-foreground font-vazir leading-relaxed">
+              اگر نیاز به حجم یا زمان متفاوتی دارید، پلن سفارشی خود را بسازید. کارشناسان ما در سریع‌ترین زمان با شما ارتباط می‌گیرند.
+            </p>
+            <div className="pt-2">
+              <CustomSubscriptionDialog />
+            </div>
+          </div>
         </section>
       </div>
       <BottomNav />

@@ -14,7 +14,7 @@ const __dirname = dirname(__filename);
 dotenv.config({ path: join(__dirname, '.env') });
 
 const app = express();
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
@@ -576,9 +576,9 @@ app.post('/api/telegram/webhook', (req, res) => {
 
 // Subscription Plans Definition
 const SUBSCRIPTION_PLANS = [
-    { id: 'starter', name: 'Starter', traffic: 10, duration: 30, price: 2 },
-    { id: 'standard', name: 'Standard', traffic: 30, duration: 30, price: 5 },
-    { id: 'gold', name: 'Gold', traffic: 100, duration: 90, price: 12 }
+    { id: 'bronze', name: 'برنز (اقتصادی)', traffic: 10, duration: 30, price: 2, description: 'مناسب برای وب‌گردی روزمره' },
+    { id: 'silver', name: 'نقره‌ای (استاندارد)', traffic: 50, duration: 60, price: 7, description: 'پیشنهاد ویژه برای استفاده مداوم' },
+    { id: 'gold', name: 'طلایی (نامحدود*)', traffic: 200, duration: 90, price: 15, description: 'برترین کیفیت بدون نگرانی از حجم' }
 ];
 
 // Get Available Plans
