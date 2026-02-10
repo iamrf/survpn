@@ -2,6 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Provider } from "react-redux";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import HomePage from "./pages/HomePage";
@@ -16,30 +17,55 @@ import NotFound from "./pages/NotFound";
 
 import { useEffect } from "react";
 import { getTelegramUser } from "./lib/telegram";
-import { syncUser } from "./lib/api";
 import { AdminProvider, useAdmin } from "./components/AdminProvider";
+import { store } from "./store";
+import { useSyncUserMutation } from "./store/api";
+import { setCurrentUser } from "./store/slices/userSlice";
+import { useAppDispatch } from "./store/hooks";
 
 const queryClient = new QueryClient();
 
 const AppContent = () => {
   const { isAdmin, setIsAdmin } = useAdmin();
+  const dispatch = useAppDispatch();
+  const [syncUser] = useSyncUserMutation();
 
   useEffect(() => {
     const user = getTelegramUser();
     if (user) {
       console.log("Syncing user data with backend...", user);
-      syncUser(user).then((result) => {
+      syncUser(user).unwrap().then((result) => {
         if (result.success) {
           console.log("User synced successfully", result.isAdmin ? "(Admin)" : "");
+          dispatch(setCurrentUser({
+            id: user.id,
+            isAdmin: result.isAdmin,
+            balance: result.balance,
+            referralCode: result.referralCode,
+            phoneNumber: result.phoneNumber,
+            createdAt: result.createdAt,
+            lastSeen: result.lastSeen,
+            languageCode: result.languageCode,
+            walletAddress: result.walletAddress,
+            hasPasskey: result.hasPasskey,
+            subscriptionUrl: result.subscriptionUrl,
+            dataLimit: result.dataLimit,
+            dataUsed: result.dataUsed,
+            expire: result.expire,
+            status: result.status,
+            username: result.username,
+          }));
           if (result.isAdmin !== undefined) {
             setIsAdmin(result.isAdmin);
           }
         } else {
           console.error("Failed to sync user");
         }
+      }).catch((error) => {
+        console.error("Error syncing user:", error);
       });
     }
-  }, [setIsAdmin]);
+  }, [setIsAdmin, dispatch, syncUser]);
 
   return (
     <TooltipProvider>
@@ -69,11 +95,13 @@ const AppContent = () => {
 };
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AdminProvider>
-      <AppContent />
-    </AdminProvider>
-  </QueryClientProvider>
+  <Provider store={store}>
+    <QueryClientProvider client={queryClient}>
+      <AdminProvider>
+        <AppContent />
+      </AdminProvider>
+    </QueryClientProvider>
+  </Provider>
 );
 
 export default App;

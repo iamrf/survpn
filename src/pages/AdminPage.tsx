@@ -3,7 +3,20 @@ import { ShieldCheck, Users, Settings, Database, Activity, Search, RefreshCcw, C
 import BottomNav from "@/components/BottomNav";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
-import { getUsers, getAllWithdrawals, updateWithdrawalStatus, getTotalDeposits, getUserFinanceSummary, getConfigs, updateConfig, getAdminPlans, createPlan, updatePlan, deletePlan } from "@/lib/api";
+import { useAppSelector } from "@/store/hooks";
+import {
+    useGetUsersQuery,
+    useGetAllWithdrawalsQuery,
+    useUpdateWithdrawalStatusMutation,
+    useGetTotalDepositsQuery,
+    useGetUserFinanceSummaryQuery,
+    useGetConfigsQuery,
+    useUpdateConfigMutation,
+    useGetAdminPlansQuery,
+    useCreatePlanMutation,
+    useUpdatePlanMutation,
+    useDeletePlanMutation,
+} from "@/store/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,16 +40,10 @@ import {
 
 const AdminPage = () => {
     const [activeTab, setActiveTab] = useState<"overview" | "withdrawals" | "plans">("overview");
-    const [usersList, setUsersList] = useState<any[]>([]);
-    const [withdrawalsList, setWithdrawalsList] = useState<any[]>([]);
-    const [totalDeposits, setTotalDeposits] = useState<number | null>(null);
-    const [withdrawalsLoading, setWithdrawalsLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 
     // Withdrawal Detail Drawer State
     const [selectedWithdrawal, setSelectedWithdrawal] = useState<any>(null);
-    const [userFinance, setUserFinance] = useState<any>(null);
-    const [financeLoading, setFinanceLoading] = useState(false);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
     // Confirmation Alert State
@@ -44,13 +51,12 @@ const AdminPage = () => {
     const [confirmType, setConfirmType] = useState<'completed' | 'failed' | null>(null);
 
     // Config State
-    const [configs, setConfigs] = useState<Record<string, string>>({});
     const [saveConfigLoading, setSaveConfigLoading] = useState(false);
     const [isBonusDrawerOpen, setIsBonusDrawerOpen] = useState(false);
+    const [bonusTraffic, setBonusTraffic] = useState<string>('');
+    const [bonusDuration, setBonusDuration] = useState<string>('');
 
     // Plans State
-    const [plansList, setPlansList] = useState<any[]>([]);
-    const [plansLoading, setPlansLoading] = useState(false);
     const [isPlanDrawerOpen, setIsPlanDrawerOpen] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<any>(null);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -70,60 +76,58 @@ const AdminPage = () => {
     const navigate = useNavigate();
     const { toast } = useToast();
 
+    // RTK Query hooks
+    const { data: usersData } = useGetUsersQuery(undefined, { skip: activeTab !== 'overview' });
+    const usersList = usersData?.users || [];
+    
+    const { data: withdrawalsData, isLoading: withdrawalsLoading, refetch: refetchWithdrawals } = useGetAllWithdrawalsQuery(undefined, {
+        skip: activeTab !== 'overview' && activeTab !== 'withdrawals',
+    });
+    const withdrawalsList = withdrawalsData?.withdrawals || [];
+    
+    const { data: depositsData } = useGetTotalDepositsQuery(undefined, { skip: activeTab !== 'overview' });
+    const totalDeposits = depositsData?.total ?? null;
+    
+    const { data: configsData, refetch: refetchConfigs } = useGetConfigsQuery(undefined, { skip: activeTab !== 'overview' });
+    const configs = configsData?.configs || {};
+    
+    const { data: plansData, isLoading: plansLoading, refetch: refetchPlans } = useGetAdminPlansQuery(undefined, {
+        skip: activeTab !== 'plans',
+    });
+    const plansList = plansData?.plans || [];
+    
+    // Mutations
+    const [updateWithdrawalStatus] = useUpdateWithdrawalStatusMutation();
+    const [updateConfig] = useUpdateConfigMutation();
+    const [createPlan] = useCreatePlanMutation();
+    const [updatePlan] = useUpdatePlanMutation();
+    const [deletePlan] = useDeletePlanMutation();
+    const { data: userFinanceData, isLoading: financeLoading } = useGetUserFinanceSummaryQuery(
+        selectedWithdrawal?.user_id,
+        { skip: !selectedWithdrawal?.user_id }
+    );
+    const userFinance = userFinanceData?.summary;
+
     const stats = [
         { label: "تعداد کاربران", value: usersList.length.toLocaleString('fa-IR') || "...", icon: Users, color: "text-blue-400" },
-        { label: "درخواست برداشت", value: withdrawalsList.filter(w => w.status === 'pending').length.toLocaleString('fa-IR') || "۰", icon: ArrowUpRight, color: "text-yellow-400" },
+        { label: "درخواست برداشت", value: withdrawalsList.filter((w: any) => w.status === 'pending').length.toLocaleString('fa-IR') || "۰", icon: ArrowUpRight, color: "text-yellow-400" },
         { label: "مجموع واریزی‌ها", value: totalDeposits !== null ? `$${totalDeposits.toLocaleString()}` : "...", icon: Banknote, color: "text-green-400" },
     ];
 
-    const fetchAllUsers = async () => {
-        const result = await getUsers();
-        if (result.success && result.users) {
-            setUsersList(result.users);
-        }
-    };
-
-    const fetchAllWithdrawals = async () => {
-        setWithdrawalsLoading(true);
-        const result = await getAllWithdrawals();
-        if (result.success && result.withdrawals) {
-            setWithdrawalsList(result.withdrawals);
-        }
-        setWithdrawalsLoading(false);
-    };
-
-    const fetchTotalDeposits = async () => {
-        const result = await getTotalDeposits();
-        if (result.success) {
-            setTotalDeposits(result.total);
-        }
-    };
-
-    const fetchConfigs = async () => {
-        const result = await getConfigs();
-        if (result.success && result.configs) {
-            setConfigs(result.configs);
-        }
-    };
-
-    const fetchPlans = async () => {
-        setPlansLoading(true);
-        const result = await getAdminPlans();
-        if (result.success && result.plans) {
-            setPlansList(result.plans);
-        }
-        setPlansLoading(false);
-    };
-
     const handleUpdateConfig = async (key: string, value: string) => {
         setSaveConfigLoading(true);
-        const result = await updateConfig(key, value);
-        setSaveConfigLoading(false);
-        if (result.success) {
-            toast({ title: "تنظیمات ذخیره شد", description: "تغییرات با موفقیت اعمال شد" });
-            fetchConfigs();
-        } else {
-            toast({ title: "خطا", description: "خطا در ذخیره تنظیمات", variant: "destructive" });
+        try {
+            const result = await updateConfig({ key, value }).unwrap();
+            if (result.success) {
+                toast({ title: "تنظیمات ذخیره شد", description: "تغییرات با موفقیت اعمال شد" });
+                refetchConfigs();
+            } else {
+                toast({ title: "خطا", description: "خطا در ذخیره تنظیمات", variant: "destructive" });
+            }
+        } catch (err: any) {
+            toast({ title: "خطا", description: err?.data?.error || "خطا در ذخیره تنظیمات", variant: "destructive" });
+        } finally {
+            setSaveConfigLoading(false);
         }
     };
 
@@ -174,58 +178,58 @@ const AdminPage = () => {
             display_order: planForm.display_order
         };
 
-        const result = selectedPlan
-            ? await updatePlan(selectedPlan.id, planData)
-            : await createPlan(planData);
+        try {
+            const result = selectedPlan
+                ? await updatePlan({ planId: selectedPlan.id, plan: planData }).unwrap()
+                : await createPlan(planData).unwrap();
 
-        setSavePlanLoading(false);
-        if (result.success) {
-            toast({ title: "موفقیت", description: result.message || "پلن با موفقیت ذخیره شد" });
-            setIsPlanDrawerOpen(false);
-            fetchPlans();
-        } else {
-            toast({ title: "خطا", description: result.error || "خطا در ذخیره پلن", variant: "destructive" });
+            if (result.success) {
+                toast({ title: "موفقیت", description: result.message || "پلن با موفقیت ذخیره شد" });
+                setIsPlanDrawerOpen(false);
+                refetchPlans();
+            } else {
+                toast({ title: "خطا", description: result.error || "خطا در ذخیره پلن", variant: "destructive" });
+            }
+        } catch (err: any) {
+            toast({ title: "خطا", description: err?.data?.error || "خطا در ذخیره پلن", variant: "destructive" });
+        } finally {
+            setSavePlanLoading(false);
         }
     };
 
     const handleDeletePlan = async () => {
         if (!planToDelete) return;
-        const result = await deletePlan(planToDelete);
-        if (result.success) {
-            toast({ title: "موفقیت", description: result.message || "پلن با موفقیت حذف شد" });
-            setIsDeleteConfirmOpen(false);
-            setPlanToDelete(null);
-            fetchPlans();
-        } else {
-            toast({ title: "خطا", description: result.error || "خطا در حذف پلن", variant: "destructive" });
+        try {
+            const result = await deletePlan(planToDelete).unwrap();
+            if (result.success) {
+                toast({ title: "موفقیت", description: result.message || "پلن با موفقیت حذف شد" });
+                setIsDeleteConfirmOpen(false);
+                setPlanToDelete(null);
+                refetchPlans();
+            } else {
+                toast({ title: "خطا", description: result.error || "خطا در حذف پلن", variant: "destructive" });
+            }
+        } catch (err: any) {
+            toast({ title: "خطا", description: err?.data?.error || "خطا در حذف پلن", variant: "destructive" });
         }
     };
 
-    useEffect(() => {
-        if (activeTab === "withdrawals") fetchAllWithdrawals();
-        if (activeTab === "plans") fetchPlans();
-        if (activeTab === "overview") {
-            fetchAllUsers();
-            fetchAllWithdrawals();
-            fetchTotalDeposits();
-            fetchConfigs();
-        }
-    }, [activeTab]);
+    // Data is automatically fetched via RTK Query hooks based on activeTab
 
     const handleWithdrawAction = async (withdrawalId: string, status: 'completed' | 'failed') => {
         setActionLoading(withdrawalId);
         try {
-            const result = await updateWithdrawalStatus(withdrawalId, status);
+            const result = await updateWithdrawalStatus({ withdrawalId, status }).unwrap();
             if (result.success) {
                 toast({ title: "موفقیت", description: result.message });
-                fetchAllWithdrawals();
+                refetchWithdrawals();
                 setIsDrawerOpen(false); // Close drawer after action
                 setIsConfirmOpen(false);
             } else {
                 toast({ title: "خطا", description: result.error || "خطا در بروزرسانی وضعیت", variant: "destructive" });
             }
-        } catch (err) {
-            toast({ title: "خطا", description: "خطا در ارتباط با سرور", variant: "destructive" });
+        } catch (err: any) {
+            toast({ title: "خطا", description: err?.data?.error || "خطا در ارتباط با سرور", variant: "destructive" });
         } finally {
             setActionLoading(null);
         }
@@ -250,21 +254,10 @@ const AdminPage = () => {
         }
     };
 
-    const handleWithdrawalClick = async (withdrawal: any) => {
+    const handleWithdrawalClick = (withdrawal: any) => {
         setSelectedWithdrawal(withdrawal);
         setIsDrawerOpen(true);
-        setFinanceLoading(true);
-        setUserFinance(null);
-        try {
-            const result = await getUserFinanceSummary(withdrawal.user_id);
-            if (result.success) {
-                setUserFinance(result.summary);
-            }
-        } catch (err) {
-            console.error("Error fetching user finance summary:", err);
-        } finally {
-            setFinanceLoading(false);
-        }
+        // Finance data is automatically fetched via RTK Query hook
     };
 
 
@@ -409,7 +402,7 @@ const AdminPage = () => {
                             <div className="flex items-center justify-between">
                                 <h3 className="text-lg font-bold font-vazir">درخواست‌های برداشت</h3>
                                 <button
-                                    onClick={fetchAllWithdrawals}
+                                    onClick={() => refetchWithdrawals()}
                                     className={`p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors ${withdrawalsLoading ? "animate-spin" : ""}`}
                                 >
                                     <RefreshCcw size={16} />
@@ -466,7 +459,7 @@ const AdminPage = () => {
                                 <h3 className="text-lg font-bold font-vazir">مدیریت پلن‌ها</h3>
                                 <div className="flex items-center gap-2">
                                     <button
-                                        onClick={fetchPlans}
+                                        onClick={() => refetchPlans()}
                                         className={`p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors ${plansLoading ? "animate-spin" : ""}`}
                                     >
                                         <RefreshCcw size={16} />
@@ -774,8 +767,8 @@ const AdminPage = () => {
                                         id="traffic"
                                         type="number"
                                         className="bg-white/5 border-white/10 rounded-xl pl-10 font-mono text-left"
-                                        value={configs['welcome_bonus_traffic'] || '5'}
-                                        onChange={(e) => setConfigs({ ...configs, welcome_bonus_traffic: e.target.value })}
+                                        value={bonusTraffic || configs['welcome_bonus_traffic'] || '5'}
+                                        onChange={(e) => setBonusTraffic(e.target.value)}
                                     />
                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">GB</span>
                                 </div>
@@ -787,8 +780,8 @@ const AdminPage = () => {
                                         id="duration"
                                         type="number"
                                         className="bg-white/5 border-white/10 rounded-xl pl-10 font-mono text-left"
-                                        value={configs['welcome_bonus_duration'] || '30'}
-                                        onChange={(e) => setConfigs({ ...configs, welcome_bonus_duration: e.target.value })}
+                                        value={bonusDuration || configs['welcome_bonus_duration'] || '30'}
+                                        onChange={(e) => setBonusDuration(e.target.value)}
                                     />
                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-vazir">روز</span>
                                 </div>
@@ -799,8 +792,8 @@ const AdminPage = () => {
                             <Button
                                 className="w-full rounded-xl font-bold h-12"
                                 onClick={async () => {
-                                    await handleUpdateConfig('welcome_bonus_traffic', configs['welcome_bonus_traffic']);
-                                    await handleUpdateConfig('welcome_bonus_duration', configs['welcome_bonus_duration']);
+                                    await handleUpdateConfig('welcome_bonus_traffic', bonusTraffic || configs['welcome_bonus_traffic'] || '5');
+                                    await handleUpdateConfig('welcome_bonus_duration', bonusDuration || configs['welcome_bonus_duration'] || '30');
                                     setIsBonusDrawerOpen(false);
                                 }}
                                 disabled={saveConfigLoading}
