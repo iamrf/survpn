@@ -223,20 +223,17 @@ app.post('/api/sync-user', async (req, res) => {
             const WELCOME_BONUS = welcomeTraffic * 1024 * 1024 * 1024;
             const WELCOME_EXPIRE = Math.floor(Date.now() / 1000) + (welcomeDuration * 24 * 60 * 60);
 
-            if (!mUser) {
-                console.log(`Creating Marzban user with ${welcomeTraffic}GB and ${welcomeDuration} days Welcome Bonus: ${marzbanUsername}`);
+            // Welcome bonus only for new users on signup who haven't received it yet
+            if (isNewUser && !mUser && user.has_welcome_bonus === 0) {
+                console.log(`Creating Marzban user with ${welcomeTraffic}GB and ${welcomeDuration} days Welcome Bonus for new user: ${marzbanUsername}`);
                 mUser = await marzban.createUser(marzbanUsername, WELCOME_BONUS, WELCOME_EXPIRE);
                 db.prepare('UPDATE users SET has_welcome_bonus = 1 WHERE id = ?').run(id);
-            } else if (user.has_welcome_bonus === 0) {
-                console.log(`Granting ${welcomeTraffic}GB and extending ${welcomeDuration} days Welcome Bonus to existing user: ${marzbanUsername}`);
-                // Add to existing limit
-                const newLimit = (mUser.data_limit || 0) + WELCOME_BONUS;
-                // Update limit AND expiration
-                mUser = await marzban.updateUser(marzbanUsername, {
-                    data_limit: newLimit,
-                    expire: WELCOME_EXPIRE
-                });
-                db.prepare('UPDATE users SET has_welcome_bonus = 1 WHERE id = ?').run(id);
+            } else if (mUser) {
+                // For existing users, just fetch their current data
+                console.log(`Fetching existing Marzban user data: ${marzbanUsername}`);
+            } else if (user.has_welcome_bonus === 1) {
+                // User already received welcome bonus, don't grant again
+                console.log(`User ${marzbanUsername} already received welcome bonus, skipping`);
             }
 
             subscriptionUrl = mUser?.subscription_url || '';

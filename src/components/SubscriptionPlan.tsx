@@ -29,12 +29,22 @@ interface SubscriptionPlanProps {
     plan: Plan;
     onPurchase: (plan: Plan) => void;
     isLoading?: boolean;
+    currentUserDataLimit?: number;
 }
 
-const SubscriptionPlan: React.FC<SubscriptionPlanProps> = ({ plan, onPurchase, isLoading }) => {
+const SubscriptionPlan: React.FC<SubscriptionPlanProps> = ({ plan, onPurchase, isLoading, currentUserDataLimit }) => {
     const isGold = plan.id === 'gold';
     const isSilver = plan.id === 'silver';
     const isBronze = plan.id === 'bronze';
+    
+    // Check if this plan matches user's current subscription
+    const isCurrentPlan = currentUserDataLimit ? (() => {
+        const userLimitGB = currentUserDataLimit / (1024 * 1024 * 1024);
+        // Allow tolerance of 1GB
+        return Math.abs(plan.traffic - userLimitGB) < 1;
+    })() : false;
+    
+    const buttonLabel = isCurrentPlan ? 'تمدید' : 'خرید و فعالسازی با یک کلیک';
 
     const getTierColor = () => {
         if (isGold) return 'from-yellow-400 via-amber-500 to-yellow-600';
@@ -124,7 +134,7 @@ const SubscriptionPlan: React.FC<SubscriptionPlanProps> = ({ plan, onPurchase, i
                                     </span>
                                 ) : (
                                     <span className="flex items-center gap-2">
-                                        انتخاب و تمدید سرویس
+                                        {buttonLabel}
                                         <Zap className="w-4 h-4" />
                                     </span>
                                 )}

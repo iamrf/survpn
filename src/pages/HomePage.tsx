@@ -132,6 +132,7 @@ const HomePage = () => {
                   plan={plan}
                   onPurchase={handlePurchase}
                   isLoading={purchasingPlanId === plan.id}
+                  currentUserDataLimit={currentUser?.dataLimit}
                 />
               ))
             )}

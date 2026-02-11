@@ -54,6 +54,21 @@ const ProfileCard = () => {
   const secondsRemaining = expire ? expire - now : null;
   const daysRemaining = secondsRemaining ? Math.ceil(secondsRemaining / 86400) : null;
   
+  // Check if subscription is active
+  const isSubscriptionActive = () => {
+    if (!subscriptionUrl) return false;
+    if (status !== 'active') return false;
+    if (dataLimit <= 0) return false;
+    // Check if expired
+    if (expire) {
+      const now = Math.floor(Date.now() / 1000);
+      if (expire < now) return false;
+    }
+    return true;
+  };
+  
+  const hasActiveSubscription = isSubscriptionActive();
+  
   // Calculate usage percentage
   const usagePercent = dataLimit > 0 ? Math.min((dataUsed / dataLimit) * 100, 100) : 0;
   
@@ -261,7 +276,7 @@ const ProfileCard = () => {
           </h2>
           
           {/* Subscription Info */}
-          {subscriptionUrl ? (
+          {hasActiveSubscription ? (
             <div className="mt-2 space-y-2">
               <motion.div 
                 className="flex items-center gap-2 flex-wrap cursor-pointer hover:opacity-80 transition-opacity"
@@ -281,26 +296,26 @@ const ProfileCard = () => {
                 whileTap={{ scale: 0.98 }}
               >
                 {/* Usage Bar */}
-              {dataLimit > 0 && (
-                <div className="space-y-1.5" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center justify-between text-xs font-vazir">
-                    <span className="text-muted-foreground">
-                      {Math.round(usagePercent)}% استفاده شده
-                    </span>
-                    <span dir="ltr" className="text-muted-foreground text-left">
-                      {formatBytes(dataUsed)} / {formatBytes(dataLimit)}
-                    </span>
+                {dataLimit > 0 && (
+                  <div className="space-y-1.5" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-between text-xs font-vazir">
+                      <span className="text-muted-foreground">
+                        {Math.round(usagePercent)}% استفاده شده
+                      </span>
+                      <span dir="ltr" className="text-muted-foreground text-left">
+                        {formatBytes(dataUsed)} / {formatBytes(dataLimit)}
+                      </span>
+                    </div>
+                    <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden border border-white/5 p-[1px]">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${usagePercent}%` }}
+                        transition={{ duration: 0.5, ease: "easeOut" }}
+                        className={`h-full rounded-full bg-gradient-to-l ${usageBarColor}`}
+                      />
+                    </div>
                   </div>
-                  <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden border border-white/5 p-[1px]">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${usagePercent}%` }}
-                      transition={{ duration: 0.5, ease: "easeOut" }}
-                      className={`h-full rounded-full bg-gradient-to-l ${usageBarColor}`}
-                    />
-                  </div>
-                </div>
-              )}
+                )}
               </motion.div>
               
               
