@@ -45,12 +45,14 @@ const AppContent = () => {
         // Format: https://t.me/botname?start=referral_code
         const { getReferralCodeFromStartParam } = await import('@/lib/telegram');
         const referralCode = getReferralCodeFromStartParam();
+        console.log('[REFERRAL] Referral code from start param:', referralCode);
         
         // Prepare user data with referral code if present
         const userData = {
           ...user,
           ...(referralCode && { referral_code: referralCode })
         };
+        console.log('[REFERRAL] User data with referral code:', { ...userData, referral_code: referralCode || 'none' });
       
       syncUser(userData).unwrap().then((result) => {
         if (result.success) {

@@ -59,9 +59,18 @@ function getUniqueReferralCode() {
     return code;
 }
 
-// Get user by referral code
+// Get user by referral code (case-insensitive)
 function getUserByReferralCode(code) {
-    return db.prepare('SELECT id, referral_bonus_rate, referral_registration_bonus FROM users WHERE referral_code = ?').get(code);
+    if (!code || typeof code !== 'string') {
+        console.log('[REFERRAL] Invalid referral code format:', code);
+        return null;
+    }
+    // Convert to uppercase for consistency (referral codes are stored in uppercase)
+    const upperCode = code.toUpperCase().trim();
+    console.log('[REFERRAL] Looking up referral code:', upperCode);
+    const result = db.prepare('SELECT id, referral_bonus_rate, referral_registration_bonus FROM users WHERE UPPER(referral_code) = ?').get(upperCode);
+    console.log('[REFERRAL] Lookup result:', result ? `Found user ${result.id}` : 'Not found');
+    return result;
 }
 
 // Update Wallet Address
@@ -130,13 +139,20 @@ app.post('/api/sync-user', async (req, res) => {
         let referredBy = null;
         let registrationBonus = 0;
         if (isNewUser && referral_code) {
+            console.log(`[REFERRAL] New user ${id} registering with referral code: ${referral_code}`);
             const referrer = getUserByReferralCode(referral_code);
+            console.log(`[REFERRAL] Referrer lookup result:`, referrer);
             if (referrer && referrer.id !== id) {
                 referredBy = referrer.id;
                 // Get registration bonus amount from referrer's settings or default config
                 const defaultBonus = db.prepare("SELECT value FROM configs WHERE key = 'referral_registration_bonus'").get();
                 registrationBonus = referrer.referral_registration_bonus || parseFloat(defaultBonus?.value || '1.00');
+                console.log(`[REFERRAL] User ${id} referred by ${referredBy}, bonus: $${registrationBonus}`);
+            } else {
+                console.log(`[REFERRAL] Invalid referral code or self-referral attempt`);
             }
+        } else if (isNewUser && !referral_code) {
+            console.log(`[REFERRAL] New user ${id} registering without referral code`);
         }
 
         const defaultCommissionRate = db.prepare("SELECT value FROM configs WHERE key = 'default_referral_commission_rate'").get();
@@ -427,8 +443,11 @@ app.post('/api/admin/user/:id/referral', (req, res) => {
 app.get('/api/user/:id/referral-stats', (req, res) => {
     const { id } = req.params;
     try {
+        console.log(`[REFERRAL STATS] Fetching stats for user ${id}`);
+        
         // Count referrals
         const referralCount = db.prepare('SELECT COUNT(*) as count FROM users WHERE referred_by = ?').get(id);
+        console.log(`[REFERRAL STATS] Referral count: ${referralCount?.count || 0}`);
         
         // Total commissions earned
         const totalCommissions = db.prepare(`
@@ -436,6 +455,7 @@ app.get('/api/user/:id/referral-stats', (req, res) => {
             FROM referral_commissions 
             WHERE referrer_id = ? AND status = 'paid'
         `).get(id);
+        console.log(`[REFERRAL STATS] Total commissions: ${totalCommissions?.total || 0}`);
         
         // Recent commissions
         const recentCommissions = db.prepare(`
@@ -444,6 +464,7 @@ app.get('/api/user/:id/referral-stats', (req, res) => {
             ORDER BY created_at DESC 
             LIMIT 10
         `).all(id);
+        console.log(`[REFERRAL STATS] Recent commissions: ${recentCommissions.length}`);
 
         // List of referred users with their details
         const referredUsers = db.prepare(`
@@ -459,6 +480,7 @@ app.get('/api/user/:id/referral-stats', (req, res) => {
             WHERE referred_by = ? 
             ORDER BY created_at DESC
         `).all(id);
+        console.log(`[REFERRAL STATS] Referred users found: ${referredUsers.length}`);
 
         // Get commission count per referred user
         const referredUsersWithStats = referredUsers.map(user => {
@@ -477,7 +499,7 @@ app.get('/api/user/:id/referral-stats', (req, res) => {
             };
         });
 
-        res.json({
+        const response = {
             success: true,
             stats: {
                 referralCount: referralCount?.count || 0,
@@ -485,7 +507,14 @@ app.get('/api/user/:id/referral-stats', (req, res) => {
                 recentCommissions,
                 referredUsers: referredUsersWithStats
             }
+        };
+        console.log(`[REFERRAL STATS] Response for user ${id}:`, {
+            referralCount: response.stats.referralCount,
+            totalCommissions: response.stats.totalCommissions,
+            recentCommissionsCount: response.stats.recentCommissions.length,
+            referredUsersCount: response.stats.referredUsers.length
         });
+        res.json(response);
     } catch (error) {
         console.error('Error fetching referral stats:', error);
         res.status(500).json({ error: 'Internal server error' });
