@@ -22,6 +22,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 import { useEffect } from "react";
 import { getTelegramUser } from "./lib/telegram";
 import { AdminProvider, useAdmin } from "./components/AdminProvider";
+import { TelegramAccessGuard } from "./components/TelegramAccessGuard";
 import { store } from "./store";
 import { useSyncUserMutation } from "./store/api";
 import { setCurrentUser } from "./store/slices/userSlice";
@@ -119,7 +120,9 @@ const App = () => (
   <Provider store={store}>
     <QueryClientProvider client={queryClient}>
       <AdminProvider>
-        <AppContent />
+        <TelegramAccessGuard>
+          <AppContent />
+        </TelegramAccessGuard>
       </AdminProvider>
     </QueryClientProvider>
   </Provider>

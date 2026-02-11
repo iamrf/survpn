@@ -69,3 +69,18 @@ export function getReferralCodeFromStartParam(): string | null {
   }
   return null;
 }
+
+// Check if the app is actually running inside Telegram WebApp (not just mock)
+export function isTelegramWebApp(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  // Check if Telegram WebApp object exists and has required properties
+  const hasWebApp = !!window.Telegram?.WebApp;
+  const hasUser = !!window.Telegram?.WebApp?.initDataUnsafe?.user;
+  const hasValidUser = hasUser && 
+    window.Telegram.WebApp.initDataUnsafe.user?.id && 
+    window.Telegram.WebApp.initDataUnsafe.user?.first_name;
+  
+  return hasWebApp && hasValidUser;
+}
