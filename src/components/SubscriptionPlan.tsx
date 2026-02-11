@@ -33,9 +33,9 @@ interface SubscriptionPlanProps {
 }
 
 const SubscriptionPlan: React.FC<SubscriptionPlanProps> = ({ plan, onPurchase, isLoading, currentUserDataLimit }) => {
-    const isGold = plan.id === 'gold';
-    const isSilver = plan.id === 'silver';
-    const isBronze = plan.id === 'bronze';
+    const isGold = plan.id === 'Business';
+    const isSilver = plan.id === 'Free';
+    const isBronze = plan.id === 'Standard';
     
     // Check if this plan matches user's current subscription
     const isCurrentPlan = currentUserDataLimit ? (() => {

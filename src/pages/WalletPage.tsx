@@ -236,14 +236,74 @@ const WalletPage = () => {
     return referralLink;
   };
 
-  const copyReferralLink = () => {
+  const copyToClipboard = async (text: string) => {
+    if (!text) return;
+    
+    try {
+      // Try modern Clipboard API first
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+      
+      // Fallback for older browsers or Telegram WebApp
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      
+      try {
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        return successful;
+      } catch (err) {
+        document.body.removeChild(textArea);
+        throw err;
+      }
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+      return false;
+    }
+  };
+
+  const copyReferralLink = async () => {
     const link = getReferralLink();
     if (link) {
-      navigator.clipboard.writeText(link);
-      toast({
-        title: "کپی شد",
-        description: "لینک معرفی در حافظه کپی شد",
-      });
+      const success = await copyToClipboard(link);
+      if (success) {
+        toast({
+          title: "کپی شد",
+          description: "لینک معرفی در حافظه کپی شد",
+        });
+      } else {
+        toast({
+          title: "خطا",
+          description: "کپی انجام نشد",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const copyReferralCode = async () => {
+    if (referralCode) {
+      const success = await copyToClipboard(referralCode);
+      if (success) {
+        toast({
+          title: "کپی شد",
+          description: "کد معرف کپی شد",
+        });
+      } else {
+        toast({
+          title: "خطا",
+          description: "کپی انجام نشد",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -404,12 +464,7 @@ const WalletPage = () => {
                       readOnly
                       className="text-center font-mono text-lg font-bold tracking-wider bg-background cursor-pointer hover:bg-muted transition-colors"
                       dir="ltr"
-                      onClick={() => {
-                        if (referralCode) {
-                          navigator.clipboard.writeText(referralCode);
-                          toast({ title: "کپی شد", description: "کد معرف کپی شد" });
-                        }
-                      }}
+                      onClick={copyReferralCode}
                     />
                     <Button
                       variant="ghost"
@@ -417,10 +472,7 @@ const WalletPage = () => {
                       className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (referralCode) {
-                          navigator.clipboard.writeText(referralCode);
-                          toast({ title: "کپی شد", description: "کد معرف کپی شد" });
-                        }
+                        copyReferralCode();
                       }}
                     >
                       <Copy className="w-4 h-4" />

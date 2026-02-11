@@ -75,9 +75,3 @@ CREATE TABLE IF NOT EXISTS plans (
 
 CREATE INDEX IF NOT EXISTS idx_plans_active ON plans (is_active);
 CREATE INDEX IF NOT EXISTS idx_plans_order ON plans (display_order);
-
--- Insert default plans
-INSERT OR IGNORE INTO plans (id, name, traffic, duration, price, description, display_order) VALUES
-    ('bronze', 'برنز (اقتصادی)', 10, 30, 2, 'مناسب برای وب‌گردی روزمره', 1),
-    ('silver', 'نقره‌ای (استاندارد)', 50, 60, 7, 'پیشنهاد ویژه برای استفاده مداوم', 2),
-    ('gold', 'طلایی (نامحدود*)', 200, 90, 15, 'برترین کیفیت بدون نگرانی از حجم', 3);
