@@ -54,6 +54,19 @@ const ProfileCard = () => {
   const secondsRemaining = expire ? expire - now : null;
   const daysRemaining = secondsRemaining ? Math.ceil(secondsRemaining / 86400) : null;
   
+  // Calculate usage percentage
+  const usagePercent = dataLimit > 0 ? Math.min((dataUsed / dataLimit) * 100, 100) : 0;
+  
+  // Get usage bar color based on percentage
+  const getUsageBarColor = (percent: number) => {
+    if (percent >= 90) return 'from-red-500 to-red-600';
+    if (percent >= 80) return 'from-orange-500 to-orange-600';
+    if (percent >= 50) return 'from-yellow-500 to-yellow-600';
+    return 'from-green-500 to-green-600';
+  };
+  
+  const usageBarColor = getUsageBarColor(usagePercent);
+  
   // Get status badge
   const getStatusBadge = (s: string) => {
     switch (s) {
@@ -263,24 +276,34 @@ const ProfileCard = () => {
                 </Badge>
               </motion.div>
               <motion.div 
-                className="flex items-center gap-3 text-xs text-muted-foreground font-vazir flex-wrap cursor-pointer hover:opacity-80 transition-opacity"
+                className="w-full flex items-center gap-3 text-xs text-muted-foreground font-vazir flex-wrap cursor-pointer hover:opacity-80 transition-opacity"
                 onClick={() => navigate('/missions')}
                 whileTap={{ scale: 0.98 }}
               >
-                {dataLimit > 0 && (
-                  <span dir="ltr" className="text-left">
-                    {formatBytes(dataLimit)} حجم کل
-                  </span>
-                )}
-                {daysRemaining !== null && daysRemaining > 0 && (
-                  <span>
-                    {daysRemaining} روز باقیمانده
-                  </span>
-                )}
-                {daysRemaining !== null && daysRemaining <= 0 && (
-                  <span className="text-red-500">منقضی شده</span>
-                )}
+                {/* Usage Bar */}
+              {dataLimit > 0 && (
+                <div className="space-y-1.5" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center justify-between text-xs font-vazir">
+                    <span className="text-muted-foreground">
+                      {Math.round(usagePercent)}% استفاده شده
+                    </span>
+                    <span dir="ltr" className="text-muted-foreground text-left">
+                      {formatBytes(dataUsed)} / {formatBytes(dataLimit)}
+                    </span>
+                  </div>
+                  <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden border border-white/5 p-[1px]">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${usagePercent}%` }}
+                      transition={{ duration: 0.5, ease: "easeOut" }}
+                      className={`h-full rounded-full bg-gradient-to-l ${usageBarColor}`}
+                    />
+                  </div>
+                </div>
+              )}
               </motion.div>
+              
+              
               
               {/* Subscription Link */}
               <div className="mt-3 pt-3 border-t border-white/5" onClick={(e) => e.stopPropagation()}>
