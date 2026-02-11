@@ -242,7 +242,7 @@ const ProfileCard = () => {
         </motion.div>
 
         {/* User Info */}
-        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate('/settings')}>
+        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate('/missions')}>
           <h2 className="text-lg font-bold text-foreground truncate font-vazir text-right">
             {displayName}
           </h2>
@@ -284,14 +284,23 @@ const ProfileCard = () => {
               
               {/* Subscription Link */}
               <div className="mt-3 pt-3 border-t border-white/5" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center gap-2 mb-2">
+                <motion.div 
+                  className="flex items-center gap-2 mb-2 cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={handleCopySubscriptionLink}
+                  whileTap={{ scale: 0.98 }}
+                >
                   <Link2 className="w-4 h-4 text-primary" />
                   <span className="text-xs font-bold text-foreground font-vazir">لینک اشتراک</span>
-                </div>
+                </motion.div>
                 <div className="relative group">
-                  <div dir="ltr" className="p-2.5 pl-16 rounded-xl bg-black/20 border border-white/5 font-mono text-[10px] overflow-hidden text-ellipsis whitespace-nowrap text-muted-foreground group-hover:text-foreground transition-colors text-left">
+                  <motion.div 
+                    dir="ltr" 
+                    className="p-2.5 pl-16 rounded-xl bg-black/20 border border-white/5 font-mono text-[10px] overflow-hidden text-ellipsis whitespace-nowrap text-muted-foreground group-hover:text-foreground transition-colors text-left cursor-pointer"
+                    onClick={handleCopySubscriptionLink}
+                    whileTap={{ scale: 0.98 }}
+                  >
                     {subscriptionUrl}
-                  </div>
+                  </motion.div>
                   <div className="absolute left-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
                     <Button
                       size="icon"
