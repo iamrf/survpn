@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Copy, Check, User as UserIcon, Phone, QrCode, Link2 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { getTelegramUser } from "@/lib/telegram";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +13,7 @@ import { useAppSelector } from "@/store/hooks";
 import { getPlanInfo } from "@/lib/planUtils";
 
 const ProfileCard = () => {
+  const navigate = useNavigate();
   const tgUser = getTelegramUser();
   const [copied, setCopied] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -227,7 +229,8 @@ const ProfileCard = () => {
         <motion.div
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="relative"
+          className="relative cursor-pointer"
+          onClick={() => navigate('/settings')}
         >
           <Avatar className="h-16 w-16 ring-2 ring-primary/50 ring-offset-2 ring-offset-background shadow-lg shadow-primary/20">
             <AvatarImage src={tgUser.photo_url} alt={displayName} />
@@ -239,7 +242,7 @@ const ProfileCard = () => {
         </motion.div>
 
         {/* User Info */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate('/settings')}>
           <h2 className="text-lg font-bold text-foreground truncate font-vazir text-right">
             {displayName}
           </h2>
@@ -247,15 +250,23 @@ const ProfileCard = () => {
           {/* Subscription Info */}
           {subscriptionUrl ? (
             <div className="mt-2 space-y-2">
-              <div className="flex items-center gap-2 flex-wrap">
+              <motion.div 
+                className="flex items-center gap-2 flex-wrap cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => navigate('/missions')}
+                whileTap={{ scale: 0.98 }}
+              >
                 {planName && (
                   <span className="text-sm font-medium text-foreground font-vazir">{planName}</span>
                 )}
                 <Badge variant="outline" className={`${statusBadge.color} text-xs font-vazir border shrink-0`}>
                   {statusBadge.label}
                 </Badge>
-              </div>
-              <div className="flex items-center gap-3 text-xs text-muted-foreground font-vazir flex-wrap">
+              </motion.div>
+              <motion.div 
+                className="flex items-center gap-3 text-xs text-muted-foreground font-vazir flex-wrap cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => navigate('/missions')}
+                whileTap={{ scale: 0.98 }}
+              >
                 {dataLimit > 0 && (
                   <span dir="ltr" className="text-left">
                     {formatBytes(dataLimit)} حجم کل
@@ -269,10 +280,10 @@ const ProfileCard = () => {
                 {daysRemaining !== null && daysRemaining <= 0 && (
                   <span className="text-red-500">منقضی شده</span>
                 )}
-              </div>
+              </motion.div>
               
               {/* Subscription Link */}
-              <div className="mt-3 pt-3 border-t border-white/5">
+              <div className="mt-3 pt-3 border-t border-white/5" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center gap-2 mb-2">
                   <Link2 className="w-4 h-4 text-primary" />
                   <span className="text-xs font-bold text-foreground font-vazir">لینک اشتراک</span>
@@ -285,7 +296,10 @@ const ProfileCard = () => {
                     <Button
                       size="icon"
                       variant="ghost"
-                      onClick={handleCopySubscriptionLink}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCopySubscriptionLink();
+                      }}
                       className="h-7 w-7 rounded-lg hover:bg-primary/20 hover:text-primary"
                     >
                       <AnimatePresence mode="wait">
@@ -305,6 +319,7 @@ const ProfileCard = () => {
                         <Button
                           size="icon"
                           variant="ghost"
+                          onClick={(e) => e.stopPropagation()}
                           className="h-7 w-7 rounded-lg hover:bg-primary/20 hover:text-primary"
                         >
                           <QrCode className="w-3.5 h-3.5" />
