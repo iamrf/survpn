@@ -53,19 +53,28 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  // Handle cases where limit might be 0 (limited subscriptions)
   const usagePercent = subscriptionData.limit > 0 
     ? Math.min((subscriptionData.used / subscriptionData.limit) * 100, 100) 
-    : 0;
+    : subscriptionData.used > 0 
+      ? 100 // If used > 0 but limit is 0, show 100% usage
+      : 0;
   const remainingData = Math.max(0, subscriptionData.limit - subscriptionData.used);
 
-  // Calculate days remaining
+  // Calculate days remaining (can be negative if expired)
   const now = Math.floor(Date.now() / 1000);
   const secondsRemaining = subscriptionData.expire ? subscriptionData.expire - now : null;
-  const daysRemaining = secondsRemaining ? Math.ceil(secondsRemaining / 86400) : null;
-  const hoursRemaining = secondsRemaining ? Math.ceil((secondsRemaining % 86400) / 3600) : null;
+  const daysRemaining = secondsRemaining !== null ? Math.ceil(secondsRemaining / 86400) : null;
+  const hoursRemaining = secondsRemaining !== null ? Math.ceil((secondsRemaining % 86400) / 3600) : null;
+  const isExpired = secondsRemaining !== null && secondsRemaining < 0;
 
-  // Get status badge
+  // Get status badge (check expiration time if status is active)
   const getStatusBadge = (status: string) => {
+    // If expired by time, override status
+    if (isExpired) {
+      return { label: 'منقضی شده', color: 'bg-red-500/10 text-red-500 border-red-500/20' };
+    }
+    
     switch (status) {
       case 'active': return { label: 'فعال', color: 'bg-green-500/10 text-green-500 border-green-500/20' };
       case 'limited': return { label: 'محدود شده', color: 'bg-orange-500/10 text-orange-500 border-orange-500/20' };
@@ -85,11 +94,16 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
     return '#22c55e'; // green
   };
 
-  // Chart data for usage
-  const usageChartData = [
-    { name: 'استفاده شده', value: subscriptionData.used, fill: getUsageBarColor(usagePercent) },
-    { name: 'باقیمانده', value: remainingData, fill: '#1f2937' }
-  ];
+  // Chart data for usage (handle limited subscriptions where limit might be 0)
+  const usageChartData = subscriptionData.limit > 0 || subscriptionData.used > 0
+    ? [
+        { name: 'استفاده شده', value: subscriptionData.used, fill: getUsageBarColor(usagePercent) },
+        { name: 'باقیمانده', value: remainingData, fill: '#1f2937' }
+      ]
+    : [
+        { name: 'استفاده شده', value: 0, fill: '#1f2937' },
+        { name: 'باقیمانده', value: 1, fill: '#1f2937' } // Show empty chart
+      ];
 
   // Chart data for radial progress
   const radialData = [
@@ -131,18 +145,21 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
-      <Card className="border-none bg-gradient-to-br from-primary/5 via-secondary/5 to-primary/10 backdrop-blur-xl shadow-2xl overflow-hidden">
+      <Card className={`border-none bg-gradient-to-br from-primary/5 via-secondary/5 to-primary/10 backdrop-blur-xl shadow-2xl overflow-hidden ${isExpired ? 'opacity-90' : ''}`}>
         {/* Header */}
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-3 rounded-2xl bg-primary/10 text-primary">
+              <div className={`p-3 rounded-2xl ${isExpired ? 'bg-red-500/10 text-red-500' : 'bg-primary/10 text-primary'}`}>
                 <ShieldCheck className="w-6 h-6" />
               </div>
               <div>
                 <CardTitle className="text-xl font-black font-vazir">{getTitle()}</CardTitle>
                 <p className="text-xs text-muted-foreground font-vazir mt-1">
                   {subscriptionData.username || 'نام کاربری'}
+                  {isExpired && (
+                    <span className="text-red-500 mr-2">(منقضی شده)</span>
+                  )}
                 </p>
               </div>
             </div>
@@ -329,14 +346,18 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
             <div className="bg-white/5 rounded-xl p-4 border border-white/5">
               <div className="flex items-center gap-2 mb-2">
                 <Calendar className="w-4 h-4 text-primary" />
-                <span className="text-xs text-muted-foreground font-vazir">زمان باقیمانده</span>
+                <span className="text-xs text-muted-foreground font-vazir">
+                  {isExpired ? 'زمان انقضا' : 'زمان باقیمانده'}
+                </span>
               </div>
-              <p className="text-lg font-black font-vazir">
+              <p className={`text-lg font-black font-vazir ${isExpired ? 'text-red-500' : ''}`}>
                 {daysRemaining !== null && daysRemaining > 0 
                   ? `${daysRemaining} روز ${hoursRemaining && hoursRemaining > 0 ? `و ${hoursRemaining} ساعت` : ''}`
                   : daysRemaining === 0 
                     ? 'امروز منقضی می‌شود'
-                    : 'منقضی شده'
+                    : isExpired && daysRemaining !== null
+                      ? `${Math.abs(daysRemaining)} روز پیش منقضی شد`
+                      : 'نامشخص'
                 }
               </p>
             </div>
@@ -374,11 +395,25 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
             </div>
           </div>
 
+          {/* Expired Notice */}
+          {isExpired && (
+            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20">
+              <p className="text-sm text-red-500 font-vazir text-center">
+                ⚠️ این اشتراک منقضی شده است. برای استفاده مجدد، لطفاً یک اشتراک جدید خریداری کنید.
+              </p>
+            </div>
+          )}
+
           {/* Subscription Link Section */}
           <div className="pt-4 border-t border-white/5 space-y-3">
             <div className="flex items-center gap-2">
               <Link2 className="w-4 h-4 text-primary" />
               <span className="text-sm font-bold text-foreground font-vazir">لینک اشتراک</span>
+              {isExpired && (
+                <Badge variant="outline" className="text-xs bg-red-500/10 text-red-500 border-red-500/20">
+                  غیرفعال
+                </Badge>
+              )}
             </div>
             <div className="relative group">
               <div 

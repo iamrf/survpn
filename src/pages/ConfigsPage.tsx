@@ -217,11 +217,10 @@ const ConfigsPage = () => {
     return colors[type] || { bg: 'bg-gray-500/10', border: 'border-gray-500/20', text: 'text-gray-500' };
   };
 
-  // Check if subscription is active
-  const isSubscriptionActive = subscriptionData?.url && 
-    subscriptionData?.status === 'active' && 
-    subscriptionData?.limit > 0 &&
-    (subscriptionData?.expire ? subscriptionData.expire > Math.floor(Date.now() / 1000) : true);
+  // Show subscription card if there's a subscription URL
+  // This includes active, limited, expired, and disabled subscriptions
+  // Users can see their usage history until they register a new subscription
+  const hasSubscriptionData = !!subscriptionData?.url;
 
   return (
     <div className="min-h-screen flex flex-col pb-24 bg-background" dir="rtl">
@@ -240,8 +239,8 @@ const ConfigsPage = () => {
           </div>
         </motion.div>
 
-        {/* Subscription Info Card */}
-        {isSubscriptionActive && subscriptionData && (
+        {/* Subscription Info Card - Show even if expired to display usage history */}
+        {hasSubscriptionData && subscriptionData && (
           <SubscriptionInfoCard
             subscriptionData={subscriptionData}
             onRefresh={handleRefreshSubscription}
