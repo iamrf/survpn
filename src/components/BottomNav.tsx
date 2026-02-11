@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Home, Wallet, Download, Settings, ShieldCheck } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAdmin } from "./AdminProvider";
+import { useNavBadges } from "@/hooks/useNavBadges";
 
 interface NavItem {
   icon: React.ElementType;
@@ -22,8 +23,21 @@ const BottomNav = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAdmin } = useAdmin();
+  const badges = useNavBadges();
 
   const filteredNavItems = navItems.filter(item => !item.adminOnly || isAdmin);
+  
+  // Get badge count for a nav item
+  const getBadgeCount = (path: string): number => {
+    if (path === '/admin') return badges.admin.count;
+    return 0;
+  };
+  
+  // Check if badge should be shown for a nav item
+  const shouldShowBadge = (path: string): boolean => {
+    if (path === '/admin') return badges.admin.show;
+    return false;
+  };
 
   return (
     <motion.nav
@@ -47,7 +61,7 @@ const BottomNav = () => {
               className="flex flex-col items-center gap-1 min-w-[64px] py-1"
             >
               <motion.div
-                className={`p-2 rounded-xl transition-colors duration-300 ${isActive
+                className={`relative p-2 rounded-xl transition-colors duration-300 ${isActive
                   ? "bg-primary/20 text-primary"
                   : "text-muted-foreground hover:text-foreground"
                   }`}
@@ -55,6 +69,17 @@ const BottomNav = () => {
                 transition={{ duration: 0.3 }}
               >
                 <Icon className="h-6 w-6" strokeWidth={isActive ? 2.5 : 2} />
+                
+                {/* Badge */}
+                {shouldShowBadge(item.path) && (
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center px-1 rounded-full bg-red-500 text-white text-[10px] font-bold border-2 border-background shadow-lg"
+                  >
+                    {getBadgeCount(item.path) > 99 ? '99+' : getBadgeCount(item.path)}
+                  </motion.div>
+                )}
               </motion.div>
               <span
                 className={`text-xs font-medium transition-colors duration-300 ${isActive ? "text-primary" : "text-muted-foreground"

@@ -12,6 +12,7 @@ import { getTelegramUser } from "@/lib/telegram";
 import { getPlanInfo } from "@/lib/planUtils";
 import { useGetPlansQuery } from "@/store/api";
 import { setSubscriptionData } from "@/store/slices/index";
+import SubscriptionInfoCard from "@/components/SubscriptionInfoCard";
 
 interface ServerConfig {
   id: string;
@@ -216,6 +217,12 @@ const ConfigsPage = () => {
     return colors[type] || { bg: 'bg-gray-500/10', border: 'border-gray-500/20', text: 'text-gray-500' };
   };
 
+  // Check if subscription is active
+  const isSubscriptionActive = subscriptionData?.url && 
+    subscriptionData?.status === 'active' && 
+    subscriptionData?.limit > 0 &&
+    (subscriptionData?.expire ? subscriptionData.expire > Math.floor(Date.now() / 1000) : true);
+
   return (
     <div className="min-h-screen flex flex-col pb-24 bg-background" dir="rtl">
       <div className="p-6 pt-12 space-y-6 max-w-lg mx-auto w-full">
@@ -232,6 +239,15 @@ const ConfigsPage = () => {
             <p className="text-muted-foreground text-sm font-vazir">لینک اشتراک و سرورهای VPN</p>
           </div>
         </motion.div>
+
+        {/* Subscription Info Card */}
+        {isSubscriptionActive && subscriptionData && (
+          <SubscriptionInfoCard
+            subscriptionData={subscriptionData}
+            onRefresh={handleRefreshSubscription}
+            refreshing={refreshing === 'subscription'}
+          />
+        )}
 
         {/* Servers List */}
         {subscriptionData?.url && (
