@@ -33,21 +33,32 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Generate unique referral code (5 chars, a-z0-9)
+// Word list for 5-word referral codes
+const REFERRAL_WORDS = [
+    'alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot', 'golf', 'hotel',
+    'india', 'juliet', 'kilo', 'lima', 'mike', 'november', 'oscar', 'papa',
+    'quebec', 'romeo', 'sierra', 'tango', 'uniform', 'victor', 'whiskey', 'xray',
+    'yankee', 'zulu', 'apple', 'banana', 'cherry', 'dragon', 'eagle', 'falcon',
+    'galaxy', 'hero', 'island', 'jupiter', 'king', 'lion', 'moon', 'nova',
+    'ocean', 'planet', 'quantum', 'rocket', 'star', 'tiger', 'unicorn', 'vortex',
+    'wizard', 'xenon', 'yeti', 'zenith'
+];
+
+// Generate unique referral code (5 words)
 function generateReferralCode() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let code = '';
+    const words = [];
     for (let i = 0; i < 5; i++) {
-        code += chars.charAt(Math.floor(Math.random() * chars.length));
+        const randomIndex = Math.floor(Math.random() * REFERRAL_WORDS.length);
+        words.push(REFERRAL_WORDS[randomIndex]);
     }
-    return code;
+    return words.join('-');
 }
 
 function getUniqueReferralCode() {
     let code;
     let isUnique = false;
     let attempts = 0;
-    while (!isUnique && attempts < 10) {
+    while (!isUnique && attempts < 20) {
         code = generateReferralCode();
         const existing = db.prepare('SELECT id FROM users WHERE referral_code = ?').get(code);
         if (!existing) {
@@ -56,6 +67,11 @@ function getUniqueReferralCode() {
         attempts++;
     }
     return code;
+}
+
+// Get user by referral code
+function getUserByReferralCode(code) {
+    return db.prepare('SELECT id, referral_bonus_rate, referral_registration_bonus FROM users WHERE referral_code = ?').get(code);
 }
 
 // Update Wallet Address
@@ -91,7 +107,7 @@ app.post('/api/user/passkey', (req, res) => {
 
 // Sync User Data
 app.post('/api/sync-user', async (req, res) => {
-    const { id, first_name, last_name, username, language_code, photo_url, phone_number } = req.body;
+    const { id, first_name, last_name, username, language_code, photo_url, phone_number, referral_code } = req.body;
 
     if (!id) {
         return res.status(400).json({ error: 'User ID is required' });
@@ -101,9 +117,29 @@ app.post('/api/sync-user', async (req, res) => {
     const role = adminIds.includes(id.toString()) ? 'admin' : 'user';
 
     try {
+        // Check if user exists
+        const existingUser = db.prepare('SELECT id, referred_by, referral_code FROM users WHERE id = ?').get(id);
+        const isNewUser = !existingUser;
+
+        // Handle referral code if provided and user is new
+        let referredBy = null;
+        let registrationBonus = 0;
+        if (isNewUser && referral_code) {
+            const referrer = getUserByReferralCode(referral_code);
+            if (referrer && referrer.id !== id) {
+                referredBy = referrer.id;
+                // Get registration bonus amount from referrer's settings or default config
+                const defaultBonus = db.prepare("SELECT value FROM configs WHERE key = 'referral_registration_bonus'").get();
+                registrationBonus = referrer.referral_registration_bonus || parseFloat(defaultBonus?.value || '1.00');
+            }
+        }
+
+        const defaultCommissionRate = db.prepare("SELECT value FROM configs WHERE key = 'default_referral_commission_rate'").get();
+        const commissionRate = parseFloat(defaultCommissionRate?.value || '10.00');
+
         const stmt = db.prepare(`
-            INSERT INTO users (id, first_name, last_name, username, language_code, photo_url, role, phone_number, last_seen)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            INSERT INTO users (id, first_name, last_name, username, language_code, photo_url, role, phone_number, last_seen, referred_by, referral_bonus_rate)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 first_name = excluded.first_name,
                 last_name = excluded.last_name,
@@ -112,12 +148,32 @@ app.post('/api/sync-user', async (req, res) => {
                 photo_url = excluded.photo_url,
                 role = excluded.role,
                 phone_number = COALESCE(excluded.phone_number, users.phone_number),
-                last_seen = CURRENT_TIMESTAMP
+                last_seen = CURRENT_TIMESTAMP,
+                referred_by = COALESCE(users.referred_by, excluded.referred_by)
         `);
 
-        stmt.run(id, first_name, last_name || null, username || null, language_code || null, photo_url || null, role, phone_number || null);
+        stmt.run(id, first_name, last_name || null, username || null, language_code || null, photo_url || null, role, phone_number || null, referredBy, commissionRate);
 
-        let user = db.prepare('SELECT balance, referral_code, phone_number, created_at, last_seen, language_code, wallet_address, withdrawal_passkey, has_welcome_bonus FROM users WHERE id = ?').get(id);
+        let user = db.prepare('SELECT balance, referral_code, phone_number, created_at, last_seen, language_code, wallet_address, withdrawal_passkey, has_welcome_bonus, referred_by, referral_bonus_rate, referral_registration_bonus FROM users WHERE id = ?').get(id);
+
+        // Handle referral registration bonus for new users
+        if (isNewUser && referredBy && registrationBonus > 0) {
+            try {
+                // Give bonus to referrer
+                db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(registrationBonus, referredBy);
+                
+                // Record commission
+                const commissionId = `ref_reg_${Date.now()}_${referredBy}_${id}`;
+                db.prepare(`
+                    INSERT INTO referral_commissions (id, referrer_id, referred_user_id, amount, commission_rate, commission_amount, type, status)
+                    VALUES (?, ?, ?, ?, 100.00, ?, 'registration', 'paid')
+                `).run(commissionId, referredBy, id, registrationBonus, registrationBonus);
+                
+                console.log(`Referral bonus: User ${referredBy} earned $${registrationBonus} for referring user ${id}`);
+            } catch (refErr) {
+                console.error('Error processing referral bonus:', refErr);
+            }
+        }
 
         if (!user.referral_code) {
             const newCode = getUniqueReferralCode();
@@ -310,6 +366,73 @@ app.post('/api/admin/user/:id/security', (req, res) => {
         res.json({ success: true, message: 'Security details updated successfully' });
     } catch (error) {
         console.error('Error updating security details for admin:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: Update User Referral Settings
+app.post('/api/admin/user/:id/referral', (req, res) => {
+    const { id } = req.params;
+    const { referral_bonus_rate, referral_registration_bonus } = req.body;
+
+    try {
+        const updates = [];
+        const values = [];
+
+        if (referral_bonus_rate !== undefined) {
+            updates.push('referral_bonus_rate = ?');
+            values.push(referral_bonus_rate);
+        }
+        if (referral_registration_bonus !== undefined) {
+            updates.push('referral_registration_bonus = ?');
+            values.push(referral_registration_bonus);
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({ error: 'No fields to update' });
+        }
+
+        values.push(id);
+        db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+        res.json({ success: true, message: 'Referral settings updated successfully' });
+    } catch (error) {
+        console.error('Error updating referral settings:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get User Referral Stats
+app.get('/api/user/:id/referral-stats', (req, res) => {
+    const { id } = req.params;
+    try {
+        // Count referrals
+        const referralCount = db.prepare('SELECT COUNT(*) as count FROM users WHERE referred_by = ?').get(id);
+        
+        // Total commissions earned
+        const totalCommissions = db.prepare(`
+            SELECT SUM(commission_amount) as total 
+            FROM referral_commissions 
+            WHERE referrer_id = ? AND status = 'paid'
+        `).get(id);
+        
+        // Recent commissions
+        const recentCommissions = db.prepare(`
+            SELECT * FROM referral_commissions 
+            WHERE referrer_id = ? 
+            ORDER BY created_at DESC 
+            LIMIT 10
+        `).all(id);
+
+        res.json({
+            success: true,
+            stats: {
+                referralCount: referralCount?.count || 0,
+                totalCommissions: totalCommissions?.total || 0,
+                recentCommissions
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching referral stats:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -665,14 +788,43 @@ app.post('/api/payment/callback', (req, res) => {
 
         // status 'completed' or 'mismatch' (if partially paid, though we should handle it carefully)
         if (status === 'completed' || status === 'mismatch') {
+            let userId = transaction.user_id;
+            let transactionAmount = transaction.amount;
+            
             db.transaction(() => {
                 db.prepare('UPDATE transactions SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
                     .run(status, order_number);
 
                 db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?')
-                    .run(transaction.amount, transaction.user_id);
+                    .run(transactionAmount, userId);
             })();
-            console.log(`Payment successful for user ${transaction.user_id}, amount: ${transaction.amount}`);
+            console.log(`Payment successful for user ${userId}, amount: ${transactionAmount}`);
+
+            // Process referral commission for deposits
+            try {
+                const user = db.prepare('SELECT referred_by FROM users WHERE id = ?').get(userId);
+                if (user && user.referred_by) {
+                    const referrer = db.prepare('SELECT id, referral_bonus_rate FROM users WHERE id = ?').get(user.referred_by);
+                    if (referrer) {
+                        const commissionRate = referrer.referral_bonus_rate || 10.00;
+                        const commissionAmount = (transactionAmount * commissionRate) / 100;
+                        
+                        // Add commission to referrer's balance
+                        db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(commissionAmount, referrer.id);
+                        
+                        // Record commission
+                        const commissionId = `ref_dep_${Date.now()}_${referrer.id}_${userId}`;
+                        db.prepare(`
+                            INSERT INTO referral_commissions (id, referrer_id, referred_user_id, transaction_id, amount, commission_rate, commission_amount, type, status)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, 'transaction', 'paid')
+                        `).run(commissionId, referrer.id, userId, order_number, transactionAmount, commissionRate, commissionAmount);
+                        
+                        console.log(`Referral commission: User ${referrer.id} earned $${commissionAmount} (${commissionRate}%) from user ${userId}'s deposit`);
+                    }
+                }
+            } catch (commErr) {
+                console.error('Error processing referral commission for deposit:', commErr);
+            }
         } else {
             db.prepare('UPDATE transactions SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
                 .run(status, order_number);
@@ -861,15 +1013,44 @@ app.post('/api/purchase-plan', async (req, res) => {
         });
 
         // Deduct Balance and Record Transaction
+        let transId = '';
         db.transaction(() => {
             db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(plan.price, userId);
 
-            const transId = `sub_${Date.now()}_${userId}`;
+            transId = `sub_${Date.now()}_${userId}`;
             db.prepare(`
                 INSERT INTO transactions (id, user_id, amount, currency, status, type)
                 VALUES (?, ?, ?, ?, ?, ?)
             `).run(transId, userId, plan.price, 'USD', 'completed', 'subscription');
         })();
+
+        // Process referral commission if user was referred
+        try {
+            const user = db.prepare('SELECT referred_by, referral_bonus_rate FROM users WHERE id = ?').get(userId);
+            if (user.referred_by) {
+                const referrer = db.prepare('SELECT id, referral_bonus_rate FROM users WHERE id = ?').get(user.referred_by);
+                if (referrer) {
+                    // Use referrer's commission rate (or default 10%)
+                    const commissionRate = referrer.referral_bonus_rate || 10.00;
+                    const commissionAmount = (plan.price * commissionRate) / 100;
+                    
+                    // Add commission to referrer's balance
+                    db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(commissionAmount, referrer.id);
+                    
+                    // Record commission
+                    const commissionId = `ref_comm_${Date.now()}_${referrer.id}_${userId}`;
+                    db.prepare(`
+                        INSERT INTO referral_commissions (id, referrer_id, referred_user_id, transaction_id, amount, commission_rate, commission_amount, type, status)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, 'transaction', 'paid')
+                    `).run(commissionId, referrer.id, userId, transId, plan.price, commissionRate, commissionAmount);
+                    
+                    console.log(`Referral commission: User ${referrer.id} earned $${commissionAmount} (${commissionRate}%) from user ${userId}'s purchase`);
+                }
+            }
+        } catch (commErr) {
+            console.error('Error processing referral commission:', commErr);
+            // Don't fail the transaction if commission processing fails
+        }
 
         res.json({
             success: true,

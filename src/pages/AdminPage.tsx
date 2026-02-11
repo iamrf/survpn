@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ShieldCheck, Users, Settings, Database, Activity, Search, RefreshCcw, ChevronRight, ArrowUpRight, Copy, Check, X as Close, Wallet, Banknote, User, TrendingUp, TrendingDown, Clock, ExternalLink, Package, Plus, Edit, Trash2 } from "lucide-react";
+import { ShieldCheck, Users, Settings, Database, Activity, Search, RefreshCcw, ChevronRight, ArrowUpRight, Copy, Check, X as Close, Wallet, Banknote, User, TrendingUp, TrendingDown, Clock, ExternalLink, Package, Plus, Edit, Trash2, Gift, Percent } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
@@ -55,6 +55,9 @@ const AdminPage = () => {
     const [isBonusDrawerOpen, setIsBonusDrawerOpen] = useState(false);
     const [bonusTraffic, setBonusTraffic] = useState<string>('');
     const [bonusDuration, setBonusDuration] = useState<string>('');
+    const [isReferralDrawerOpen, setIsReferralDrawerOpen] = useState(false);
+    const [defaultCommissionRate, setDefaultCommissionRate] = useState<string>('');
+    const [defaultRegistrationBonus, setDefaultRegistrationBonus] = useState<string>('');
 
     // Plans State
     const [isPlanDrawerOpen, setIsPlanDrawerOpen] = useState(false);
@@ -371,6 +374,42 @@ const AdminPage = () => {
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+
+                            {/* Default Referral Commission Section */}
+                            <div className="glass rounded-3xl p-6 border border-white/5 shadow-xl space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-lg font-semibold flex items-center gap-2 font-vazir">
+                                        <Gift size={20} className="text-primary" />
+                                        کمیسیون پیش‌فرض معرفی
+                                    </h2>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 text-xs font-vazir border-white/10 hover:bg-white/5"
+                                        onClick={() => setIsReferralDrawerOpen(true)}
+                                    >
+                                        ویرایش
+                                    </Button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-right">
+                                        <div className="flex items-end gap-1">
+                                            <span className="text-[10px] text-muted-foreground font-vazir mb-1">نرخ کمیسیون</span>
+                                            <span className="text-xl font-bold font-mono text-primary">{configs['default_referral_commission_rate'] || '10.00'}</span>
+                                            <span className="text-[10px] text-muted-foreground font-vazir mb-1">%</span>
+                                        </div>
+                                    </div>
+                                    <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-right">
+                                        <div className="flex items-end gap-1">
+                                            <span className="text-[10px] text-muted-foreground font-vazir mb-1">پاداش ثبت‌نام</span>
+                                            <span className="text-xl font-bold font-mono text-primary">${configs['referral_registration_bonus'] || '1.00'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground font-vazir text-right mt-2">
+                                    این مقادیر برای کاربران جدید به صورت پیش‌فرض تنظیم می‌شود. می‌توانید برای هر کاربر به صورت جداگانه تغییر دهید.
+                                </p>
                             </div>
 
                             <div className="glass rounded-3xl p-6 border border-white/5 shadow-xl space-y-4">
@@ -746,6 +785,74 @@ const AdminPage = () => {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Referral Commission Config Drawer */}
+            <Drawer open={isReferralDrawerOpen} onOpenChange={setIsReferralDrawerOpen}>
+                <DrawerContent className="max-w-md mx-auto bg-card/95 backdrop-blur-xl border-white/10 font-vazir" dir="rtl">
+                    <div className="mx-auto mt-4 h-1.5 w-12 rounded-full bg-white/10" />
+                    <div className="p-6 space-y-6">
+                        <DrawerHeader className="p-0 text-right">
+                            <DrawerTitle className="text-xl font-black">مدیریت کمیسیون پیش‌فرض معرفی</DrawerTitle>
+                            <DrawerDescription className="font-vazir text-muted-foreground">
+                                تنظیم نرخ کمیسیون و پاداش ثبت‌نام پیش‌فرض برای کاربران جدید
+                            </DrawerDescription>
+                        </DrawerHeader>
+
+                        <div className="space-y-4">
+                            <div className="space-y-2 text-right">
+                                <Label htmlFor="commission-rate">نرخ کمیسیون تراکنش (%)</Label>
+                                <div className="relative">
+                                    <Input
+                                        id="commission-rate"
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        max="100"
+                                        className="bg-white/5 border-white/10 rounded-xl pl-10 font-mono text-left"
+                                        value={defaultCommissionRate || configs['default_referral_commission_rate'] || '10.00'}
+                                        onChange={(e) => setDefaultCommissionRate(e.target.value)}
+                                    />
+                                    <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">درصد کمیسیون از هر تراکنش معرفی‌شده (0-100)</p>
+                            </div>
+                            <div className="space-y-2 text-right">
+                                <Label htmlFor="registration-bonus">پاداش ثبت‌نام (USD)</Label>
+                                <div className="relative">
+                                    <Input
+                                        id="registration-bonus"
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        className="bg-white/5 border-white/10 rounded-xl pl-10 font-mono text-left"
+                                        value={defaultRegistrationBonus || configs['referral_registration_bonus'] || '1.00'}
+                                        onChange={(e) => setDefaultRegistrationBonus(e.target.value)}
+                                    />
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">$</span>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">مبلغ پاداش برای هر ثبت‌نام از طریق لینک معرفی</p>
+                            </div>
+                        </div>
+
+                        <DrawerFooter className="p-0 gap-3">
+                            <Button
+                                className="w-full rounded-xl font-bold h-12"
+                                onClick={async () => {
+                                    await handleUpdateConfig('default_referral_commission_rate', defaultCommissionRate || configs['default_referral_commission_rate'] || '10.00');
+                                    await handleUpdateConfig('referral_registration_bonus', defaultRegistrationBonus || configs['referral_registration_bonus'] || '1.00');
+                                    setIsReferralDrawerOpen(false);
+                                }}
+                                disabled={saveConfigLoading}
+                            >
+                                {saveConfigLoading ? 'در حال ذخیره...' : 'ذخیره تغییرات'}
+                            </Button>
+                            <DrawerClose asChild>
+                                <Button variant="ghost" className="rounded-xl h-12">انصراف</Button>
+                            </DrawerClose>
+                        </DrawerFooter>
+                    </div>
+                </DrawerContent>
+            </Drawer>
 
             {/* Bonus Config Drawer */}
             <Drawer open={isBonusDrawerOpen} onOpenChange={setIsBonusDrawerOpen}>

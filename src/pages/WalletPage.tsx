@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { Wallet, Plus, CreditCard, ArrowUpRight, History, ArrowDownLeft, X, CheckCircle2, Clock } from "lucide-react";
+import { Wallet, Plus, CreditCard, ArrowUpRight, History, ArrowDownLeft, X, CheckCircle2, Clock, Share2, Users, TrendingUp, Copy, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger, DrawerClose } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import BottomNav from "@/components/BottomNav";
@@ -17,7 +17,8 @@ import {
   useSyncUserMutation, 
   useGetTransactionHistoryQuery, 
   useRequestWithdrawalMutation, 
-  useCancelWithdrawalMutation 
+  useCancelWithdrawalMutation,
+  useGetReferralStatsQuery
 } from "@/store/api";
 
 const WalletPage = () => {
@@ -31,6 +32,7 @@ const WalletPage = () => {
 
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isReferralOpen, setIsReferralOpen] = useState(false);
 
   // RTK Query hooks
   const [syncUser] = useSyncUserMutation();
@@ -43,10 +45,17 @@ const WalletPage = () => {
     { skip: !tgUser?.id }
   );
 
+  const { data: referralStatsData, isLoading: referralStatsLoading } = useGetReferralStatsQuery(
+    tgUser?.id || 0,
+    { skip: !tgUser?.id }
+  );
+
   const history = historyData?.history || [];
   const balance = currentUser?.balance || 0;
   const walletAddress = currentUser?.walletAddress || "";
   const hasPasskey = currentUser?.hasPasskey || false;
+  const referralCode = currentUser?.referralCode || "";
+  const referralStats = referralStatsData?.stats || { referralCount: 0, totalCommissions: 0, recentCommissions: [] };
 
   // Sync user data on mount
   useEffect(() => {
@@ -195,6 +204,37 @@ const WalletPage = () => {
     }
   };
 
+  const getReferralLink = () => {
+    if (!referralCode) return "";
+    // Get current URL and add referral code as query parameter
+    const baseUrl = window.location.origin;
+    return `${baseUrl}?ref=${referralCode}`;
+  };
+
+  const copyReferralLink = () => {
+    const link = getReferralLink();
+    if (link) {
+      navigator.clipboard.writeText(link);
+      toast({
+        title: "کپی شد",
+        description: "لینک معرفی در حافظه کپی شد",
+      });
+    }
+  };
+
+  const shareReferralLink = () => {
+    const link = getReferralLink();
+    if (link && navigator.share) {
+      navigator.share({
+        title: "اشتراک‌گذاری لینک معرفی",
+        text: "با استفاده از این لینک ثبت‌نام کنید و پاداش دریافت کنید!",
+        url: link,
+      }).catch(console.error);
+    } else {
+      copyReferralLink();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background pb-24 text-right" dir="rtl">
       <div className="p-6 pt-12 space-y-4 max-w-lg mx-auto w-full">
@@ -225,6 +265,185 @@ const WalletPage = () => {
             </CardHeader>
           </Card>
         )}
+
+        {/* Referral & Affiliate Card */}
+        <Card className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/20">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-purple-500/20 text-purple-500">
+                  <Gift className="w-5 h-5" />
+                </div>
+                <CardTitle className="text-lg font-vazir">سیستم معرفی و همکاری</CardTitle>
+              </div>
+              <Drawer open={isReferralOpen} onOpenChange={setIsReferralOpen}>
+                <DrawerTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs">
+                    <Share2 className="w-3 h-3" />
+                    مشاهده
+                  </Button>
+                </DrawerTrigger>
+                <DrawerContent className="max-w-lg mx-auto" dir="rtl">
+                  <div className="p-6 pb-12">
+                    <DrawerHeader className="p-0 mb-6">
+                      <DrawerTitle className="text-right font-vazir text-xl">سیستم معرفی</DrawerTitle>
+                      <DrawerDescription className="text-right font-vazir">
+                        دوستان خود را دعوت کنید و از هر تراکنش آن‌ها کمیسیون دریافت کنید
+                      </DrawerDescription>
+                    </DrawerHeader>
+                    <div className="space-y-6">
+                      {/* Referral Code */}
+                      <div className="space-y-3">
+                        <label className="text-sm font-vazir text-right block">کد معرف شما</label>
+                        <div className="relative">
+                          <Input
+                            value={referralCode || "---"}
+                            readOnly
+                            className="text-center font-mono text-lg font-bold tracking-wider bg-background"
+                            dir="ltr"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
+                            onClick={() => {
+                              if (referralCode) {
+                                navigator.clipboard.writeText(referralCode);
+                                toast({ title: "کپی شد", description: "کد معرف کپی شد" });
+                              }
+                            }}
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Referral Link */}
+                      <div className="space-y-3">
+                        <label className="text-sm font-vazir text-right block">لینک معرفی</label>
+                        <div className="relative">
+                          <Input
+                            value={getReferralLink()}
+                            readOnly
+                            className="text-xs font-mono pr-12 bg-background"
+                            dir="ltr"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
+                            onClick={copyReferralLink}
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 gap-2"
+                            onClick={copyReferralLink}
+                          >
+                            <Copy className="w-4 h-4" />
+                            کپی لینک
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 gap-2"
+                            onClick={shareReferralLink}
+                          >
+                            <Share2 className="w-4 h-4" />
+                            اشتراک‌گذاری
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Referral Stats */}
+                      {referralStatsLoading ? (
+                        <div className="text-center py-4 text-muted-foreground text-sm">در حال بارگذاری...</div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Users className="w-4 h-4 text-purple-500" />
+                              <p className="text-xs text-muted-foreground font-vazir">تعداد معرفی‌ها</p>
+                            </div>
+                            <p className="text-2xl font-bold font-vazir">{referralStats.referralCount}</p>
+                          </div>
+                          <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20">
+                            <div className="flex items-center gap-2 mb-2">
+                              <TrendingUp className="w-4 h-4 text-green-500" />
+                              <p className="text-xs text-muted-foreground font-vazir">کل کمیسیون</p>
+                            </div>
+                            <p className="text-2xl font-bold font-vazir text-green-500">
+                              ${(referralStats.totalCommissions || 0).toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Recent Commissions */}
+                      {referralStats.recentCommissions && referralStats.recentCommissions.length > 0 && (
+                        <div className="space-y-3">
+                          <h4 className="text-sm font-bold font-vazir text-right">کمیسیون‌های اخیر</h4>
+                          <ScrollArea className="h-40">
+                            <div className="space-y-2">
+                              {referralStats.recentCommissions.map((comm: any) => (
+                                <div key={comm.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
+                                  <div className="text-right">
+                                    <p className="text-sm font-bold font-vazir text-green-500">
+                                      +${(comm.commission_amount || 0).toFixed(2)}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground font-vazir">
+                                      {comm.type === 'registration' ? 'ثبت‌نام' : 'تراکنش'}
+                                    </p>
+                                  </div>
+                                  <div className="text-left">
+                                    <p className="text-[10px] text-muted-foreground font-vazir">
+                                      {new Date(comm.created_at).toLocaleDateString('fa-IR')}
+                                    </p>
+                                    <Badge variant="secondary" className="bg-green-100 text-green-700 text-[10px]">
+                                      {comm.status === 'paid' ? 'پرداخت شده' : 'در انتظار'}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </ScrollArea>
+                        </div>
+                      )}
+
+                      <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                        <p className="text-xs text-muted-foreground font-vazir text-right leading-relaxed">
+                          💡 با دعوت دوستان خود، از هر ثبت‌نام و تراکنش آن‌ها کمیسیون دریافت کنید. 
+                          لینک معرفی خود را به اشتراک بگذارید و درآمد کسب کنید!
+                        </p>
+                      </div>
+                    </div>
+                    <DrawerClose asChild>
+                      <Button variant="outline" className="w-full mt-4">بستن</Button>
+                    </DrawerClose>
+                  </div>
+                </DrawerContent>
+              </Drawer>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="text-center p-3 rounded-lg bg-background/50">
+                <p className="text-xs text-muted-foreground font-vazir mb-1">تعداد معرفی‌ها</p>
+                <p className="text-xl font-bold font-vazir">{referralStats.referralCount}</p>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-background/50">
+                <p className="text-xs text-muted-foreground font-vazir mb-1">کل کمیسیون</p>
+                <p className="text-xl font-bold font-vazir text-green-500">
+                  ${(referralStats.totalCommissions || 0).toFixed(2)}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Action Buttons */}
         <div className="grid grid-cols-2 gap-4">

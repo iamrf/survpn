@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Wallet, History, User, Shield, Calendar, Clock, ArrowUpRight, ArrowDownLeft, Edit2, Check, X as Close, Copy, Database, TrendingUp, TrendingDown, Phone, Activity, HardDrive, Zap, Link2, Radio } from "lucide-react";
+import { ArrowLeft, Wallet, History, User, Shield, Calendar, Clock, ArrowUpRight, ArrowDownLeft, Edit2, Check, X as Close, Copy, Database, TrendingUp, TrendingDown, Phone, Activity, HardDrive, Zap, Link2, Radio, Gift, Percent } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger, DrawerFooter, DrawerClose } from "@/components/ui/drawer";
 import { getUserDetail, getTransactionHistory, updateUserBalance, updateWithdrawalStatus, adminUpdateUserSecurity, getUserFinanceSummary } from "@/lib/api";
+import { useGetUserDetailQuery, useAdminUpdateUserReferralMutation, useGetReferralStatsQuery } from "@/store/api";
 import BottomNav from "@/components/BottomNav";
 
 const AdminUserDetailPage = () => {
@@ -37,6 +38,10 @@ const AdminUserDetailPage = () => {
     const [updateLoading, setUpdateLoading] = useState(false);
     const [isBalanceDialogOpen, setIsBalanceDialogOpen] = useState(false);
     const [isSecurityDialogOpen, setIsSecurityDialogOpen] = useState(false);
+    const [isReferralDialogOpen, setIsReferralDialogOpen] = useState(false);
+    const [newReferralBonusRate, setNewReferralBonusRate] = useState("");
+    const [newReferralRegistrationBonus, setNewReferralRegistrationBonus] = useState("");
+    const [referralUpdateLoading, setReferralUpdateLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 
     // Confirmation Alert State
@@ -48,6 +53,11 @@ const AdminUserDetailPage = () => {
     const [financeLoading, setFinanceLoading] = useState(false);
 
     const { toast } = useToast();
+
+    // RTK Query hooks
+    const { data: userDetailData, refetch: refetchUserDetail } = useGetUserDetailQuery(id || "", { skip: !id });
+    const [updateUserReferral] = useAdminUpdateUserReferralMutation();
+    const { data: referralStatsData } = useGetReferralStatsQuery(Number(id || 0), { skip: !id });
 
     const fetchData = async () => {
         if (!id) return;
@@ -63,6 +73,8 @@ const AdminUserDetailPage = () => {
             setNewBalance(userResult.user.balance.toString());
             setNewWallet(userResult.user.wallet_address || "");
             setNewPasskey(userResult.user.withdrawal_passkey || "");
+            setNewReferralBonusRate(userResult.user.referral_bonus_rate?.toString() || "10.00");
+            setNewReferralRegistrationBonus(userResult.user.referral_registration_bonus?.toString() || "0.00");
         }
         if (historyResult.success) setHistory(historyResult.history);
         if (financeResult.success) setUserFinance(financeResult.summary);
@@ -94,6 +106,49 @@ const AdminUserDetailPage = () => {
             toast({ title: "خطا", description: "خطا در ارتباط با سرور", variant: "destructive" });
         } finally {
             setUpdateLoading(false);
+        }
+    };
+
+    const handleUpdateReferral = async () => {
+        if (!id) return;
+
+        const bonusRate = parseFloat(newReferralBonusRate);
+        const registrationBonus = parseFloat(newReferralRegistrationBonus);
+
+        if (isNaN(bonusRate) || bonusRate < 0 || bonusRate > 100) {
+            toast({ title: "خطا", description: "نرخ کمیسیون باید بین 0 تا 100 باشد", variant: "destructive" });
+            return;
+        }
+
+        if (isNaN(registrationBonus) || registrationBonus < 0) {
+            toast({ title: "خطا", description: "پاداش ثبت‌نام باید عدد مثبت باشد", variant: "destructive" });
+            return;
+        }
+
+        setReferralUpdateLoading(true);
+        try {
+            const result = await updateUserReferral({
+                userId: id,
+                referral_bonus_rate: bonusRate,
+                referral_registration_bonus: registrationBonus,
+            }).unwrap();
+
+            if (result.success) {
+                toast({ title: "موفقیت", description: "تنظیمات معرفی با موفقیت تغییر کرد" });
+                setIsReferralDialogOpen(false);
+                fetchData();
+                refetchUserDetail();
+            } else {
+                toast({ title: "خطا", description: result.error || "خطا در بروزرسانی تنظیمات", variant: "destructive" });
+            }
+        } catch (err: any) {
+            toast({ 
+                title: "خطا", 
+                description: err?.data?.error || "خطا در ارتباط با سرور", 
+                variant: "destructive" 
+            });
+        } finally {
+            setReferralUpdateLoading(false);
         }
     };
 
@@ -525,11 +580,157 @@ const AdminUserDetailPage = () => {
                     </motion.div>
                 )}
 
-                {/* Security & Payment Card */}
+                {/* Referral Management Card */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.15 }}
+                >
+                    <Card className="glass border-white/5 shadow-xl">
+                        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Gift size={18} className="text-primary" />
+                                <CardTitle className="text-sm font-bold font-vazir">مدیریت سیستم معرفی</CardTitle>
+                            </div>
+                            <Drawer open={isReferralDialogOpen} onOpenChange={setIsReferralDialogOpen}>
+                                <DrawerTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs font-vazir">
+                                        <Edit2 size={12} /> ویرایش
+                                    </Button>
+                                </DrawerTrigger>
+                                <DrawerContent className="font-vazir" dir="rtl">
+                                    <div className="mx-auto w-full max-w-sm p-6">
+                                        <DrawerHeader>
+                                            <DrawerTitle className="text-right text-xl">ویرایش تنظیمات معرفی</DrawerTitle>
+                                            <DrawerDescription className="text-right">
+                                                نرخ کمیسیون و پاداش ثبت‌نام این کاربر را مدیریت کنید.
+                                            </DrawerDescription>
+                                        </DrawerHeader>
+                                        <div className="space-y-4 py-4">
+                                            <div className="space-y-2">
+                                                <label className="text-sm block text-right">نرخ کمیسیون تراکنش (%)</label>
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    max="100"
+                                                    placeholder="10.00"
+                                                    className="text-left font-mono"
+                                                    dir="ltr"
+                                                    value={newReferralBonusRate}
+                                                    onChange={(e) => setNewReferralBonusRate(e.target.value)}
+                                                />
+                                                <p className="text-[10px] text-muted-foreground text-right">
+                                                    درصد کمیسیون از هر تراکنش معرفی‌شده (0-100)
+                                                </p>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-sm block text-right">پاداش ثبت‌نام (USD)</label>
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    placeholder="1.00"
+                                                    className="text-left font-mono"
+                                                    dir="ltr"
+                                                    value={newReferralRegistrationBonus}
+                                                    onChange={(e) => setNewReferralRegistrationBonus(e.target.value)}
+                                                />
+                                                <p className="text-[10px] text-muted-foreground text-right">
+                                                    مبلغ پاداش برای هر ثبت‌نام از طریق لینک معرفی
+                                                </p>
+                                            </div>
+
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button className="w-full h-12 mt-4" disabled={referralUpdateLoading}>
+                                                        {referralUpdateLoading ? "در حال ثبت تغییرات..." : "ذخیره تغییرات"}
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent className="font-vazir rounded-3xl max-w-[90vw]" dir="rtl">
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle className="text-right">تایید نهایی</AlertDialogTitle>
+                                                        <AlertDialogDescription className="text-right">
+                                                            آیا از تغییر تنظیمات معرفی این کاربر اطمینان دارید؟ این تغییرات روی درآمد آینده کاربر از معرفی‌ها تاثیر می‌گذارد.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter className="flex-row-reverse gap-2">
+                                                        <AlertDialogAction onClick={handleUpdateReferral} className="flex-1">تایید و ذخیره</AlertDialogAction>
+                                                        <AlertDialogCancel className="flex-1 mt-0">انصراف</AlertDialogCancel>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        </div>
+                                        <DrawerFooter className="px-0">
+                                            <DrawerClose asChild>
+                                                <Button variant="outline" className="w-full">بستن</Button>
+                                            </DrawerClose>
+                                        </DrawerFooter>
+                                    </div>
+                                </DrawerContent>
+                            </Drawer>
+                        </CardHeader>
+                        <CardContent className="space-y-3 pt-2">
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="text-muted-foreground font-vazir">کد معرف:</span>
+                                <span dir="ltr" className="font-mono text-xs bg-white/5 px-2 py-1 rounded">
+                                    {user.referral_code || "---"}
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="text-muted-foreground font-vazir">نرخ کمیسیون:</span>
+                                <div className="flex items-center gap-2">
+                                    <Percent size={14} className="text-primary" />
+                                    <span className="font-mono text-xs">
+                                        {user.referral_bonus_rate || 10.00}%
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="text-muted-foreground font-vazir">پاداش ثبت‌نام:</span>
+                                <span className="font-mono text-xs text-green-500">
+                                    ${(user.referral_registration_bonus || 0).toFixed(2)}
+                                </span>
+                            </div>
+                            {referralStatsData?.stats && (
+                                <>
+                                    <Separator className="my-2" />
+                                    <div className="grid grid-cols-2 gap-2 pt-2">
+                                        <div className="text-center p-2 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                                            <p className="text-[10px] text-muted-foreground font-vazir mb-1">تعداد معرفی‌ها</p>
+                                            <p className="text-lg font-bold font-vazir">
+                                                {referralStatsData.stats.referralCount || 0}
+                                            </p>
+                                        </div>
+                                        <div className="text-center p-2 rounded-lg bg-green-500/10 border border-green-500/20">
+                                            <p className="text-[10px] text-muted-foreground font-vazir mb-1">کل کمیسیون</p>
+                                            <p className="text-lg font-bold font-vazir text-green-500">
+                                                ${(referralStatsData.stats.totalCommissions || 0).toFixed(2)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                            {user.referred_by && (
+                                <>
+                                    <Separator className="my-2" />
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-muted-foreground font-vazir">معرف شده توسط:</span>
+                                        <Badge variant="outline" className="text-xs">
+                                            User ID: {user.referred_by}
+                                        </Badge>
+                                    </div>
+                                </>
+                            )}
+                        </CardContent>
+                    </Card>
+                </motion.div>
+
+                {/* Security & Payment Card */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.16 }}
                 >
                     <Card className="glass border-white/5 shadow-xl">
                         <CardHeader className="pb-2 flex flex-row items-center justify-between">

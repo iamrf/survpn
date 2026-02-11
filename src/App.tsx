@@ -38,7 +38,18 @@ const AppContent = () => {
     const user = getTelegramUser();
     if (user) {
       console.log("Syncing user data with backend...", user);
-      syncUser(user).unwrap().then((result) => {
+      
+      // Check for referral code in URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const referralCode = urlParams.get('ref');
+      
+      // Prepare user data with referral code if present
+      const userData = {
+        ...user,
+        ...(referralCode && { referral_code: referralCode })
+      };
+      
+      syncUser(userData).unwrap().then((result) => {
         if (result.success) {
           console.log("User synced successfully", result.isAdmin ? "(Admin)" : "");
           dispatch(setCurrentUser({

@@ -46,6 +46,7 @@ export const api = createApi({
         'Configs',
         'Stats',
         'FinanceSummary',
+        'ReferralStats',
     ],
     endpoints: (builder) => ({
         // User endpoints
@@ -72,7 +73,7 @@ export const api = createApi({
                 method: 'POST',
                 body: user,
             }),
-            invalidatesTags: ['User'],
+            invalidatesTags: ['User', 'ReferralStats'],
         }),
 
         updateWalletAddress: builder.mutation<{ success: boolean; message?: string }, { userId: number; walletAddress: string }>({
@@ -308,6 +309,33 @@ export const api = createApi({
             invalidatesTags: ['AdminPlans', 'Plans'],
         }),
 
+        // Referral endpoints
+        getReferralStats: builder.query<{
+            success: boolean;
+            stats?: {
+                referralCount: number;
+                totalCommissions: number;
+                recentCommissions: any[];
+            };
+        }, number>({
+            query: (userId) => `/api/user/${userId}/referral-stats`,
+            providesTags: ['ReferralStats'],
+        }),
+
+        // Admin: Update User Referral Settings
+        adminUpdateUserReferral: builder.mutation<{ success: boolean; message?: string; error?: string }, {
+            userId: string;
+            referral_bonus_rate?: number;
+            referral_registration_bonus?: number;
+        }>({
+            query: ({ userId, ...body }) => ({
+                url: `/api/admin/user/${userId}/referral`,
+                method: 'POST',
+                body,
+            }),
+            invalidatesTags: (result, error, { userId }) => [{ type: 'UserDetail', id: userId }, 'Users', 'ReferralStats'],
+        }),
+
         // Health check
         checkBackendHealth: builder.query<boolean, void>({
             query: () => '/health',
@@ -364,6 +392,11 @@ export const {
     useCreatePlanMutation,
     useUpdatePlanMutation,
     useDeletePlanMutation,
+    
+    // Referral hooks
+    useGetReferralStatsQuery,
+    useLazyGetReferralStatsQuery,
+    useAdminUpdateUserReferralMutation,
     
     // Health check
     useCheckBackendHealthQuery,
