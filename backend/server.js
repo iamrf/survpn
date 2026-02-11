@@ -223,14 +223,45 @@ app.get('/api/admin/users', (req, res) => {
 });
 
 // Admin: Get Single User Detail
-app.get('/api/admin/user/:id', (req, res) => {
+app.get('/api/admin/user/:id', async (req, res) => {
     const { id } = req.params;
     try {
         const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
-        res.json({ success: true, user });
+
+        // Fetch Marzban user data
+        const marzbanUsername = user.username || `user_${id}`;
+        let marzbanData = null;
+        try {
+            const mUser = await marzban.getUser(marzbanUsername);
+            if (mUser) {
+                marzbanData = {
+                    username: marzbanUsername,
+                    status: mUser.status || 'unknown',
+                    dataLimit: mUser.data_limit || 0,
+                    dataUsed: mUser.used_traffic || 0,
+                    expire: mUser.expire || null,
+                    subscriptionUrl: mUser.subscription_url || '',
+                    onlineAt: mUser.online_at || null,
+                    lastSeen: mUser.online_at || null, // Marzban uses online_at for last seen
+                    proxies: mUser.proxies || {},
+                    inbounds: mUser.inbounds || {}
+                };
+            }
+        } catch (mErr) {
+            console.error(`Error fetching Marzban data for ${marzbanUsername}:`, mErr.message);
+            // Continue without Marzban data if it fails
+        }
+
+        res.json({ 
+            success: true, 
+            user: {
+                ...user,
+                marzban: marzbanData
+            }
+        });
     } catch (error) {
         console.error('Error fetching user detail for admin:', error);
         res.status(500).json({ error: 'Internal server error' });

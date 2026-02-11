@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Wallet, History, User, Shield, Calendar, Clock, ArrowUpRight, ArrowDownLeft, Edit2, Check, X as Close, Copy, Database, TrendingUp, TrendingDown, Phone } from "lucide-react";
+import { ArrowLeft, Wallet, History, User, Shield, Calendar, Clock, ArrowUpRight, ArrowDownLeft, Edit2, Check, X as Close, Copy, Database, TrendingUp, TrendingDown, Phone, Activity, HardDrive, Zap, Link2, Radio } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -160,6 +160,14 @@ const AdminUserDetailPage = () => {
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
         toast({ title: "کپی شد", description: "در حافظه کپی شد." });
+    };
+
+    const formatBytes = (bytes: number) => {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
     const getStatusBadge = (status: string) => {
@@ -341,6 +349,181 @@ const AdminUserDetailPage = () => {
                         </div>
                     </div>
                 </motion.div>
+
+                {/* Marzban Status Card */}
+                {user.marzban && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.14 }}
+                    >
+                        <Card className="glass border-white/5 shadow-xl">
+                            <CardHeader className="pb-2">
+                                <div className="flex items-center gap-2">
+                                    <Zap size={18} className="text-primary" />
+                                    <CardTitle className="text-sm font-bold font-vazir">وضعیت Marzban</CardTitle>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="space-y-4 pt-2">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] text-muted-foreground flex items-center gap-1 justify-start">
+                                            <Activity size={10} /> وضعیت
+                                        </p>
+                                        <Badge 
+                                            variant="outline" 
+                                            className={`text-xs ${
+                                                user.marzban.status === 'active' 
+                                                    ? 'bg-green-500/10 text-green-500 border-green-500/20' 
+                                                    : user.marzban.status === 'disabled'
+                                                    ? 'bg-red-500/10 text-red-500 border-red-500/20'
+                                                    : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
+                                            }`}
+                                        >
+                                            {user.marzban.status === 'active' ? 'فعال' : user.marzban.status === 'disabled' ? 'غیرفعال' : user.marzban.status || 'نامشخص'}
+                                        </Badge>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] text-muted-foreground flex items-center gap-1 justify-start">
+                                            <User size={10} /> نام کاربری
+                                        </p>
+                                        <p dir="ltr" className="text-xs font-mono text-right">{user.marzban.username || "---"}</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3 pt-2 border-t border-white/5">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <HardDrive size={14} className="text-primary" />
+                                            <span className="text-xs text-muted-foreground font-vazir">ترافیک</span>
+                                        </div>
+                                        <div className="text-left space-y-1">
+                                            <p className="text-xs font-mono text-muted-foreground">
+                                                {user.marzban.dataUsed ? formatBytes(user.marzban.dataUsed) : '0 B'} / {user.marzban.dataLimit ? formatBytes(user.marzban.dataLimit) : '0 B'}
+                                            </p>
+                                            {user.marzban.dataLimit > 0 && (
+                                                <div className="h-1.5 w-24 bg-white/5 rounded-full overflow-hidden">
+                                                    <div 
+                                                        className="h-full bg-primary rounded-full transition-all"
+                                                        style={{ width: `${Math.min((user.marzban.dataUsed / user.marzban.dataLimit) * 100, 100)}%` }}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {user.marzban.expire && (
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Calendar size={14} className="text-primary" />
+                                                <span className="text-xs text-muted-foreground font-vazir">انقضا</span>
+                                            </div>
+                                            <p className="text-xs font-mono text-right">
+                                                {user.marzban.expire > 0 
+                                                    ? new Date(user.marzban.expire * 1000).toLocaleDateString('fa-IR')
+                                                    : 'نامحدود'}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <Radio size={14} className="text-primary" />
+                                            <span className="text-xs text-muted-foreground font-vazir">وضعیت اتصال</span>
+                                        </div>
+                                        <div className="text-left space-y-0.5">
+                                            {(() => {
+                                                const lastSeen = user.marzban?.lastSeen || user.marzban?.onlineAt;
+                                                
+                                                if (!lastSeen || lastSeen === 0 || lastSeen === null) {
+                                                    return (
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-2 h-2 rounded-full bg-gray-500"></div>
+                                                            <p className="text-xs text-muted-foreground">هرگز متصل نشده</p>
+                                                        </div>
+                                                    );
+                                                }
+                                                
+                                                const lastSeenDate = new Date(lastSeen * 1000);
+                                                const now = new Date();
+                                                const diffMs = now.getTime() - lastSeenDate.getTime();
+                                                const diffMins = Math.floor(diffMs / 60000);
+                                                const diffHours = Math.floor(diffMs / 3600000);
+                                                const diffDays = Math.floor(diffMs / 86400000);
+                                                
+                                                const isOnline = diffMins < 5; // Consider online if connected within last 5 minutes
+                                                
+                                                let timeAgo = '';
+                                                let statusColor = '';
+                                                if (diffMins < 1) {
+                                                    timeAgo = 'هم اکنون آنلاین';
+                                                    statusColor = 'bg-green-500';
+                                                } else if (diffMins < 5) {
+                                                    timeAgo = `${diffMins} دقیقه پیش (آنلاین)`;
+                                                    statusColor = 'bg-green-500';
+                                                } else if (diffMins < 60) {
+                                                    timeAgo = `${diffMins} دقیقه پیش`;
+                                                    statusColor = 'bg-yellow-500';
+                                                } else if (diffHours < 24) {
+                                                    timeAgo = `${diffHours} ساعت پیش`;
+                                                    statusColor = 'bg-yellow-500';
+                                                } else if (diffDays < 7) {
+                                                    timeAgo = `${diffDays} روز پیش`;
+                                                    statusColor = 'bg-orange-500';
+                                                } else {
+                                                    timeAgo = `${diffDays} روز پیش`;
+                                                    statusColor = 'bg-red-500';
+                                                }
+                                                
+                                                return (
+                                                    <>
+                                                        <div className="flex items-center gap-2 justify-end">
+                                                            <div className={`w-2 h-2 rounded-full ${statusColor} ${isOnline ? 'animate-pulse' : ''}`}></div>
+                                                            <p className={`text-xs font-mono text-right ${isOnline ? 'text-green-500 font-bold' : 'text-muted-foreground'}`}>
+                                                                {timeAgo}
+                                                            </p>
+                                                        </div>
+                                                        <p className="text-[10px] text-muted-foreground text-right mt-1">
+                                                            {lastSeenDate.toLocaleString('fa-IR', {
+                                                                year: 'numeric',
+                                                                month: 'long',
+                                                                day: 'numeric',
+                                                                hour: '2-digit',
+                                                                minute: '2-digit'
+                                                            })}
+                                                        </p>
+                                                    </>
+                                                );
+                                            })()}
+                                        </div>
+                                    </div>
+
+                                    {user.marzban.subscriptionUrl && (
+                                        <div className="space-y-2 pt-2 border-t border-white/5">
+                                            <div className="flex items-center gap-2">
+                                                <Link2 size={14} className="text-primary" />
+                                                <span className="text-xs text-muted-foreground font-vazir">لینک اشتراک</span>
+                                            </div>
+                                            <div className="relative group">
+                                                <div dir="ltr" className="p-2 rounded-lg bg-black/20 border border-white/5 font-mono text-[10px] overflow-hidden text-ellipsis whitespace-nowrap pl-8 text-muted-foreground group-hover:text-foreground transition-colors dir-ltr text-left">
+                                                    {user.marzban.subscriptionUrl}
+                                                </div>
+                                                <Button
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    onClick={() => copyToClipboard(user.marzban.subscriptionUrl)}
+                                                    className="absolute left-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-lg hover:bg-primary/20 hover:text-primary"
+                                                >
+                                                    <Copy className="w-3 h-3" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+                )}
 
                 {/* Security & Payment Card */}
                 <motion.div
