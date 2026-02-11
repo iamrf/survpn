@@ -782,6 +782,81 @@ const AdminUserDetailPage = () => {
                                             </p>
                                         </div>
                                     </div>
+                                    {referralStatsData.stats.referredUsers && referralStatsData.stats.referredUsers.length > 0 && (
+                                        <>
+                                            <Separator className="my-2" />
+                                            <div className="space-y-2 pt-2">
+                                                <h4 className="text-xs font-bold font-vazir text-right text-muted-foreground">
+                                                    کاربران معرفی شده ({referralStatsData.stats.referredUsers.length})
+                                                </h4>
+                                                <ScrollArea className="h-48">
+                                                    <div className="space-y-2">
+                                                        {referralStatsData.stats.referredUsers.map((referredUser: any) => (
+                                                            <div 
+                                                                key={referredUser.id} 
+                                                                className="flex items-center justify-between p-2 rounded-lg bg-muted/30 border border-white/5 cursor-pointer hover:bg-muted/50 transition-colors"
+                                                                onClick={() => navigate(`/admin/user/${referredUser.id}`)}
+                                                            >
+                                                                <div className="text-right flex-1">
+                                                                    <p className="text-xs font-bold font-vazir">
+                                                                        {referredUser.first_name} {referredUser.last_name || ''}
+                                                                    </p>
+                                                                    <p className="text-[10px] text-muted-foreground font-vazir">
+                                                                        @{referredUser.username || `user_${referredUser.id}`}
+                                                                    </p>
+                                                                    <p className="text-[10px] text-muted-foreground font-vazir mt-0.5">
+                                                                        {new Date(referredUser.created_at).toLocaleDateString('fa-IR')}
+                                                                    </p>
+                                                                </div>
+                                                                <div className="text-left ml-2">
+                                                                    <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-[9px] mb-1">
+                                                                        {referredUser.transactionCount} تراکنش
+                                                                    </Badge>
+                                                                    <p className="text-[10px] font-bold font-vazir text-green-500">
+                                                                        ${referredUser.totalEarned.toFixed(2)}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </ScrollArea>
+                                            </div>
+                                        </>
+                                    )}
+                                    {referralStatsData.stats.recentCommissions && referralStatsData.stats.recentCommissions.length > 0 && (
+                                        <>
+                                            <Separator className="my-2" />
+                                            <div className="space-y-2 pt-2">
+                                                <h4 className="text-xs font-bold font-vazir text-right text-muted-foreground">
+                                                    کمیسیون‌های اخیر
+                                                </h4>
+                                                <ScrollArea className="h-32">
+                                                    <div className="space-y-1.5">
+                                                        {referralStatsData.stats.recentCommissions.slice(0, 5).map((comm: any) => (
+                                                            <div key={comm.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/30 border border-white/5">
+                                                                <div className="text-right flex-1">
+                                                                    <p className="text-xs font-bold font-vazir text-green-500">
+                                                                        +${(comm.commission_amount || 0).toFixed(2)}
+                                                                    </p>
+                                                                    <p className="text-[10px] text-muted-foreground font-vazir">
+                                                                        {comm.type === 'registration' ? 'ثبت‌نام' : 'تراکنش'}
+                                                                    </p>
+                                                                </div>
+                                                                <div className="text-left">
+                                                                    <p className="text-[9px] text-muted-foreground font-vazir">
+                                                                        {new Date(comm.created_at).toLocaleDateString('fa-IR')}
+                                                                    </p>
+                                                                    <Badge variant="secondary" className="bg-green-100 text-green-700 text-[9px]">
+                                                                        {comm.status === 'paid' ? 'پرداخت' : 'در انتظار'}
+                                                                    </Badge>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </ScrollArea>
+                                            </div>
+                                        </>
+                                    )}
                                 </>
                             )}
                             {user.referred_by && (

@@ -58,7 +58,7 @@ const WalletPage = () => {
   const walletAddress = currentUser?.walletAddress || "";
   const hasPasskey = currentUser?.hasPasskey || false;
   const referralCode = currentUser?.referralCode || "";
-  const referralStats = referralStatsData?.stats || { referralCount: 0, totalCommissions: 0, recentCommissions: [] };
+  const referralStats = referralStatsData?.stats || { referralCount: 0, totalCommissions: 0, recentCommissions: [], referredUsers: [] };
   const [referralLink, setReferralLink] = useState<string>("");
   
   // Get referral pricing from configs or user settings
@@ -497,6 +497,40 @@ const WalletPage = () => {
                   </div>
                 )}
 
+                {/* Referred Users List */}
+                {referralStatsData?.stats?.referredUsers && referralStatsData.stats.referredUsers.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-bold font-vazir text-right">کاربران معرفی شده ({referralStatsData.stats.referredUsers.length})</h4>
+                    <ScrollArea className="h-48">
+                      <div className="space-y-2">
+                        {referralStatsData.stats.referredUsers.map((referredUser) => (
+                          <div key={referredUser.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
+                            <div className="text-right flex-1">
+                              <p className="text-sm font-bold font-vazir">
+                                {referredUser.first_name} {referredUser.last_name || ''}
+                              </p>
+                              <p className="text-xs text-muted-foreground font-vazir">
+                                @{referredUser.username || `user_${referredUser.id}`}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground font-vazir mt-1">
+                                ثبت‌نام: {new Date(referredUser.created_at).toLocaleDateString('fa-IR')}
+                              </p>
+                            </div>
+                            <div className="text-left ml-3">
+                              <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-[10px] mb-1">
+                                {referredUser.transactionCount} تراکنش
+                              </Badge>
+                              <p className="text-xs font-bold font-vazir text-green-500">
+                                ${referredUser.totalEarned.toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                )}
+
                 {/* Recent Commissions */}
                 {referralStats.recentCommissions && referralStats.recentCommissions.length > 0 && (
                   <div className="space-y-3">
@@ -512,6 +546,11 @@ const WalletPage = () => {
                               <p className="text-xs text-muted-foreground font-vazir">
                                 {comm.type === 'registration' ? 'ثبت‌نام' : 'تراکنش'}
                               </p>
+                              {comm.referred_user_id && (
+                                <p className="text-[10px] text-muted-foreground font-vazir">
+                                  کاربر: {comm.referred_user_id}
+                                </p>
+                              )}
                             </div>
                             <div className="text-left">
                               <p className="text-[10px] text-muted-foreground font-vazir">

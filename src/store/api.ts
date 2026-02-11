@@ -338,6 +338,17 @@ export const api = createApi({
                 referralCount: number;
                 totalCommissions: number;
                 recentCommissions: any[];
+                referredUsers?: Array<{
+                    id: number;
+                    first_name: string;
+                    last_name?: string;
+                    username?: string;
+                    created_at: string;
+                    balance: number;
+                    phone_number?: string;
+                    transactionCount: number;
+                    totalEarned: number;
+                }>;
             };
         }, number>({
             query: (userId) => `/api/user/${userId}/referral-stats`,

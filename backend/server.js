@@ -445,12 +445,45 @@ app.get('/api/user/:id/referral-stats', (req, res) => {
             LIMIT 10
         `).all(id);
 
+        // List of referred users with their details
+        const referredUsers = db.prepare(`
+            SELECT 
+                id,
+                first_name,
+                last_name,
+                username,
+                created_at,
+                balance,
+                phone_number
+            FROM users 
+            WHERE referred_by = ? 
+            ORDER BY created_at DESC
+        `).all(id);
+
+        // Get commission count per referred user
+        const referredUsersWithStats = referredUsers.map(user => {
+            const userCommissions = db.prepare(`
+                SELECT 
+                    COUNT(*) as transaction_count,
+                    SUM(commission_amount) as total_earned
+                FROM referral_commissions 
+                WHERE referrer_id = ? AND referred_user_id = ? AND status = 'paid'
+            `).get(id, user.id);
+            
+            return {
+                ...user,
+                transactionCount: userCommissions?.transaction_count || 0,
+                totalEarned: parseFloat(userCommissions?.total_earned || 0)
+            };
+        });
+
         res.json({
             success: true,
             stats: {
                 referralCount: referralCount?.count || 0,
                 totalCommissions: totalCommissions?.total || 0,
-                recentCommissions
+                recentCommissions,
+                referredUsers: referredUsersWithStats
             }
         });
     } catch (error) {
