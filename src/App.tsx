@@ -89,21 +89,21 @@ const AppContent = () => {
       <BrowserRouter>
         <AnimatePresence mode="wait">
           <Suspense fallback={<LoadingFallback />}>
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/wallet" element={<WalletPage />} />
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/wallet" element={<WalletPage />} />
               <Route path="/missions" element={<ConfigsPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              {isAdmin &&
-                <>
-                  <Route path="/admin" element={<AdminPage />} />
-                  <Route path="/admin/users" element={<AdminUsersPage />} />
-                  <Route path="/admin/user/:id" element={<AdminUserDetailPage />} />
-                  <Route path="/admin/withdrawals/pending" element={<AdminPendingWithdrawalsPage />} />
-                </>
-              }
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <Route path="/settings" element={<SettingsPage />} />
+            {isAdmin &&
+              <>
+                <Route path="/admin" element={<AdminPage />} />
+                <Route path="/admin/users" element={<AdminUsersPage />} />
+                <Route path="/admin/user/:id" element={<AdminUserDetailPage />} />
+                <Route path="/admin/withdrawals/pending" element={<AdminPendingWithdrawalsPage />} />
+              </>
+            }
+            <Route path="*" element={<NotFound />} />
+          </Routes>
           </Suspense>
         </AnimatePresence>
       </BrowserRouter>

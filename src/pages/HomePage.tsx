@@ -1,11 +1,11 @@
 import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import ProfileCard from "@/components/ProfileCard";
 import WelcomeSection from "@/components/WelcomeSection";
 import BottomNav from "@/components/BottomNav";
 import SubscriptionPlan from "@/components/SubscriptionPlan";
 import CustomSubscriptionDialog from "@/components/CustomSubscriptionDialog";
 import MinimalSubscriptionCard from "@/components/MinimalSubscriptionCard";
-import SubscriptionDrawer from "@/components/SubscriptionDrawer";
 import { SubscriptionPlanSkeleton, SubscriptionCardSkeleton } from "@/components/skeletons";
 import { getTelegramUser } from "@/lib/telegram";
 import { useToast } from "@/components/ui/use-toast";
@@ -13,17 +13,17 @@ import { motion } from "framer-motion";
 import { Star } from "lucide-react";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { useGetPlansQuery, usePurchasePlanMutation, useSyncUserMutation } from "@/store/api";
-import { setSubscriptionData, setPurchasingPlanId, setSubscriptionDrawerOpen } from "@/store/slices/index";
+import { setSubscriptionData, setPurchasingPlanId } from "@/store/slices/index";
 import { getPlanInfo } from "@/lib/planUtils";
 
 const HomePage = () => {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const { toast } = useToast();
   
   // Redux state
   const subscriptionData = useAppSelector((state) => state.user.subscriptionData);
   const purchasingPlanId = useAppSelector((state) => state.ui.purchasingPlanId);
-  const isSubscriptionDrawerOpen = useAppSelector((state) => state.ui.isSubscriptionDrawerOpen);
   
   // RTK Query hooks
   const { data: plansData, isLoading } = useGetPlansQuery();
@@ -109,22 +109,6 @@ const HomePage = () => {
           >
             <div className="absolute inset-0 bg-primary/5 blur-[120px] rounded-full -z-10" />
 
-            {subscriptionData && (
-              <div className="mb-6">
-                <MinimalSubscriptionCard
-                  url={subscriptionData.url}
-                  dataLimit={subscriptionData.limit}
-                  dataUsed={subscriptionData.used}
-                  expire={subscriptionData.expire}
-                  status={subscriptionData.status}
-                  username={subscriptionData.username}
-                  planName={subscriptionData.planName}
-                  isBonus={subscriptionData.isBonus}
-                  onClick={() => dispatch(setSubscriptionDrawerOpen(true))}
-                />
-              </div>
-            )}
-
             <div className="py-16 flex flex-col items-center text-center space-y-4">
               <h2 className="text-3xl font-black tracking-tight font-vazir bg-clip-text text-transparent bg-gradient-to-r from-white to-white/50">
                 ساخته شده برای آزادی
@@ -169,14 +153,6 @@ const HomePage = () => {
           </div>
         </section>
       </div>
-      
-      {subscriptionData && (
-        <SubscriptionDrawer
-          isOpen={isSubscriptionDrawerOpen}
-          onClose={() => dispatch(setSubscriptionDrawerOpen(false))}
-          subscriptionData={subscriptionData}
-        />
-      )}
       
       <BottomNav />
     </div>

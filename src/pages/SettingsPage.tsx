@@ -1,8 +1,8 @@
 import { motion } from "framer-motion";
-import { Settings, User, Phone, Shield, ChevronLeft, CreditCard, Share2, LogOut } from "lucide-react";
+import { Settings, User, Phone, Shield, ChevronLeft, CreditCard, Share2, LogOut, Globe } from "lucide-react";
 import { useState, useEffect } from "react";
 import { getTelegramUser } from "@/lib/telegram";
-import { useSyncUserMutation, useUpdateWalletAddressMutation, useUpdateWithdrawalPasskeyMutation } from "@/store/api";
+import { useSyncUserMutation, useUpdateWalletAddressMutation, useUpdateWithdrawalPasskeyMutation, useUpdateUserLanguageMutation } from "@/store/api";
 import { useAppSelector } from "@/store/hooks";
 import BottomNav from "@/components/BottomNav";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,12 +19,14 @@ const SettingsPage = () => {
   const [newPasskey, setNewPasskey] = useState<string>("");
   const [isWalletDrawerOpen, setIsWalletDrawerOpen] = useState(false);
   const [isPasskeyDrawerOpen, setIsPasskeyDrawerOpen] = useState(false);
+  const [isLanguageDrawerOpen, setIsLanguageDrawerOpen] = useState(false);
   const [verifying, setVerifying] = useState(false);
 
   // RTK Query hooks
   const [syncUser] = useSyncUserMutation();
   const [updateWalletAddress, { isLoading: updatingWallet }] = useUpdateWalletAddressMutation();
   const [updateWithdrawalPasskey, { isLoading: updatingPasskey }] = useUpdateWithdrawalPasskeyMutation();
+  const [updateUserLanguage, { isLoading: updatingLanguage }] = useUpdateUserLanguageMutation();
 
   const phoneNumber = currentUser?.phoneNumber || null;
   const walletAddress = currentUser?.walletAddress || "";
@@ -38,9 +40,19 @@ const SettingsPage = () => {
     referralCode: currentUser?.referralCode
   };
 
+  const fetchUserData = async () => {
+    if (tgUser) {
+      try {
+        await syncUser(tgUser).unwrap();
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      }
+    }
+  };
+
   useEffect(() => {
     if (tgUser && !currentUser) {
-      syncUser(tgUser).unwrap().catch(console.error);
+      fetchUserData();
     }
     if (currentUser?.walletAddress) {
       setNewWalletAddress(currentUser.walletAddress);
@@ -142,12 +154,11 @@ const SettingsPage = () => {
             try {
               const result = await syncUser({ ...tgUser, phone_number: phoneToSync });
               if (result.data?.success) {
-                if (result.data.phoneNumber) setPhoneNumber(result.data.phoneNumber);
                 toast({
                   title: "موفقیت",
                   description: "شماره تماس شما با موفقیت تایید شد",
                 });
-                // Refresh user data
+                // Refresh user data to update Redux store
                 await fetchUserData();
               } else {
                 toast({
@@ -175,8 +186,7 @@ const SettingsPage = () => {
               if (retryPhone) {
                 try {
                   const result = await syncUser({ ...tgUser, phone_number: retryPhone });
-                  if (result.data?.success && result.data.phoneNumber) {
-                    setPhoneNumber(result.data.phoneNumber);
+                  if (result.data?.success) {
                     await fetchUserData();
                     toast({
                       title: "موفقیت",
@@ -218,6 +228,58 @@ const SettingsPage = () => {
     : tgUser.first_name;
 
   const initials = tgUser.first_name.charAt(0) + (tgUser.last_name?.charAt(0) || "");
+
+  // Supported languages with flags and names
+  const supportedLanguages = [
+    { code: 'fa', name: 'فارسی', flag: '🇮🇷', nativeName: 'فارسی' },
+    { code: 'en', name: 'English', flag: '🇺🇸', nativeName: 'English' },
+    { code: 'ar', name: 'العربية', flag: '🇸🇦', nativeName: 'العربية' },
+    { code: 'tr', name: 'Türkçe', flag: '🇹🇷', nativeName: 'Türkçe' },
+    { code: 'ru', name: 'Русский', flag: '🇷🇺', nativeName: 'Русский' },
+    { code: 'de', name: 'Deutsch', flag: '🇩🇪', nativeName: 'Deutsch' },
+    { code: 'fr', name: 'Français', flag: '🇫🇷', nativeName: 'Français' },
+    { code: 'es', name: 'Español', flag: '🇪🇸', nativeName: 'Español' },
+    { code: 'it', name: 'Italiano', flag: '🇮🇹', nativeName: 'Italiano' },
+    { code: 'zh', name: '中文', flag: '🇨🇳', nativeName: '中文' },
+    { code: 'ja', name: '日本語', flag: '🇯🇵', nativeName: '日本語' },
+    { code: 'ko', name: '한국어', flag: '🇰🇷', nativeName: '한국어' },
+  ];
+
+  // Get current language or default to Telegram language
+  const currentLanguageCode = extraData.languageCode || tgUser.language_code || 'fa';
+  const currentLanguage = supportedLanguages.find(lang => lang.code === currentLanguageCode) || supportedLanguages[0];
+
+  const handleUpdateLanguage = async (languageCode: string) => {
+    if (!tgUser) return;
+    try {
+      const result = await updateUserLanguage({
+        userId: tgUser.id,
+        languageCode: languageCode
+      }).unwrap();
+      
+      if (result.success) {
+        // Refresh user data
+        await fetchUserData();
+        setIsLanguageDrawerOpen(false);
+        toast({ 
+          title: "موفقیت", 
+          description: "زبان با موفقیت تغییر کرد" 
+        });
+      } else {
+        toast({ 
+          title: "خطا", 
+          description: "تغییر زبان با خطا مواجه شد", 
+          variant: "destructive" 
+        });
+      }
+    } catch (error: any) {
+      toast({ 
+        title: "خطا", 
+        description: error?.data?.error || "تغییر زبان با خطا مواجه شد", 
+        variant: "destructive" 
+      });
+    }
+  };
 
   const SettingItem = ({ icon: Icon, label, value, onClick, color = "primary", destructive = false, ltr = false }: any) => (
     <motion.button
@@ -280,41 +342,64 @@ const SettingsPage = () => {
 
       {/* Content */}
       <div className="px-6 flex-1">
+
         <div className="mb-6">
           <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 px-2 font-vazir text-right">اطلاعات کاربری</h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
-            <SettingItem
-              icon={Phone}
-              label="شماره موبایل"
-              value={phoneNumber || "تایید نشده"}
-              color={phoneNumber ? "green-500" : "primary"}
-              onClick={!phoneNumber ? handleVerifyPhone : undefined}
-              ltr={!!phoneNumber}
-            />
-            <div className="grid grid-cols-2 md:grid-cols-2 gap-x-4">
-              <SettingItem
-                icon={Shield}
-                label="دسترسی"
-                value={isAdmin ? "مدیر کل" : "کاربر "}
-                color={isAdmin ? "amber-500" : "primary"}
-              />
-              <SettingItem
-                icon={Share2}
-                label="کد معرف"
-                value={extraData.referralCode || "----"}
-                color="purple-500"
-                ltr
-                onClick={() => {
-                  if (extraData.referralCode) {
-                    navigator.clipboard.writeText(extraData.referralCode);
-                    toast({ title: "کپی شد", description: "کد معرف در حافظه کپی شد" });
-                  }
-                }}
-              />
+          {/* User Info Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="glass rounded-2xl p-5 mb-6 border border-white/10 shadow-xl"
+          >
+            <div className="space-y-3">
+              <div className="flex items-center justify-between py-2 border-b border-white/5">
+                <p className="text-sm font-bold text-foreground font-vazir">نام</p>
+                <p className="text-sm text-muted-foreground font-vazir text-right">{displayName}</p>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-white/5">
+                <p className="text-sm font-bold text-foreground font-vazir">نام کاربری</p>
+                <p dir="ltr" className="text-sm text-muted-foreground text-left">@{tgUser.username || "نامشخص"}</p>
+              </div>
             </div>
-          </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-4">
+              <div className="grid grid-cols-1 md:grid-cols-1 gap-2">
+                <SettingItem
+                  icon={Phone}
+                  label="شماره موبایل"
+                  value={phoneNumber || "تایید نشده"}
+                  color={phoneNumber ? "green-500" : "primary"}
+                  onClick={!phoneNumber ? handleVerifyPhone : undefined}
+                  ltr={!!phoneNumber}
+              />
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-2  gap-2">
+                <SettingItem
+                  icon={Shield}
+                  label="دسترسی"
+                  value={isAdmin ? "مدیر کل" : "کاربر "}
+                  color={isAdmin ? "amber-500" : "primary"}
+                />
+                <SettingItem
+                  icon={Share2}
+                  label="کد معرف"
+                  value={extraData.referralCode || "----"}
+                  color="purple-500"
+                  ltr
+                  onClick={() => {
+                    if (extraData.referralCode) {
+                      navigator.clipboard.writeText(extraData.referralCode);
+                      toast({ title: "کپی شد", description: "کد معرف در حافظه کپی شد" });
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          </motion.div>
+
         </div>
+
 
         <div className="mb-6">
           <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 px-2 font-vazir text-right">پرداخت و تسویه</h3>
@@ -451,11 +536,57 @@ const SettingsPage = () => {
               ltr
             />
 
-            <SettingItem
-              icon={Settings}
-              label="زبان پیش‌فرض"
-              value={extraData.languageCode === 'fa' ? "فارسی (FA)" : `انگلیسی (${extraData.languageCode?.toUpperCase() || 'EN'})`}
-            />
+            <Drawer open={isLanguageDrawerOpen} onOpenChange={setIsLanguageDrawerOpen}>
+              <DrawerTrigger asChild>
+                <div className="w-full">
+                  <SettingItem
+                    icon={Globe}
+                    label="زبان برنامه"
+                    value={`${currentLanguage.flag} ${currentLanguage.nativeName}`}
+                    color="blue-500"
+                  />
+                </div>
+              </DrawerTrigger>
+              <DrawerContent className="font-vazir">
+                <div className="mx-auto w-full max-w-sm p-6">
+                  <DrawerHeader>
+                    <DrawerTitle className="text-right">انتخاب زبان</DrawerTitle>
+                  </DrawerHeader>
+                  <div className="space-y-2 py-4 max-h-[60vh] overflow-y-auto">
+                    {supportedLanguages.map((lang) => (
+                      <motion.button
+                        key={lang.code}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => handleUpdateLanguage(lang.code)}
+                        disabled={updatingLanguage}
+                        className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all duration-300 text-right ${
+                          currentLanguageCode === lang.code
+                            ? 'bg-primary/20 border-primary text-foreground'
+                            : 'bg-background border-white/10 text-foreground hover:border-primary/50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 flex-1">
+                          <span className="text-2xl">{lang.flag}</span>
+                          <div className="flex-1 text-right">
+                            <p className="text-sm font-bold">{lang.nativeName}</p>
+                            <p className="text-xs text-muted-foreground">{lang.name}</p>
+                          </div>
+                        </div>
+                        {currentLanguageCode === lang.code && (
+                          <div className="w-2 h-2 rounded-full bg-primary"></div>
+                        )}
+                      </motion.button>
+                    ))}
+                  </div>
+                  <DrawerFooter className="px-0">
+                    <DrawerClose asChild>
+                      <Button variant="outline" className="w-full">بستن</Button>
+                    </DrawerClose>
+                  </DrawerFooter>
+                </div>
+              </DrawerContent>
+            </Drawer>
           </div>
         </div>
 

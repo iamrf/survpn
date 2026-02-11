@@ -1,15 +1,20 @@
-import { motion } from "framer-motion";
-import { Copy, Check, User as UserIcon, Phone } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Copy, Check, User as UserIcon, Phone, QrCode, Link2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { getTelegramUser } from "@/lib/telegram";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { useSyncUserMutation } from "@/store/api";
+import { useSyncUserMutation, useGetPlansQuery } from "@/store/api";
 import { useAppSelector } from "@/store/hooks";
+import { getPlanInfo } from "@/lib/planUtils";
 
 const ProfileCard = () => {
   const tgUser = getTelegramUser();
   const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [syncUser, { isLoading: loading }] = useSyncUserMutation();
   const currentUser = useAppSelector((state) => state.user.currentUser);
@@ -17,6 +22,48 @@ const ProfileCard = () => {
   const referralCode = currentUser?.referralCode || "";
   const phoneNumber = currentUser?.phoneNumber || null;
   const walletAddress = currentUser?.walletAddress || null;
+  
+  // Get plans for plan name detection
+  const { data: plansData } = useGetPlansQuery();
+  const plans = plansData?.plans || [];
+  
+  // Subscription data
+  const subscriptionUrl = currentUser?.subscriptionUrl;
+  const dataLimit = currentUser?.dataLimit || 0;
+  const dataUsed = currentUser?.dataUsed || 0;
+  const expire = currentUser?.expire;
+  const status = currentUser?.status || 'inactive';
+  
+  // Get plan info
+  const planInfo = subscriptionUrl ? getPlanInfo(dataLimit, expire, plans) : null;
+  const planName = planInfo?.planName || (planInfo?.isBonus ? 'اشتراک رایگان' : null);
+  
+  // Format bytes
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+  
+  // Calculate days remaining
+  const now = Math.floor(Date.now() / 1000);
+  const secondsRemaining = expire ? expire - now : null;
+  const daysRemaining = secondsRemaining ? Math.ceil(secondsRemaining / 86400) : null;
+  
+  // Get status badge
+  const getStatusBadge = (s: string) => {
+    switch (s) {
+      case 'active': return { label: 'فعال', color: 'bg-green-500/10 text-green-500 border-green-500/20' };
+      case 'limited': return { label: 'محدود شده', color: 'bg-orange-500/10 text-orange-500 border-orange-500/20' };
+      case 'expired': return { label: 'منقضی شده', color: 'bg-red-500/10 text-red-500 border-red-500/20' };
+      case 'disabled': return { label: 'غیرفعال', color: 'bg-gray-500/10 text-gray-500 border-gray-500/20' };
+      default: return { label: 'غیرفعال', color: 'bg-gray-500/10 text-gray-500 border-gray-500/20' };
+    }
+  };
+  
+  const statusBadge = getStatusBadge(status);
 
   const fetchUserData = async () => {
     if (tgUser) {
@@ -149,6 +196,25 @@ const ProfileCard = () => {
     }
   };
 
+  const handleCopySubscriptionLink = async () => {
+    if (!subscriptionUrl) return;
+    try {
+      await navigator.clipboard.writeText(subscriptionUrl);
+      setCopiedLink(true);
+      toast({
+        title: "کپی شد",
+        description: "لینک اشتراک با موفقیت کپی شد",
+      });
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch {
+      toast({
+        title: "خطا",
+        description: "کپی انجام نشد",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: -20 }}
@@ -177,7 +243,104 @@ const ProfileCard = () => {
           <h2 className="text-lg font-bold text-foreground truncate font-vazir text-right">
             {displayName}
           </h2>
-
+          
+          {/* Subscription Info */}
+          {subscriptionUrl ? (
+            <div className="mt-2 space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {planName && (
+                  <span className="text-sm font-medium text-foreground font-vazir">{planName}</span>
+                )}
+                <Badge variant="outline" className={`${statusBadge.color} text-xs font-vazir border shrink-0`}>
+                  {statusBadge.label}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground font-vazir flex-wrap">
+                {dataLimit > 0 && (
+                  <span dir="ltr" className="text-left">
+                    {formatBytes(dataLimit)} حجم کل
+                  </span>
+                )}
+                {daysRemaining !== null && daysRemaining > 0 && (
+                  <span>
+                    {daysRemaining} روز باقیمانده
+                  </span>
+                )}
+                {daysRemaining !== null && daysRemaining <= 0 && (
+                  <span className="text-red-500">منقضی شده</span>
+                )}
+              </div>
+              
+              {/* Subscription Link */}
+              <div className="mt-3 pt-3 border-t border-white/5">
+                <div className="flex items-center gap-2 mb-2">
+                  <Link2 className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-bold text-foreground font-vazir">لینک اشتراک</span>
+                </div>
+                <div className="relative group">
+                  <div dir="ltr" className="p-2.5 pl-16 rounded-xl bg-black/20 border border-white/5 font-mono text-[10px] overflow-hidden text-ellipsis whitespace-nowrap text-muted-foreground group-hover:text-foreground transition-colors text-left">
+                    {subscriptionUrl}
+                  </div>
+                  <div className="absolute left-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={handleCopySubscriptionLink}
+                      className="h-7 w-7 rounded-lg hover:bg-primary/20 hover:text-primary"
+                    >
+                      <AnimatePresence mode="wait">
+                        {copiedLink ? (
+                          <motion.div key="check" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
+                            <Check className="w-3.5 h-3.5" />
+                          </motion.div>
+                        ) : (
+                          <motion.div key="copy" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
+                            <Copy className="w-3.5 h-3.5" />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </Button>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 rounded-lg hover:bg-primary/20 hover:text-primary"
+                        >
+                          <QrCode className="w-3.5 h-3.5" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-xl border-white/10 rounded-[2.5rem] font-vazir">
+                        <DialogHeader>
+                          <DialogTitle className="text-center text-xl font-black">اسکن کد QR</DialogTitle>
+                        </DialogHeader>
+                        <div className="flex flex-col items-center justify-center space-y-6 py-4">
+                          <div className="p-6 bg-white rounded-[2rem] shadow-2xl">
+                            <img
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(subscriptionUrl)}`}
+                              alt="Subscription QR Code"
+                              className="w-48 h-48"
+                            />
+                          </div>
+                          <p className="text-sm text-center text-muted-foreground px-6">
+                            این کد را در اپلیکیشن v2ray (مانند v2rayNG یا Shadowrocket) اسکن کنید تا تنظیمات به صورت خودکار اعمال شود.
+                          </p>
+                          <Button onClick={handleCopySubscriptionLink} variant="outline" className="rounded-xl gap-2 font-bold">
+                            {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                            کپی لینک اشتراک
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-2">
+              <span className="text-xs text-muted-foreground font-vazir">اشتراکی فعال نیست</span>
+            </div>
+          )}
         </div>
       </div>
     </motion.div>

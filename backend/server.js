@@ -105,6 +105,21 @@ app.post('/api/user/passkey', (req, res) => {
     }
 });
 
+// Update User Language
+app.post('/api/user/language', (req, res) => {
+    const { id, language_code } = req.body;
+    if (!id || !language_code) {
+        return res.status(400).json({ error: 'User ID and language code are required' });
+    }
+    try {
+        db.prepare('UPDATE users SET language_code = ? WHERE id = ?').run(language_code, id);
+        res.json({ success: true, message: 'Language updated successfully' });
+    } catch (error) {
+        console.error('Error updating language:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Sync User Data
 app.post('/api/sync-user', async (req, res) => {
     const { id, first_name, last_name, username, language_code, photo_url, phone_number, referral_code } = req.body;

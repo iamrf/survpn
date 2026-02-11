@@ -6,7 +6,6 @@ import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import BottomNav from "@/components/BottomNav";
-import SubscriptionLinkCard from "@/components/SubscriptionLinkCard";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { useSyncUserMutation } from "@/store/api";
 import { getTelegramUser } from "@/lib/telegram";
@@ -233,64 +232,6 @@ const ConfigsPage = () => {
             <p className="text-muted-foreground text-sm font-vazir">لینک اشتراک و سرورهای VPN</p>
           </div>
         </motion.div>
-
-        {/* Subscription Link Card */}
-        {subscriptionData && subscriptionData.url ? (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <Card className="border-none bg-gradient-to-br from-primary/5 to-secondary/10 backdrop-blur-xl shadow-xl">
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-bold font-vazir">اطلاعات اشتراک</CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 gap-1 text-xs"
-                    onClick={handleRefreshSubscription}
-                    disabled={refreshing === 'subscription'}
-                  >
-                    <RefreshCw className={`w-3 h-3 ${refreshing === 'subscription' ? 'animate-spin' : ''}`} />
-                    به‌روزرسانی
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <SubscriptionLinkCard
-                  url={subscriptionData.url}
-                  dataLimit={subscriptionData.limit}
-                  dataUsed={subscriptionData.used}
-                  expire={subscriptionData.expire}
-                  status={subscriptionData.status}
-                  username={subscriptionData.username}
-                  planName={subscriptionData.planName}
-                  isBonus={subscriptionData.isBonus}
-                />
-              </CardContent>
-            </Card>
-          </motion.div>
-        ) : (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <Card className="border-muted">
-              <CardContent className="p-8 text-center">
-                <p className="text-muted-foreground font-vazir mb-4">اشتراکی یافت نشد</p>
-                <Button
-                  onClick={handleRefreshSubscription}
-                  disabled={refreshing === 'subscription'}
-                  className="gap-2"
-                >
-                  <RefreshCw className={`w-4 h-4 ${refreshing === 'subscription' ? 'animate-spin' : ''}`} />
-                  به‌روزرسانی اطلاعات
-                </Button>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
 
         {/* Servers List */}
         {subscriptionData?.url && (

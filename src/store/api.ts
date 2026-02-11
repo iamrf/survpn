@@ -94,6 +94,15 @@ export const api = createApi({
             invalidatesTags: ['User'],
         }),
 
+        updateUserLanguage: builder.mutation<{ success: boolean; message?: string }, { userId: number; languageCode: string }>({
+            query: ({ userId, languageCode }) => ({
+                url: '/api/user/language',
+                method: 'POST',
+                body: { id: userId, language_code: languageCode },
+            }),
+            invalidatesTags: ['User'],
+        }),
+
         // Payment endpoints
         createPayment: builder.mutation<{ success: boolean; invoice_url?: string; error?: string }, { userId: number; amount: number }>({
             query: ({ userId, amount }) => ({
@@ -348,6 +357,7 @@ export const {
     useSyncUserMutation,
     useUpdateWalletAddressMutation,
     useUpdateWithdrawalPasskeyMutation,
+    useUpdateUserLanguageMutation,
     
     // Payment hooks
     useCreatePaymentMutation,

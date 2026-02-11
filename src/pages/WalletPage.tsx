@@ -75,14 +75,14 @@ const WalletPage = () => {
       return;
     }
 
-    if (!tgUser) {
-      toast({
-        title: "خطا",
-        description: "اطلاعات کاربر یافت نشد",
-        variant: "destructive",
-      });
-      return;
-    }
+      if (!tgUser) {
+        toast({
+          title: "خطا",
+          description: "اطلاعات کاربر یافت نشد",
+          variant: "destructive",
+        });
+        return;
+      }
 
     try {
       const result = await createPayment({ userId: tgUser.id, amount: numAmount }).unwrap();
@@ -256,13 +256,13 @@ const WalletPage = () => {
         {!currentUser ? (
           <WalletBalanceSkeleton />
         ) : (
-          <Card className="bg-gradient-to-br from-primary/90 to-primary text-primary-foreground border-none">
-            <CardHeader className="pb-4">
-              <CardDescription className="text-primary-foreground/80 font-vazir">موجودی حساب</CardDescription>
-              <CardTitle className="text-3xl font-bold font-vazir text-left">
-                $ {balance.toLocaleString()}
-              </CardTitle>
-            </CardHeader>
+        <Card className="bg-gradient-to-br from-primary/90 to-primary text-primary-foreground border-none">
+          <CardHeader className="pb-4">
+            <CardDescription className="text-primary-foreground/80 font-vazir">موجودی حساب</CardDescription>
+            <CardTitle className="text-3xl font-bold font-vazir text-left">
+              $ {balance.toLocaleString()}
+            </CardTitle>
+          </CardHeader>
           </Card>
         )}
 
