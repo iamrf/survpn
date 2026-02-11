@@ -71,7 +71,7 @@ const MinimalSubscriptionCard: React.FC<MinimalSubscriptionCardProps> = ({
                     <div className="text-right flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                             <p className="text-sm font-bold font-vazir truncate">
-                                {isBonus ? 'اشتراک رایگان' : (planName || 'اشتراک V2Ray')}
+                                {isBonus ? 'اشتراک رایگان' : (planName || 'اشتراک حرفه ای')}
                             </p>
                             <Badge variant="outline" className={`${statusObj.color} font-vazir border text-[10px] px-2 py-0.5 shrink-0`}>
                                 {statusObj.label}

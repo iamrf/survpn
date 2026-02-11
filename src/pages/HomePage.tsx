@@ -125,12 +125,12 @@ const HomePage = () => {
               </div>
             )}
 
-            <div className="flex flex-col items-center text-center space-y-2">
+            <div className="py-16 flex flex-col items-center text-center space-y-4">
               <h2 className="text-3xl font-black tracking-tight font-vazir bg-clip-text text-transparent bg-gradient-to-r from-white to-white/50">
-                انتخاب سرویس هوشمند
+                ساخته شده برای آزادی
               </h2>
               <p className="text-muted-foreground text-sm font-vazir">
-                بهترین پلن را متناسب با نیاز خود انتخاب کنید
+              سور وی پی ان همیشه همراه شماست
               </p>
             </div>
           </motion.div>
