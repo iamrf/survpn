@@ -56,6 +56,20 @@ const WalletPage = () => {
   const hasPasskey = currentUser?.hasPasskey || false;
   const referralCode = currentUser?.referralCode || "";
   const referralStats = referralStatsData?.stats || { referralCount: 0, totalCommissions: 0, recentCommissions: [] };
+  const [referralLink, setReferralLink] = useState<string>("");
+
+  // Load referral link when referral code is available
+  useEffect(() => {
+    if (!referralCode) {
+      setReferralLink("");
+      return;
+    }
+    // Use Telegram bot deep link format: https://t.me/botname?start=code
+    import('@/lib/telegram').then(({ getTelegramBotUsername }) => {
+      const botUsername = getTelegramBotUsername();
+      setReferralLink(`https://t.me/${botUsername}?start=${referralCode}`);
+    });
+  }, [referralCode]);
 
   // Sync user data on mount
   useEffect(() => {
@@ -205,10 +219,8 @@ const WalletPage = () => {
   };
 
   const getReferralLink = () => {
-    if (!referralCode) return "";
-    // Get current URL and add referral code as query parameter
-    const baseUrl = window.location.origin;
-    return `${baseUrl}?ref=${referralCode}`;
+    if (!referralCode) return referralLink;
+    return referralLink;
   };
 
   const copyReferralLink = () => {
@@ -288,7 +300,7 @@ const WalletPage = () => {
             </div>
 
             <div className="grid grid-cols-3 gap-2">
-              {[100, 1000, 10000].map((val) => (
+              {[10, 25, 50].map((val) => (
                 <Button
                   key={val}
                   variant="secondary"
@@ -378,7 +390,7 @@ const WalletPage = () => {
                         <label className="text-sm font-vazir text-right block">لینک معرفی</label>
                         <div className="relative">
                           <Input
-                            value={getReferralLink()}
+                            value={referralLink}
                             readOnly
                             className="text-xs font-mono pr-12 bg-background"
                             dir="ltr"

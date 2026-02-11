@@ -35,19 +35,21 @@ const AppContent = () => {
   const [syncUser] = useSyncUserMutation();
 
   useEffect(() => {
-    const user = getTelegramUser();
-    if (user) {
-      console.log("Syncing user data with backend...", user);
-      
-      // Check for referral code in URL
-      const urlParams = new URLSearchParams(window.location.search);
-      const referralCode = urlParams.get('ref');
-      
-      // Prepare user data with referral code if present
-      const userData = {
-        ...user,
-        ...(referralCode && { referral_code: referralCode })
-      };
+    const syncUserData = async () => {
+      const user = getTelegramUser();
+      if (user) {
+        console.log("Syncing user data with backend...", user);
+        
+        // Check for referral code from Telegram start parameter (deep link)
+        // Format: https://t.me/botname?start=referral_code
+        const { getReferralCodeFromStartParam } = await import('@/lib/telegram');
+        const referralCode = getReferralCodeFromStartParam();
+        
+        // Prepare user data with referral code if present
+        const userData = {
+          ...user,
+          ...(referralCode && { referral_code: referralCode })
+        };
       
       syncUser(userData).unwrap().then((result) => {
         if (result.success) {
@@ -76,10 +78,12 @@ const AppContent = () => {
         } else {
           console.error("Failed to sync user");
         }
-      }).catch((error) => {
-        console.error("Error syncing user:", error);
-      });
-    }
+        }).catch((error) => {
+          console.error("Error syncing user:", error);
+        });
+      }
+    };
+    syncUserData();
   }, [setIsAdmin, dispatch, syncUser]);
 
   return (
