@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Home, Wallet, Target, Settings, ShieldCheck } from "lucide-react";
+import { Home, Wallet, Download, Settings, ShieldCheck } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAdmin } from "./AdminProvider";
 
@@ -13,7 +13,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { icon: Home, label: "خانه", path: "/" },
   { icon: Wallet, label: "کیف پول", path: "/wallet" },
-  { icon: Target, label: "ماموریت‌ها", path: "/missions" },
+  { icon: Download, label: "اشتراک من", path: "/missions" },
   { icon: Settings, label: "تنظیمات", path: "/settings" },
   { icon: ShieldCheck, label: "مدیریت", path: "/admin", adminOnly: true },
 ];

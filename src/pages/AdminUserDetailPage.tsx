@@ -488,20 +488,54 @@ const AdminUserDetailPage = () => {
                                         </div>
                                         <div className="text-left space-y-0.5">
                                             {(() => {
-                                                const lastSeen = user.marzban?.lastSeen || user.marzban?.onlineAt;
+                                                // Get onlineAt value, prefer onlineAt over lastSeen
+                                                const onlineAt = user.marzban?.onlineAt || user.marzban?.lastSeen;
                                                 
-                                                if (!lastSeen || lastSeen === 0 || lastSeen === null) {
+                                                // Handle null, undefined, 0, or empty string
+                                                if (!onlineAt || onlineAt === 0 || onlineAt === null || onlineAt === '') {
                                                     return (
-                                                        <div className="flex items-center gap-2">
+                                                        <div className="flex items-center gap-2 justify-end">
                                                             <div className="w-2 h-2 rounded-full bg-gray-500"></div>
                                                             <p className="text-xs text-muted-foreground">هرگز متصل نشده</p>
                                                         </div>
                                                     );
                                                 }
                                                 
-                                                const lastSeenDate = new Date(lastSeen * 1000);
+                                                // Convert to number and handle both seconds and milliseconds
+                                                let timestamp = typeof onlineAt === 'string' ? parseFloat(onlineAt) : onlineAt;
+                                                
+                                                // If timestamp is less than a reasonable date (before 2000), it's likely in seconds
+                                                // Otherwise, assume it's already in milliseconds
+                                                const threshold = 946684800000; // Jan 1, 2000 in milliseconds
+                                                if (timestamp < threshold) {
+                                                    timestamp = timestamp * 1000; // Convert seconds to milliseconds
+                                                }
+                                                
+                                                const lastSeenDate = new Date(timestamp);
+                                                
+                                                // Check if date is valid
+                                                if (isNaN(lastSeenDate.getTime())) {
+                                                    return (
+                                                        <div className="flex items-center gap-2 justify-end">
+                                                            <div className="w-2 h-2 rounded-full bg-gray-500"></div>
+                                                            <p className="text-xs text-muted-foreground">تاریخ نامعتبر</p>
+                                                        </div>
+                                                    );
+                                                }
+                                                
                                                 const now = new Date();
                                                 const diffMs = now.getTime() - lastSeenDate.getTime();
+                                                
+                                                // Handle negative differences (future dates)
+                                                if (diffMs < 0) {
+                                                    return (
+                                                        <div className="flex items-center gap-2 justify-end">
+                                                            <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                                                            <p className="text-xs text-muted-foreground">تاریخ آینده</p>
+                                                        </div>
+                                                    );
+                                                }
+                                                
                                                 const diffMins = Math.floor(diffMs / 60000);
                                                 const diffHours = Math.floor(diffMs / 3600000);
                                                 const diffDays = Math.floor(diffMs / 86400000);

@@ -11,7 +11,7 @@ import { LoadingFallback } from "./components/LoadingFallback";
 // Lazy load pages
 const HomePage = lazy(() => import("./pages/HomePage"));
 const WalletPage = lazy(() => import("./pages/WalletPage"));
-const MissionsPage = lazy(() => import("./pages/MissionsPage"));
+const ConfigsPage = lazy(() => import("./pages/ConfigsPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const AdminUserDetailPage = lazy(() => import("./pages/AdminUserDetailPage"));
@@ -92,7 +92,7 @@ const AppContent = () => {
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/wallet" element={<WalletPage />} />
-              <Route path="/missions" element={<MissionsPage />} />
+              <Route path="/missions" element={<ConfigsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               {isAdmin &&
                 <>

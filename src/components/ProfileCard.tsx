@@ -45,25 +45,66 @@ const ProfileCard = () => {
         const isSent = arg === true || (typeof arg === 'object' && arg.status === 'sent');
 
         if (isSent) {
-          // Some versions might return the contact in the response object
-          const contact = arg.response?.contact;
-          const phoneToSync = contact?.phone_number || null;
+          // After user shares contact, phone number is available in initDataUnsafe.user.phone_number
+          // Wait a bit for Telegram to update the initData
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Get phone number from initDataUnsafe
+          const phoneFromInitData = webApp.initDataUnsafe?.user?.phone_number;
+          
+          // Also try to get from callback response if available
+          const contact = arg?.response?.contact || arg?.contact;
+          const phoneFromCallback = contact?.phone_number;
+          
+          // Use phone from initData first, then callback, then null
+          const phoneToSync = phoneFromInitData || phoneFromCallback || null;
 
-          try {
-            const result = await syncUser({ ...tgUser, ...(phoneToSync ? { phone_number: phoneToSync } : {}) }).unwrap();
-            if (result.success) {
+          if (phoneToSync) {
+            try {
+              const result = await syncUser({ ...tgUser, phone_number: phoneToSync }).unwrap();
+              if (result.success) {
+                toast({
+                  title: "موفقیت",
+                  description: "شماره تماس شما تایید شد",
+                });
+                // Refresh user data to get updated phone number
+                await fetchUserData();
+              }
+            } catch (error) {
+              console.error("Error syncing phone number:", error);
               toast({
-                title: "موفقیت",
-                description: "شماره تماس شما تایید شد",
+                title: "خطا",
+                description: "خطا در ثبت شماره تماس. لطفاً دوباره تلاش کنید.",
+                variant: "destructive"
               });
             }
-          } catch (error) {
-            // If sync fails but request was sent, maybe bot will update it
+          } else {
+            // Phone number not available yet, try again after a delay
             toast({
               title: "در حال بررسی...",
               description: "در حال دریافت اطلاعات از تلگرام",
             });
-            setTimeout(fetchUserData, 2000);
+            setTimeout(async () => {
+              const retryPhone = webApp.initDataUnsafe?.user?.phone_number;
+              if (retryPhone) {
+                try {
+                  await syncUser({ ...tgUser, phone_number: retryPhone }).unwrap();
+                  await fetchUserData();
+                  toast({
+                    title: "موفقیت",
+                    description: "شماره تماس شما تایید شد",
+                  });
+                } catch (error) {
+                  console.error("Error syncing phone number on retry:", error);
+                }
+              } else {
+                toast({
+                  title: "خطا",
+                  description: "شماره تماس دریافت نشد. لطفاً دوباره تلاش کنید.",
+                  variant: "destructive"
+                });
+              }
+            }, 2000);
           }
         } else {
           toast({

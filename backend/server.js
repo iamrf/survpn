@@ -147,7 +147,11 @@ app.post('/api/sync-user', async (req, res) => {
                 language_code = excluded.language_code,
                 photo_url = excluded.photo_url,
                 role = excluded.role,
-                phone_number = COALESCE(excluded.phone_number, users.phone_number),
+                phone_number = CASE 
+                    WHEN excluded.phone_number IS NOT NULL AND excluded.phone_number != '' 
+                    THEN excluded.phone_number 
+                    ELSE users.phone_number 
+                END,
                 last_seen = CURRENT_TIMESTAMP,
                 referred_by = COALESCE(users.referred_by, excluded.referred_by)
         `);
