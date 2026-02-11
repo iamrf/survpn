@@ -121,7 +121,7 @@ const AdminUsersPage = () => {
                                     </div>
                                     <div className="flex items-center justify-between text-[10px] text-muted-foreground px-1 pt-2 border-t border-white/5">
                                         <span className="font-vazir">ID: {user.id}</span>
-                                        <span className="font-mono">${user.balance?.toFixed(2) || '0.00'}</span>
+                                        <span className="font-mono">$ {(user.balance)?.toLocaleString() || '0.00'}</span>
                                     </div>
                                 </motion.div>
                             ))
