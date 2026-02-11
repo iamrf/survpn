@@ -412,23 +412,6 @@ const AdminPage = () => {
                                 </p>
                             </div>
 
-                            <div className="glass rounded-3xl p-6 border border-white/5 shadow-xl space-y-4">
-                                <h2 className="text-lg font-semibold flex items-center gap-2 font-vazir">
-                                    <Settings size={20} className="text-primary" />
-                                    تنظیمات سریع
-                                </h2>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button className="p-4 rounded-2xl bg-white/5 hover:bg-white/10 transition-colors text-xs font-medium border border-white/5 font-vazir">
-                                        توقف سرویس
-                                    </button>
-                                    <button className="p-4 rounded-2xl bg-white/5 hover:bg-white/10 transition-colors text-xs font-medium border border-white/5 font-vazir">
-                                        ارسال پیام انبوه
-                                    </button>
-                                    <button className="p-4 rounded-2xl bg-white/5 hover:bg-white/10 transition-colors text-xs font-medium border border-white/5 font-vazir">
-                                        پشتیبان‌گیری
-                                    </button>
-                                </div>
-                            </div>
                         </motion.div>
                     ) : activeTab === "withdrawals" ? (
                         <motion.div

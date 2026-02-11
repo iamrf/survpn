@@ -266,6 +266,61 @@ const WalletPage = () => {
           </Card>
         )}
 
+
+        {/* Top Up Form */}
+        <Card className="border-muted">
+          <CardHeader>
+            <CardTitle className="text-lg font-vazir">شارژ حساب</CardTitle>
+            <CardDescription className="font-vazir">مبلغ مورد نظر را وارد کنید (به دلار)</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="relative">
+              <Input
+                type="number"
+                placeholder="مبلغ (USD)"
+                className="pl-10 text-left font-mono"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                $
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              {[100, 1000, 10000].map((val) => (
+                <Button
+                  key={val}
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setAmount(val.toString())}
+                  className="font-mono"
+                >
+                  {val}$
+                </Button>
+              ))}
+            </div>
+
+            <Button
+              className="w-full h-12 gap-2 mt-4 font-vazir"
+              onClick={handleTopUp}
+              disabled={paymentLoading}
+            >
+              {paymentLoading ? (
+                "در حال اتصال..."
+              ) : (
+                <>
+                  <Plus className="w-5 h-5" />
+                  شارژ حساب با کریپتو
+                </>
+              )}
+            </Button>
+            <p className="text-[10px] text-center text-muted-foreground mt-2 font-vazir">
+              پرداخت امن از طریق درگاه
+            </p>
+          </CardContent>
+        </Card>
+
         {/* Referral & Affiliate Card */}
         <Card className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/20">
           <CardHeader className="pb-3">
@@ -531,22 +586,31 @@ const WalletPage = () => {
                     ) : history.length === 0 ? (
                       <div className="text-center py-10 text-muted-foreground font-vazir">تراکنشی یافت نشد</div>
                     ) : (
-                      history.map((tx) => (
+                      history.map((tx) => {
+                        const isDeposit = tx.type === 'deposit';
+                        const isWithdrawal = tx.type === 'withdrawal';
+                        const isSubscription = tx.type === 'subscription' || tx.type === 'custom_subscription';
+                        const isPositive = isDeposit;
+                        const isNegative = isWithdrawal || isSubscription;
+                        
+                        return (
                         <div key={tx.id} className="flex flex-col p-3 rounded-lg border bg-card gap-3">
                           <div className="flex items-center justify-between">
                             <div className="text-left space-y-1">
-                              <p className={`text-sm font-bold font-vazir ${tx.type === 'deposit' ? 'text-green-600' : 'text-red-600'}`}>
-                                {tx.type === 'deposit' ? '+' : '-'}${tx.amount}
+                              <p className={`text-sm font-bold font-vazir ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                                {isPositive ? '+' : '-'}${tx.amount}
                               </p>
                               {getStatusBadge(tx.status)}
                             </div>
                             <div className="flex items-center gap-3">
                               <div className="text-right">
-                                <p className="text-sm font-semibold font-vazir">{tx.type === 'deposit' ? 'شارژ حساب' : 'برداشت وجه'}</p>
+                                <p className="text-sm font-semibold font-vazir">
+                                  {isDeposit ? 'شارژ حساب' : isWithdrawal ? 'برداشت وجه' : isSubscription ? 'خرید اشتراک' : 'تراکنش'}
+                                </p>
                                 <p className="text-[10px] text-muted-foreground font-vazir">{new Date(tx.created_at).toLocaleString('fa-IR')}</p>
                               </div>
-                              <div className={`p-2 rounded-full ${tx.type === 'deposit' ? 'bg-green-100' : 'bg-red-100'}`}>
-                                {tx.type === 'deposit' ? <ArrowDownLeft className="w-4 h-4 text-green-600" /> : <ArrowUpRight className="w-4 h-4 text-red-600" />}
+                              <div className={`p-2 rounded-full ${isPositive ? 'bg-green-100' : 'bg-red-100'}`}>
+                                {isPositive ? <ArrowDownLeft className="w-4 h-4 text-green-600" /> : <ArrowUpRight className="w-4 h-4 text-red-600" />}
                               </div>
                             </div>
                           </div>
@@ -562,7 +626,8 @@ const WalletPage = () => {
                             </Button>
                           )}
                         </div>
-                      ))
+                      );
+                      })
                     )}
                   </div>
                 </ScrollArea>
@@ -571,59 +636,6 @@ const WalletPage = () => {
           </Drawer>
         </div>
 
-        {/* Top Up Form */}
-        <Card className="border-muted">
-          <CardHeader>
-            <CardTitle className="text-lg font-vazir">شارژ حساب</CardTitle>
-            <CardDescription className="font-vazir">مبلغ مورد نظر را وارد کنید (به دلار)</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="relative">
-              <Input
-                type="number"
-                placeholder="مبلغ (USD)"
-                className="pl-10 text-left font-mono"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-              />
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                $
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              {[100, 1000, 10000].map((val) => (
-                <Button
-                  key={val}
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setAmount(val.toString())}
-                  className="font-mono"
-                >
-                  {val}$
-                </Button>
-              ))}
-            </div>
-
-            <Button
-              className="w-full h-12 gap-2 mt-4 font-vazir"
-              onClick={handleTopUp}
-              disabled={paymentLoading}
-            >
-              {paymentLoading ? (
-                "در حال اتصال..."
-              ) : (
-                <>
-                  <Plus className="w-5 h-5" />
-                  شارژ حساب با کریپتو
-                </>
-              )}
-            </Button>
-            <p className="text-[10px] text-center text-muted-foreground mt-2 font-vazir">
-              پرداخت امن از طریق درگاه
-            </p>
-          </CardContent>
-        </Card>
       </div>
       <BottomNav />
     </div>

@@ -30,7 +30,7 @@ const BottomNav = () => {
       initial={{ y: 0 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
-      className="fixed bottom-0 left-0 right-0 glass border-t border-border/50 pb-safe"
+      className="fixed bottom-0 left-0 right-0 glass border-t border-border/50 pb-safe z-50"
     >
       <div className="flex items-center justify-around py-3 px-4">
         {filteredNavItems.map((item) => {

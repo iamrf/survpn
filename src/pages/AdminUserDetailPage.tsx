@@ -453,7 +453,7 @@ const AdminUserDetailPage = () => {
                                             <span className="text-xs text-muted-foreground font-vazir">ترافیک</span>
                                         </div>
                                         <div className="text-left space-y-1">
-                                            <p className="text-xs font-mono text-muted-foreground">
+                                            <p dir="ltr" className="text-left text-xs font-mono text-muted-foreground">
                                                 {user.marzban.dataUsed ? formatBytes(user.marzban.dataUsed) : '0 B'} / {user.marzban.dataLimit ? formatBytes(user.marzban.dataLimit) : '0 B'}
                                             </p>
                                             {user.marzban.dataLimit > 0 && (
@@ -836,7 +836,21 @@ const AdminUserDetailPage = () => {
                                     تراکنشی یافت نشد
                                 </div>
                             ) : (
-                                history.map((tx) => (
+                                history.map((tx) => {
+                                    const isDeposit = tx.type === 'deposit';
+                                    const isWithdrawal = tx.type === 'withdrawal';
+                                    const isSubscription = tx.type === 'subscription' || tx.type === 'custom_subscription';
+                                    const isPositive = isDeposit;
+                                    const isNegative = isWithdrawal || isSubscription;
+                                    
+                                    const getTransactionLabel = () => {
+                                        if (isDeposit) return 'شارژ حساب';
+                                        if (isWithdrawal) return 'برداشت وجه';
+                                        if (isSubscription) return 'خرید اشتراک';
+                                        return 'تراکنش';
+                                    };
+                                    
+                                    return (
                                     <div
                                         key={tx.id}
                                         className="glass p-4 rounded-2xl border border-white/5 space-y-3 cursor-pointer hover:bg-white/5 transition-colors"
@@ -844,23 +858,24 @@ const AdminUserDetailPage = () => {
                                     >
                                         <div className="flex items-center justify-between">
                                             <div className="text-left space-y-1">
-                                                <p className={`text-sm font-bold font-mono ${tx.type === 'deposit' ? 'text-green-500' : 'text-red-500'}`}>
-                                                    {tx.type === 'deposit' ? '+' : '-'}${tx.amount}
+                                                <p className={`text-sm font-bold font-mono ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
+                                                    {isPositive ? '+' : '-'}${tx.amount}
                                                 </p>
                                                 {getStatusBadge(tx.status)}
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <div className="text-right">
-                                                    <p className="text-sm font-bold font-vazir">{tx.type === 'deposit' ? 'شارژ حساب' : 'برداشت وجه'}</p>
+                                                    <p className="text-sm font-bold font-vazir">{getTransactionLabel()}</p>
                                                     <p className="text-[10px] text-muted-foreground font-vazir px-1">{new Date(tx.created_at).toLocaleString('fa-IR')}</p>
                                                 </div>
-                                                <div className={`p-2 rounded-xl ${tx.type === 'deposit' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-                                                    {tx.type === 'deposit' ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+                                                <div className={`p-2 rounded-xl ${isPositive ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                                                    {isPositive ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                ))
+                                    );
+                                })
                             )}
                         </div>
                     </ScrollArea>
@@ -905,7 +920,7 @@ const AdminUserDetailPage = () => {
                                     <DrawerHeader className="p-0 text-right">
                                         <DrawerTitle className="text-2xl font-bold flex items-center justify-end gap-2 text-right">
                                             جزئیات تراکنش
-                                            {selectedTx.type === 'deposit' ? <ArrowDownLeft className="text-green-500" /> : <ArrowUpRight className="text-red-500" />}
+                                            {(selectedTx.type === 'deposit') ? <ArrowDownLeft className="text-green-500" /> : <ArrowUpRight className="text-red-500" />}
                                         </DrawerTitle>
                                         <DrawerDescription className="text-right">
                                             بررسی تاریخچه و وضعیت پرداخت
@@ -942,7 +957,10 @@ const AdminUserDetailPage = () => {
                                             <div className="glass p-4 rounded-2xl border border-white/5 space-y-1">
                                                 <p className="text-[10px] text-muted-foreground text-right">نوع تراکنش</p>
                                                 <p className="font-bold text-sm">
-                                                    {selectedTx.type === 'deposit' ? 'شارژ حساب (واریز)' : 'برداشت وجه'}
+                                                    {selectedTx.type === 'deposit' ? 'شارژ حساب (واریز)' : 
+                                                     selectedTx.type === 'withdrawal' ? 'برداشت وجه' :
+                                                     selectedTx.type === 'subscription' || selectedTx.type === 'custom_subscription' ? 'خرید اشتراک' :
+                                                     'تراکنش'}
                                                 </p>
                                             </div>
                                             <div className="glass p-4 rounded-2xl border border-white/5 space-y-1">
