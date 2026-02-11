@@ -170,11 +170,10 @@ export const api = createApi({
             invalidatesTags: ['User', 'Plans'],
         }),
 
-        createCustomSubscription: builder.mutation<{ success: boolean; message?: string; error?: string }, {
+        createCustomSubscription: builder.mutation<{ success: boolean; message?: string; error?: string; price?: number; newBalance?: number }, {
             userId: number;
             traffic: number;
             duration: number;
-            notes: string;
         }>({
             query: (body) => ({
                 url: '/api/create-custom-subscription',

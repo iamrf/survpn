@@ -1149,26 +1149,101 @@ app.post('/api/purchase-plan', async (req, res) => {
     }
 });
 
-// Create Custom Subscription Request
-app.post('/api/create-custom-subscription', (req, res) => {
-    const { userId, traffic, duration, notes } = req.body;
+// Create Custom Subscription
+app.post('/api/create-custom-subscription', async (req, res) => {
+    const { userId, traffic, duration } = req.body;
 
     if (!userId || !traffic || !duration) {
         return res.status(400).json({ error: 'User ID, traffic, and duration are required' });
     }
 
+    // Validate inputs
+    const trafficGB = parseFloat(traffic);
+    const durationDays = parseFloat(duration);
+    
+    if (trafficGB <= 0 || durationDays <= 0) {
+        return res.status(400).json({ error: 'Traffic and duration must be greater than 0' });
+    }
+
     try {
-        const transId = `custom_${Date.now()}_${userId}`;
-        // For custom requests, we just log it as a pending transaction or send a notification to admin
-        // For now, let's just record it in a separate table if it exists, or use transactions with status 'pending'
-        db.prepare(`
-            INSERT INTO transactions (id, user_id, amount, currency, status, type)
-            VALUES (?, ?, ?, ?, ?, ?)
-        `).run(transId, userId, 0, 'USD', 'pending', 'custom_subscription');
+        // Calculate price: $0.07 per GB + $0.03 per day
+        const price = (trafficGB * 0.07) + (durationDays * 0.03);
+        
+        // Get user balance
+        const user = db.prepare('SELECT balance, username FROM users WHERE id = ?').get(userId);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
 
-        console.log(`Custom subscription request from user ${userId}: ${traffic}GB for ${duration} days. Notes: ${notes}`);
+        if (user.balance < price) {
+            return res.status(400).json({ error: 'Insufficient balance' });
+        }
 
-        res.json({ success: true, message: 'Custom subscription request submitted. Our team will contact you soon.' });
+        const marzbanUsername = user.username || `user_${userId}`;
+        const dataLimit = trafficGB * 1024 * 1024 * 1024; // GB to Bytes
+        const expiry = Math.floor(Date.now() / 1000) + (durationDays * 24 * 60 * 60);
+
+        // Update or create user in Marzban
+        try {
+            const existingUser = await marzban.getUser(marzbanUsername);
+            if (existingUser) {
+                await marzban.updateUser(marzbanUsername, {
+                    status: 'active',
+                    data_limit: dataLimit,
+                    expire: expiry
+                });
+            } else {
+                await marzban.createUser(marzbanUsername, dataLimit, expiry);
+            }
+        } catch (mErr) {
+            console.error(`Error updating Marzban user ${marzbanUsername}:`, mErr);
+            return res.status(500).json({ error: 'Failed to create subscription in Marzban' });
+        }
+
+        // Deduct Balance and Record Transaction
+        let transId = '';
+        db.transaction(() => {
+            db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(price, userId);
+
+            transId = `custom_${Date.now()}_${userId}`;
+            db.prepare(`
+                INSERT INTO transactions (id, user_id, amount, currency, status, type)
+                VALUES (?, ?, ?, ?, ?, ?)
+            `).run(transId, userId, price, 'USD', 'completed', 'custom_subscription');
+        })();
+
+        // Process referral commission if user was referred
+        try {
+            const userData = db.prepare('SELECT referred_by, referral_bonus_rate FROM users WHERE id = ?').get(userId);
+            if (userData.referred_by) {
+                const referrer = db.prepare('SELECT id, referral_bonus_rate FROM users WHERE id = ?').get(userData.referred_by);
+                if (referrer) {
+                    const commissionRate = userData.referral_bonus_rate || referrer.referral_bonus_rate || 10.00;
+                    const commissionAmount = (price * commissionRate) / 100;
+                    
+                    db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(commissionAmount, referrer.id);
+                    
+                    const commissionId = `ref_${Date.now()}_${referrer.id}_${userId}`;
+                    db.prepare(`
+                        INSERT INTO referral_commissions (id, referrer_id, referred_user_id, transaction_id, amount, commission_rate, commission_amount, type, status)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, 'transaction', 'paid')
+                    `).run(commissionId, referrer.id, userId, transId, price, commissionRate, commissionAmount);
+                    
+                    console.log(`Referral commission: User ${referrer.id} earned $${commissionAmount} (${commissionRate}%) from user ${userId}'s custom subscription`);
+                }
+            }
+        } catch (refErr) {
+            console.error('Error processing referral commission:', refErr);
+        }
+
+        console.log(`Custom subscription created for user ${userId}: ${trafficGB}GB for ${durationDays} days. Price: $${price.toFixed(2)}`);
+
+        res.json({ 
+            success: true, 
+            message: `اشتراک سفارشی با موفقیت ایجاد شد`,
+            price: price,
+            newBalance: user.balance - price
+        });
     } catch (error) {
         console.error('Error creating custom subscription:', error);
         res.status(500).json({ error: 'Internal server error' });

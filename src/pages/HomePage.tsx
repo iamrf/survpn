@@ -4,7 +4,7 @@ import ProfileCard from "@/components/ProfileCard";
 import WelcomeSection from "@/components/WelcomeSection";
 import BottomNav from "@/components/BottomNav";
 import SubscriptionPlan from "@/components/SubscriptionPlan";
-import CustomSubscriptionDialog from "@/components/CustomSubscriptionDialog";
+import CustomSubscriptionDrawer from "@/components/CustomSubscriptionDrawer";
 import MinimalSubscriptionCard from "@/components/MinimalSubscriptionCard";
 import { SubscriptionPlanSkeleton, SubscriptionCardSkeleton } from "@/components/skeletons";
 import { getTelegramUser } from "@/lib/telegram";
@@ -149,7 +149,7 @@ const HomePage = () => {
               اگر نیاز به حجم یا زمان متفاوتی دارید، پلن سفارشی خود را بسازید. کارشناسان ما در سریع‌ترین زمان با شما ارتباط می‌گیرند.
             </p>
             <div className="pt-2">
-              <CustomSubscriptionDialog />
+              <CustomSubscriptionDrawer />
             </div>
           </div>
         </section>
