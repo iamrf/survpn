@@ -366,14 +366,21 @@ const WalletPage = () => {
                           <Input
                             value={referralCode || "---"}
                             readOnly
-                            className="text-center font-mono text-lg font-bold tracking-wider bg-background"
+                            className="text-center font-mono text-lg font-bold tracking-wider bg-background cursor-pointer hover:bg-muted transition-colors"
                             dir="ltr"
+                            onClick={() => {
+                              if (referralCode) {
+                                navigator.clipboard.writeText(referralCode);
+                                toast({ title: "کپی شد", description: "کد معرف کپی شد" });
+                              }
+                            }}
                           />
                           <Button
                             variant="ghost"
                             size="sm"
                             className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               if (referralCode) {
                                 navigator.clipboard.writeText(referralCode);
                                 toast({ title: "کپی شد", description: "کد معرف کپی شد" });
@@ -392,14 +399,18 @@ const WalletPage = () => {
                           <Input
                             value={referralLink}
                             readOnly
-                            className="text-xs font-mono pr-12 bg-background"
+                            className="text-xs font-mono pl-12 bg-background cursor-pointer hover:bg-muted transition-colors"
                             dir="ltr"
+                            onClick={copyReferralLink}
                           />
                           <Button
                             variant="ghost"
                             size="sm"
                             className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
-                            onClick={copyReferralLink}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              copyReferralLink();
+                            }}
                           >
                             <Copy className="w-4 h-4" />
                           </Button>
