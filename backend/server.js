@@ -33,25 +33,15 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Word list for 5-word referral codes
-const REFERRAL_WORDS = [
-    'alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot', 'golf', 'hotel',
-    'india', 'juliet', 'kilo', 'lima', 'mike', 'november', 'oscar', 'papa',
-    'quebec', 'romeo', 'sierra', 'tango', 'uniform', 'victor', 'whiskey', 'xray',
-    'yankee', 'zulu', 'apple', 'banana', 'cherry', 'dragon', 'eagle', 'falcon',
-    'galaxy', 'hero', 'island', 'jupiter', 'king', 'lion', 'moon', 'nova',
-    'ocean', 'planet', 'quantum', 'rocket', 'star', 'tiger', 'unicorn', 'vortex',
-    'wizard', 'xenon', 'yeti', 'zenith'
-];
-
-// Generate unique referral code (5 words)
+// Generate unique referral code (5 alphanumeric characters: A-Z and 0-9)
 function generateReferralCode() {
-    const words = [];
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
     for (let i = 0; i < 5; i++) {
-        const randomIndex = Math.floor(Math.random() * REFERRAL_WORDS.length);
-        words.push(REFERRAL_WORDS[randomIndex]);
+        const randomIndex = Math.floor(Math.random() * chars.length);
+        code += chars[randomIndex];
     }
-    return words.join('-');
+    return code;
 }
 
 function getUniqueReferralCode() {
@@ -389,7 +379,7 @@ app.post('/api/admin/user/:id/security', (req, res) => {
 // Admin: Update User Referral Settings
 app.post('/api/admin/user/:id/referral', (req, res) => {
     const { id } = req.params;
-    const { referral_bonus_rate, referral_registration_bonus } = req.body;
+    const { referral_bonus_rate, referral_registration_bonus, referral_code } = req.body;
 
     try {
         const updates = [];
@@ -402,6 +392,22 @@ app.post('/api/admin/user/:id/referral', (req, res) => {
         if (referral_registration_bonus !== undefined) {
             updates.push('referral_registration_bonus = ?');
             values.push(referral_registration_bonus);
+        }
+        if (referral_code !== undefined && referral_code !== null && referral_code !== '') {
+            // Validate referral code format (5 alphanumeric characters)
+            const codeRegex = /^[A-Z0-9]{5}$/;
+            if (!codeRegex.test(referral_code)) {
+                return res.status(400).json({ error: 'Referral code must be exactly 5 alphanumeric characters (A-Z, 0-9)' });
+            }
+            
+            // Check if code is already used by another user
+            const existingUser = db.prepare('SELECT id FROM users WHERE referral_code = ? AND id != ?').get(referral_code, id);
+            if (existingUser) {
+                return res.status(400).json({ error: 'This referral code is already in use by another user' });
+            }
+            
+            updates.push('referral_code = ?');
+            values.push(referral_code);
         }
 
         if (updates.length === 0) {

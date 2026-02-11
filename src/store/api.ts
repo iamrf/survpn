@@ -73,7 +73,14 @@ export const api = createApi({
                 method: 'POST',
                 body: user,
             }),
-            invalidatesTags: ['User', 'ReferralStats'],
+            invalidatesTags: (result, error, user) => {
+                const userId = user?.id;
+                return [
+                    'User',
+                    ...(userId ? [{ type: 'ReferralStats' as const, id: userId }] : []),
+                    'ReferralStats', // Also invalidate all referral stats
+                ];
+            },
         }),
 
         updateWalletAddress: builder.mutation<{ success: boolean; message?: string }, { userId: number; walletAddress: string }>({
@@ -130,7 +137,7 @@ export const api = createApi({
                 method: 'POST',
                 body,
             }),
-            invalidatesTags: ['User', 'Withdrawals'],
+            invalidatesTags: ['User', 'Withdrawals', 'Transactions'],
         }),
 
         cancelWithdrawal: builder.mutation<{ success: boolean; message?: string; error?: string }, {
@@ -142,7 +149,7 @@ export const api = createApi({
                 method: 'POST',
                 body: { userId, withdrawalId },
             }),
-            invalidatesTags: ['Withdrawals'],
+            invalidatesTags: ['Withdrawals', 'Transactions', 'User'],
         }),
 
         // Plans endpoints
@@ -174,6 +181,7 @@ export const api = createApi({
                 method: 'POST',
                 body,
             }),
+            invalidatesTags: ['User', 'Transactions'],
         }),
 
         // Admin endpoints
@@ -210,7 +218,12 @@ export const api = createApi({
                 method: 'POST',
                 body: { amount, type },
             }),
-            invalidatesTags: (result, error, { userId }) => [{ type: 'UserDetail', id: userId }, 'Users'],
+            invalidatesTags: (result, error, { userId }) => [
+                { type: 'UserDetail', id: userId },
+                { type: 'FinanceSummary', id: userId },
+                'Users',
+                'Transactions',
+            ],
         }),
 
         getAllWithdrawals: builder.query<{ success: boolean; withdrawals?: any[] }, void>({
@@ -227,7 +240,7 @@ export const api = createApi({
                 method: 'POST',
                 body: { id: withdrawalId, status },
             }),
-            invalidatesTags: ['Withdrawals', 'Users'],
+            invalidatesTags: ['Withdrawals', 'Users', 'Transactions', 'User'],
         }),
 
         getTotalDeposits: builder.query<{ success: boolean; total: number }, void>({
@@ -328,7 +341,7 @@ export const api = createApi({
             };
         }, number>({
             query: (userId) => `/api/user/${userId}/referral-stats`,
-            providesTags: ['ReferralStats'],
+            providesTags: (result, error, userId) => [{ type: 'ReferralStats', id: userId }],
         }),
 
         // Admin: Update User Referral Settings
@@ -336,13 +349,19 @@ export const api = createApi({
             userId: string;
             referral_bonus_rate?: number;
             referral_registration_bonus?: number;
+            referral_code?: string;
         }>({
             query: ({ userId, ...body }) => ({
                 url: `/api/admin/user/${userId}/referral`,
                 method: 'POST',
                 body,
             }),
-            invalidatesTags: (result, error, { userId }) => [{ type: 'UserDetail', id: userId }, 'Users', 'ReferralStats'],
+            invalidatesTags: (result, error, { userId }) => [
+                { type: 'UserDetail', id: userId },
+                { type: 'ReferralStats', id: userId },
+                'Users',
+                'ReferralStats',
+            ],
         }),
 
         // Health check

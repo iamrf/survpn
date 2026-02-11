@@ -41,6 +41,7 @@ const AdminUserDetailPage = () => {
     const [isReferralDialogOpen, setIsReferralDialogOpen] = useState(false);
     const [newReferralBonusRate, setNewReferralBonusRate] = useState("");
     const [newReferralRegistrationBonus, setNewReferralRegistrationBonus] = useState("");
+    const [newReferralCode, setNewReferralCode] = useState("");
     const [referralUpdateLoading, setReferralUpdateLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 
@@ -75,6 +76,7 @@ const AdminUserDetailPage = () => {
             setNewPasskey(userResult.user.withdrawal_passkey || "");
             setNewReferralBonusRate(userResult.user.referral_bonus_rate?.toString() || "10.00");
             setNewReferralRegistrationBonus(userResult.user.referral_registration_bonus?.toString() || "0.00");
+            setNewReferralCode(userResult.user.referral_code || "");
         }
         if (historyResult.success) setHistory(historyResult.history);
         if (financeResult.success) setUserFinance(financeResult.summary);
@@ -125,13 +127,31 @@ const AdminUserDetailPage = () => {
             return;
         }
 
+        // Validate referral code if provided
+        const referralCode = newReferralCode.trim().toUpperCase();
+        if (referralCode && referralCode.length !== 5) {
+            toast({ title: "خطا", description: "کد معرف باید دقیقاً ۵ کاراکتر باشد (A-Z, 0-9)", variant: "destructive" });
+            return;
+        }
+        if (referralCode && !/^[A-Z0-9]{5}$/.test(referralCode)) {
+            toast({ title: "خطا", description: "کد معرف باید فقط شامل حروف انگلیسی و اعداد باشد", variant: "destructive" });
+            return;
+        }
+
         setReferralUpdateLoading(true);
         try {
-            const result = await updateUserReferral({
+            const updateData: any = {
                 userId: id,
                 referral_bonus_rate: bonusRate,
                 referral_registration_bonus: registrationBonus,
-            }).unwrap();
+            };
+            
+            // Only include referral_code if it's provided and different from current
+            if (referralCode && referralCode !== user?.referral_code) {
+                updateData.referral_code = referralCode;
+            }
+            
+            const result = await updateUserReferral(updateData).unwrap();
 
             if (result.success) {
                 toast({ title: "موفقیت", description: "تنظیمات معرفی با موفقیت تغییر کرد" });
@@ -641,6 +661,25 @@ const AdminUserDetailPage = () => {
                                             </DrawerDescription>
                                         </DrawerHeader>
                                         <div className="space-y-4 py-4">
+                                            <div className="space-y-2">
+                                                <label className="text-sm block text-right">کد معرف</label>
+                                                <Input
+                                                    type="text"
+                                                    maxLength={5}
+                                                    placeholder="A1B2C"
+                                                    className="text-center font-mono text-lg font-bold tracking-wider uppercase"
+                                                    dir="ltr"
+                                                    value={newReferralCode}
+                                                    onChange={(e) => {
+                                                        // Only allow alphanumeric characters, convert to uppercase
+                                                        const value = e.target.value.replace(/[^A-Z0-9]/gi, '').toUpperCase().slice(0, 5);
+                                                        setNewReferralCode(value);
+                                                    }}
+                                                />
+                                                <p className="text-[10px] text-muted-foreground text-right">
+                                                    کد معرف باید دقیقاً ۵ کاراکتر باشد (A-Z, 0-9)
+                                                </p>
+                                            </div>
                                             <div className="space-y-2">
                                                 <label className="text-sm block text-right">نرخ کمیسیون تراکنش (%)</label>
                                                 <Input
