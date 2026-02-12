@@ -253,13 +253,6 @@ const CustomSubscriptionDrawer: React.FC = () => {
                             </CardContent>
                         </Card>
 
-                        {/* Quick Info */}
-                        <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/10">
-                            <Zap className="w-4 h-4 text-yellow-500" />
-                            <span className="text-xs text-yellow-600 dark:text-yellow-500">
-                                اشتراک بلافاصله پس از خرید فعال می‌شود
-                            </span>
-                        </div>
                     </div>
 
                     <DrawerFooter className="px-0">

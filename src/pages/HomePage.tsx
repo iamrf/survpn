@@ -139,7 +139,7 @@ const HomePage = () => {
           </div>
         </section>
 
-        <section className="relative overflow-hidden p-8 rounded-[2.5rem] bg-gradient-to-br from-primary/10 to-transparent border border-white/5">
+        <section className="relative flex justify-center items-center overflow-hidden p-8 rounded-[2.5rem] text-center bg-gradient-to-br from-primary/10 to-transparent border border-white/5">
           <div className="absolute top-0 right-0 p-8 opacity-10">
             <Star className="w-24 h-24 text-primary" />
           </div>
