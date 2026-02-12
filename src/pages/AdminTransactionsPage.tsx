@@ -23,8 +23,15 @@ import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useGetAllTransactionsQuery, useVerifyPlisioTransactionMutation } from "@/store/api";
 import BottomNav from "@/components/BottomNav";
+import { useTelegramBackButton } from "@/hooks/useTelegramBackButton";
+import { TelegramButton } from "@/components/TelegramButton";
+import { TelegramPullToRefresh } from "@/components/TelegramPullToRefresh";
+import { hapticSelection } from "@/lib/telegram";
 
 const AdminTransactionsPage = () => {
+    // Telegram BackButton - show on admin sub-pages
+    useTelegramBackButton();
+    
     const navigate = useNavigate();
     const { toast } = useToast();
     

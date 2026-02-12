@@ -13,10 +13,11 @@ interface UseTelegramMainButtonOptions {
 
 /**
  * Hook to control Telegram WebApp MainButton
+ * Always returns the same structure to comply with Rules of Hooks
  * 
  * @example
  * ```tsx
- * const { show, hide, setText, showProgress, hideProgress } = useTelegramMainButton({
+ * const { show, hide, setText } = useTelegramMainButton({
  *   text: 'Submit',
  *   onClick: handleSubmit,
  *   isVisible: true,
@@ -28,7 +29,7 @@ export function useTelegramMainButton({
   onClick,
   color,
   textColor,
-  isVisible = true,
+  isVisible = false,
   isActive = true,
   isProgressVisible = false,
 }: UseTelegramMainButtonOptions) {
@@ -36,21 +37,19 @@ export function useTelegramMainButton({
   const mainButton = webApp?.MainButton;
   const onClickRef = useRef(onClick);
 
-  // Create no-op functions - must be stable across renders
-  const noop = useCallback(() => {}, []);
-  const noopWithParam = useCallback((_param?: any) => {}, []);
-  const noopSetParams = useCallback((_params?: any) => {}, []);
-
   // Update onClick ref when it changes
   useEffect(() => {
     onClickRef.current = onClick;
   }, [onClick]);
 
-  // Set up button - separate effects to prevent infinite loops
-  // Only run if mainButton is available
+  // Create stable no-op functions
+  const noop = useCallback(() => {}, []);
+  const noopWithParam = useCallback((_param?: any) => {}, []);
+  const noopSetParams = useCallback((_params?: any) => {}, []);
+
+  // Set up button text
   useEffect(() => {
     if (!mainButton) return;
-
     try {
       mainButton.setText(text);
     } catch (e) {
@@ -58,9 +57,9 @@ export function useTelegramMainButton({
     }
   }, [mainButton, text]);
 
+  // Set up button colors
   useEffect(() => {
     if (!mainButton) return;
-
     try {
       if (color) mainButton.setParams({ color });
       if (textColor) mainButton.setParams({ text_color: textColor });
@@ -69,9 +68,9 @@ export function useTelegramMainButton({
     }
   }, [mainButton, color, textColor]);
 
+  // Set up button visibility and active state
   useEffect(() => {
     if (!mainButton) return;
-
     try {
       mainButton.setParams({ is_active: isActive, is_visible: isVisible });
     } catch (e) {
@@ -82,7 +81,6 @@ export function useTelegramMainButton({
   // Set up click handler - only once
   useEffect(() => {
     if (!mainButton) return;
-
     try {
       const handleClick = () => {
         onClickRef.current?.();
@@ -115,7 +113,7 @@ export function useTelegramMainButton({
     }
   }, [mainButton, isProgressVisible]);
 
-  // Always return the same structure - use mainButton if available, otherwise no-ops
+  // Always return the same structure
   return {
     show: mainButton ? () => {
       try {

@@ -24,6 +24,9 @@ import { useToast } from "@/components/ui/use-toast";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerClose, DrawerFooter } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { useTelegramBackButton } from "@/hooks/useTelegramBackButton";
+import { TelegramButton } from "@/components/TelegramButton";
+import { hapticSelection, hapticNotification } from "@/lib/telegram";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -37,6 +40,9 @@ import {
 import BottomNav from "@/components/BottomNav";
 
 const AdminPendingWithdrawalsPage = () => {
+    // Telegram BackButton - show on admin sub-pages
+    useTelegramBackButton();
+    
     const [withdrawalsList, setWithdrawalsList] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");

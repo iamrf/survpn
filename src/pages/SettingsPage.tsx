@@ -11,6 +11,11 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger, Drawer
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useTelegramBackButton } from "@/hooks/useTelegramBackButton";
+import { TelegramPullToRefresh } from "@/components/TelegramPullToRefresh";
+import { TelegramButton } from "@/components/TelegramButton";
+import { useTelegramClosingConfirmation } from "@/hooks/useTelegramClosingConfirmation";
+import { hapticSelection, hapticNotification, hapticImpact } from "@/lib/telegram";
 
 const SettingsPage = () => {
   const tgUser = getTelegramUser();
@@ -21,6 +26,14 @@ const SettingsPage = () => {
   const [isPasskeyDrawerOpen, setIsPasskeyDrawerOpen] = useState(false);
   const [isLanguageDrawerOpen, setIsLanguageDrawerOpen] = useState(false);
   const [verifying, setVerifying] = useState(false);
+
+  // Telegram BackButton - hide on settings page (it's a main page)
+  useTelegramBackButton({ isVisible: false });
+
+  // Enable closing confirmation when forms have unsaved changes
+  const hasUnsavedChanges = (newWalletAddress !== walletAddress && newWalletAddress) || 
+                           (newPasskey.length === 4 && newPasskey !== '');
+  useTelegramClosingConfirmation({ enabled: hasUnsavedChanges });
 
   // RTK Query hooks
   const [syncUser] = useSyncUserMutation();
@@ -54,6 +67,7 @@ const SettingsPage = () => {
 
   const handleUpdateWallet = async () => {
     if (!newWalletAddress || !tgUser) return;
+    hapticImpact('medium');
     try {
       const result = await updateWalletAddress({
         userId: tgUser.id,
@@ -61,10 +75,12 @@ const SettingsPage = () => {
       }).unwrap();
       
       if (result.success) {
+        hapticNotification('success');
         // User data auto-refreshed via RTK Query tag invalidation ('User' tag)
         setIsWalletDrawerOpen(false);
         toast({ title: "موفقیت", description: "آدرس ولت با موفقیت بروزرسانی شد" });
       } else {
+        hapticNotification('error');
         toast({ title: "خطا", description: "بروزرسانی آدرس ولت با خطا مواجه شد", variant: "destructive" });
       }
     } catch (error: any) {
@@ -78,6 +94,7 @@ const SettingsPage = () => {
 
   const handleUpdatePasskey = async () => {
     if (!newPasskey || !tgUser) return;
+    hapticImpact('medium');
     try {
       const result = await updateWithdrawalPasskey({
         userId: tgUser.id,
@@ -85,11 +102,13 @@ const SettingsPage = () => {
       }).unwrap();
       
       if (result.success) {
+        hapticNotification('success');
         // User data auto-refreshed via RTK Query tag invalidation ('User' tag)
         setNewPasskey("");
         setIsPasskeyDrawerOpen(false);
         toast({ title: "موفقیت", description: "رمز عبور برداشت با موفقیت تنظیم شد" });
       } else {
+        hapticNotification('error');
         toast({ title: "خطا", description: "تنظیم رمز عبور با خطا مواجه شد", variant: "destructive" });
       }
     } catch (error: any) {
@@ -118,6 +137,7 @@ const SettingsPage = () => {
   };
 
   const handleVerifyPhone = () => {
+    hapticImpact('medium');
     const webApp = (window as any).Telegram?.WebApp;
     if (webApp?.requestContact) {
       setVerifying(true);
@@ -242,6 +262,7 @@ const SettingsPage = () => {
 
   const handleUpdateLanguage = async (languageCode: string) => {
     if (!tgUser) return;
+    hapticSelection();
     try {
       const result = await updateUserLanguage({
         userId: tgUser.id,
@@ -249,6 +270,7 @@ const SettingsPage = () => {
       }).unwrap();
       
       if (result.success) {
+        hapticNotification('success');
         // Refresh user data
         await fetchUserData();
         setIsLanguageDrawerOpen(false);
@@ -498,9 +520,9 @@ const SettingsPage = () => {
                   </div>
                   <DrawerFooter className="flex flex-row-reverse gap-2 px-0">
                     {!hasPasskey ? (
-                      <Button onClick={handleUpdatePasskey} disabled={updatingPasskey || newPasskey.length !== 4} className="flex-1">
+                      <TelegramButton onClick={handleUpdatePasskey} disabled={updatingPasskey || newPasskey.length !== 4} className="flex-1">
                         {updatingPasskey ? "در حال ثبت..." : "تنظیم رمز عبور"}
-                      </Button>
+                      </TelegramButton>
                     ) : (
                       <DrawerClose asChild>
                         <Button className="flex-1">بستن</Button>

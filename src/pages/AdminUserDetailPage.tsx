@@ -25,8 +25,14 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, Dr
 import { getUserDetail, getTransactionHistory, updateUserBalance, updateWithdrawalStatus, adminUpdateUserSecurity, getUserFinanceSummary } from "@/lib/api";
 import { useGetUserDetailQuery, useAdminUpdateUserReferralMutation, useGetReferralStatsQuery, useVerifyPlisioTransactionMutation } from "@/store/api";
 import BottomNav from "@/components/BottomNav";
+import { useTelegramBackButton } from "@/hooks/useTelegramBackButton";
+import { TelegramButton } from "@/components/TelegramButton";
+import { hapticSelection, hapticNotification } from "@/lib/telegram";
 
 const AdminUserDetailPage = () => {
+    // Telegram BackButton - show on detail pages
+    useTelegramBackButton();
+    
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [user, setUser] = useState<any>(null);
