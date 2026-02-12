@@ -1122,15 +1122,36 @@ app.post('/api/payment/verify-plisio', async (req, res) => {
             return res.status(404).json({ error: 'Transaction not found in database' });
         }
 
-        // Verify with Plisio API
+        // Verify with Plisio API - check both invoice and operations
+        const invoiceId = transaction.plisio_invoice_id || txn_id;
         const verifyParams = {
             api_key: plisioApiKey,
-            txn_id: transaction.plisio_invoice_id || txn_id
+            txn_id: invoiceId
         };
 
         console.log('Verifying Plisio transaction:', verifyParams);
 
-        const verifyResponse = await axios.get('https://api.plisio.net/api/v1/operations', {
+        // Try to get invoice details first (more accurate for payment status)
+        let verifyResponse;
+        let invoiceData = null;
+        
+        try {
+            const invoiceResponse = await axios.get('https://api.plisio.net/api/v1/invoices', {
+                params: { api_key: plisioApiKey, txn_id: invoiceId },
+                timeout: 30000
+            });
+            if (invoiceResponse.data.status === 'success' && invoiceResponse.data.data) {
+                invoiceData = Array.isArray(invoiceResponse.data.data) 
+                    ? invoiceResponse.data.data[0] 
+                    : invoiceResponse.data.data;
+                console.log('Invoice data from invoices endpoint:', JSON.stringify(invoiceData, null, 2));
+            }
+        } catch (invoiceError) {
+            console.log('Invoice endpoint not available, using operations endpoint');
+        }
+
+        // Get operations (payment transactions)
+        verifyResponse = await axios.get('https://api.plisio.net/api/v1/operations', {
             params: verifyParams,
             timeout: 30000
         });
@@ -1138,33 +1159,75 @@ app.post('/api/payment/verify-plisio', async (req, res) => {
         console.log('Plisio verification response:', JSON.stringify(verifyResponse.data, null, 2));
 
         if (verifyResponse.data.status === 'success' && verifyResponse.data.data) {
-            const plisioTransaction = Array.isArray(verifyResponse.data.data) 
-                ? verifyResponse.data.data[0] 
-                : verifyResponse.data.data;
+            // Plisio returns data in data.operations array
+            let plisioTransaction = null;
+            
+            if (verifyResponse.data.data.operations && Array.isArray(verifyResponse.data.data.operations)) {
+                // Get the first operation (most recent)
+                plisioTransaction = verifyResponse.data.data.operations[0];
+            } else if (Array.isArray(verifyResponse.data.data)) {
+                // Fallback: if data is directly an array
+                plisioTransaction = verifyResponse.data.data[0];
+            } else {
+                // Fallback: if data is an object
+                plisioTransaction = verifyResponse.data.data;
+            }
+            
+            if (!plisioTransaction) {
+                return res.json({
+                    success: false,
+                    error: 'No transaction found in Plisio response',
+                    response: verifyResponse.data
+                });
+            }
 
+            // Use invoice data if available (more accurate), otherwise use operation data
+            const transactionData = invoiceData || plisioTransaction;
+            
             // Try multiple possible status field names
-            const plisioStatus = plisioTransaction.status || 
-                                plisioTransaction.payment_status || 
-                                plisioTransaction.state ||
-                                plisioTransaction.paymentStatus ||
-                                plisioTransaction.paymentState;
+            const plisioStatus = transactionData.status || 
+                                transactionData.payment_status || 
+                                transactionData.state ||
+                                transactionData.paymentStatus ||
+                                transactionData.paymentState ||
+                                plisioTransaction.status;
             
             // Also check if there are confirmations (indicates payment received)
-            const hasConfirmations = plisioTransaction.confirmations > 0 || 
-                                    plisioTransaction.confirmations_count > 0 ||
-                                    plisioTransaction.confirmed === true ||
-                                    plisioTransaction.confirmed === 1;
+            const hasConfirmations = (transactionData.confirmations > 0) || 
+                                    (transactionData.confirmations_count > 0) ||
+                                    (transactionData.confirmed === true) ||
+                                    (transactionData.confirmed === 1) ||
+                                    (plisioTransaction.confirmations > 0);
+            
+            // Check if there are any completed payment operations in the operations array
+            let hasCompletedPayment = false;
+            if (verifyResponse.data.data && verifyResponse.data.data.operations && Array.isArray(verifyResponse.data.data.operations)) {
+                const completedOps = verifyResponse.data.data.operations.filter((op) => 
+                    (op.status === 'completed' || op.status === 'paid') && op.type === 'payment'
+                );
+                hasCompletedPayment = completedOps.length > 0;
+                if (hasCompletedPayment) {
+                    console.log(`Found ${completedOps.length} completed payment operation(s)`);
+                    console.log('Completed payment operations:', JSON.stringify(completedOps, null, 2));
+                }
+            }
             
             console.log('=== Plisio Verification Debug ===');
             console.log('Plisio transaction status:', plisioStatus);
             console.log('Database transaction status:', transaction.status);
             console.log('Has confirmations:', hasConfirmations);
+            console.log('Has completed payment operations:', hasCompletedPayment);
+            console.log('Invoice data available:', !!invoiceData);
             console.log('Full Plisio transaction data:', JSON.stringify(plisioTransaction, null, 2));
+            if (invoiceData) {
+                console.log('Invoice data:', JSON.stringify(invoiceData, null, 2));
+            }
             console.log('Transaction ID:', transaction.id);
             console.log('Transaction amount:', transaction.amount);
             console.log('================================');
             
             // Check if Plisio confirms payment is completed/paid
+            // Plisio status values: 'new' (pending), 'pending', 'completed', 'paid', 'mismatch', 'expired', 'cancelled'
             // Accept multiple status values and confirmation indicators
             const isPlisioPaid = plisioStatus === 'completed' || 
                                  plisioStatus === 'paid' || 
@@ -1176,8 +1239,34 @@ app.post('/api/payment/verify-plisio', async (req, res) => {
                                  hasConfirmations ||
                                  (plisioTransaction.amount && plisioTransaction.amount > 0 && plisioTransaction.confirmations >= 1);
             
+            // Check if status indicates pending (not paid)
+            const isPlisioPending = plisioStatus === 'new' || 
+                                   plisioStatus === 'pending' || 
+                                   plisioStatus === 'expired' || 
+                                   plisioStatus === 'cancelled' ||
+                                   !plisioStatus;
+            
             // Check if transaction is already completed in our DB (to avoid double crediting)
             const isAlreadyCompleted = transaction.status === 'completed' || transaction.status === 'paid';
+            
+            console.log('Payment check results:');
+            console.log('- Plisio status:', plisioStatus);
+            console.log('- isPlisioPaid:', isPlisioPaid);
+            console.log('- isPlisioPending:', isPlisioPending);
+            console.log('- isAlreadyCompleted:', isAlreadyCompleted);
+            
+            // If Plisio shows pending status, don't update
+            if (isPlisioPending && !isPlisioPaid) {
+                return res.json({
+                    success: true,
+                    message: `Transaction is still pending in Plisio (status: ${plisioStatus})`,
+                    database_status: transaction.status,
+                    plisio_status: plisioStatus,
+                    needs_update: false,
+                    updated: false,
+                    note: 'Payment has not been completed yet according to Plisio. Status will update automatically when payment is received.'
+                });
+            }
             
             if (isPlisioPaid && !isAlreadyCompleted) {
                 // Plisio confirms payment, but our DB shows pending - update it
