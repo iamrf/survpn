@@ -867,10 +867,20 @@ app.post('/api/payment/create', async (req, res) => {
             // Plisio crypto payment
         const plisioApiKey = (process.env.PLISIO_API_KEY || '').trim();
 
-        // Use ngrok URL if available, otherwise null
+        // IMPORTANT: Callback URL must be publicly accessible
+        // Format: https://your-backend-domain.com/api/payment/callback
+        // This URL will receive POST requests from Plisio when payment status changes
+        // The Telegram guard only affects frontend, backend API endpoints are always accessible
         const callbackUrl = process.env.BACKEND_URL
             ? `${process.env.BACKEND_URL}/api/payment/callback`
             : null;
+        
+        if (!callbackUrl) {
+            console.warn('WARNING: BACKEND_URL not set. Plisio callbacks will not work!');
+            console.warn('Set BACKEND_URL environment variable to your public backend URL');
+        } else {
+            console.log('Plisio callback URL:', callbackUrl);
+        }
 
         const params = {
             api_key: plisioApiKey,
@@ -1003,17 +1013,32 @@ app.post('/api/payment/telegram-stars-callback', (req, res) => {
 });
 
 // Plisio Callback
+// IMPORTANT: This endpoint must be publicly accessible (not behind Telegram guard)
+// Callback URL format: https://your-backend-domain.com/api/payment/callback
+// Plisio will POST to this URL when payment status changes
 app.post('/api/payment/callback', (req, res) => {
     const data = req.body;
-    console.log('Plisio callback received:', JSON.stringify(data, null, 2));
-    console.log('Plisio callback headers:', JSON.stringify(req.headers, null, 2));
+    console.log('=== Plisio Callback Received ===');
+    console.log('Full callback data:', JSON.stringify(data, null, 2));
+    console.log('Callback headers:', JSON.stringify(req.headers, null, 2));
 
-    // Plisio may send data in different formats - try multiple field names
+    // Plisio sends: order_number (our transaction ID), status, txn_id (changes with currency), etc.
+    // IMPORTANT: Use order_number to find transaction (it's fixed, txn_id changes when user switches crypto)
     const order_number = data.order_number || data.order_id || data.orderNumber || data.orderId;
     const status = data.status || data.state || data.payment_status;
     const txn_id = data.txn_id || data.transaction_id || data.txnId || data.transactionId;
+    const amount = data.amount || data.payment_amount;
+    const currency = data.currency || data.payer_currency;
 
-    console.log('Extracted callback data:', { order_number, status, txn_id });
+    console.log('Extracted callback data:', { order_number, status, txn_id, amount, currency });
+
+    // Verify signature if provided (recommended for production)
+    // Plisio may send a signature for verification - implement if needed
+    // const signature = data.sign;
+    // if (signature) {
+    //     // Verify signature using your API key
+    //     // Implementation depends on Plisio's signature algorithm
+    // }
 
     if (!order_number || !status) {
         console.error('Invalid callback data - missing order_number or status:', { order_number, status, fullData: data });
