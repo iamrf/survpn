@@ -895,18 +895,25 @@ app.post('/api/payment/create', async (req, res) => {
 
         const invoice = response.data.data;
 
+        // Plisio returns multiple IDs: txn_id (invoice ID), id (internal ID), etc.
+        // We need to store the txn_id which is used for lookups
+        const plisioInvoiceId = invoice.txn_id || invoice.id;
+        
+        console.log('Plisio invoice response:', JSON.stringify(invoice, null, 2));
+        console.log('Storing Plisio invoice ID:', plisioInvoiceId, 'for transaction:', orderId);
+
         // Save transaction
             try {
                 db.prepare(`
                     INSERT INTO transactions (id, user_id, amount, currency, status, plisio_invoice_id, type, payment_method)
                     VALUES (?, ?, ?, ?, ?, ?, 'deposit', 'plisio')
-                `).run(orderId, userId, amount, currency, 'pending', invoice.txn_id);
+                `).run(orderId, userId, amount, currency, 'pending', plisioInvoiceId);
             } catch (dbError) {
                 // If payment_method column doesn't exist, try without it
         db.prepare(`
             INSERT INTO transactions (id, user_id, amount, currency, status, plisio_invoice_id, type)
             VALUES (?, ?, ?, ?, ?, ?, 'deposit')
-        `).run(orderId, userId, amount, currency, 'pending', invoice.txn_id);
+        `).run(orderId, userId, amount, currency, 'pending', plisioInvoiceId);
             }
 
             res.json({ success: true, invoice_url: invoice.invoice_url, payment_method: 'plisio' });
@@ -1123,7 +1130,23 @@ app.post('/api/payment/verify-plisio', async (req, res) => {
         }
 
         // Verify with Plisio API - check both invoice and operations
+        // Use plisio_invoice_id from database (this is the txn_id from Plisio)
         const invoiceId = transaction.plisio_invoice_id || txn_id;
+        
+        console.log('=== Verification Debug ===');
+        console.log('Database transaction ID:', transaction.id);
+        console.log('Database plisio_invoice_id:', transaction.plisio_invoice_id);
+        console.log('Request txn_id:', txn_id);
+        console.log('Using invoiceId for Plisio lookup:', invoiceId);
+        
+        if (!invoiceId) {
+            return res.status(400).json({ 
+                error: 'No Plisio invoice ID found. Cannot verify transaction.',
+                transaction_id: transaction.id,
+                plisio_invoice_id: transaction.plisio_invoice_id
+            });
+        }
+        
         const verifyParams = {
             api_key: plisioApiKey,
             txn_id: invoiceId
@@ -1157,6 +1180,36 @@ app.post('/api/payment/verify-plisio', async (req, res) => {
         });
 
         console.log('Plisio verification response:', JSON.stringify(verifyResponse.data, null, 2));
+        
+        // If no results, try using the transaction ID directly (in case it's the Plisio ID format)
+        if (verifyResponse.data.status === 'success' && 
+            (!verifyResponse.data.data || 
+             (verifyResponse.data.data.operations && verifyResponse.data.data.operations.length === 0))) {
+            console.log('No results with plisio_invoice_id, trying transaction ID directly...');
+            const altVerifyParams = {
+                api_key: plisioApiKey,
+                txn_id: transaction.id
+            };
+            try {
+                const altResponse = await axios.get('https://api.plisio.net/api/v1/operations', {
+                    params: altVerifyParams,
+                    timeout: 30000
+                });
+                if (altResponse.data.status === 'success' && 
+                    altResponse.data.data && 
+                    altResponse.data.data.operations && 
+                    altResponse.data.data.operations.length > 0) {
+                    console.log('Found transaction using transaction ID directly!');
+                    verifyResponse = altResponse;
+                    // Update the plisio_invoice_id in database for future lookups
+                    db.prepare('UPDATE transactions SET plisio_invoice_id = ? WHERE id = ?')
+                        .run(transaction.id, transaction.id);
+                    transaction.plisio_invoice_id = transaction.id;
+                }
+            } catch (altError) {
+                console.log('Alternative lookup also failed:', altError.message);
+            }
+        }
 
         if (verifyResponse.data.status === 'success' && verifyResponse.data.data) {
             // Plisio returns data in data.operations array
