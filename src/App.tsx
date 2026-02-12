@@ -22,12 +22,13 @@ const AdminDepositsPage = lazy(() => import("./pages/AdminDepositsPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 import { useEffect, useRef } from "react";
-import { getTelegramUser } from "./lib/telegram";
+import { getTelegramUser, initTelegramWebApp } from "./lib/telegram";
 import { AdminProvider, useAdmin } from "./components/AdminProvider";
 import { TelegramAccessGuard } from "./components/TelegramAccessGuard";
 import { store } from "./store";
 import { useGetCurrentUserQuery, useSyncUserMutation } from "./store/api";
 import { useAppSelector } from "./store/hooks";
+import { useTelegramTheme } from "./hooks/useTelegramTheme";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,14 @@ const AppContent = () => {
   const tgUser = getTelegramUser();
   const currentUser = useAppSelector((state) => state.user.currentUser);
   const initialSyncDone = useRef(false);
+
+  // Initialize Telegram WebApp on mount
+  useEffect(() => {
+    initTelegramWebApp();
+  }, []);
+
+  // Apply Telegram theme colors
+  useTelegramTheme();
 
   // Use getCurrentUser query - this provides the 'User' tag
   // When 'User' tag is invalidated (by payment verification, plan purchase, etc.),

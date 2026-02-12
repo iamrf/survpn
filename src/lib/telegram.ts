@@ -11,6 +11,49 @@ export interface TelegramUser {
   phone_number?: string;
 }
 
+export type HapticFeedbackType = 'impact' | 'notification' | 'selection';
+export type HapticImpactStyle = 'light' | 'medium' | 'heavy' | 'rigid' | 'soft';
+export type HapticNotificationType = 'error' | 'success' | 'warning';
+
+export interface TelegramMainButton {
+  text: string;
+  color?: string;
+  textColor?: string;
+  isVisible: boolean;
+  isActive: boolean;
+  isProgressVisible: boolean;
+  setText: (text: string) => void;
+  onClick: (callback: () => void) => void;
+  offClick: (callback: () => void) => void;
+  show: () => void;
+  hide: () => void;
+  enable: () => void;
+  disable: () => void;
+  showProgress: (leaveActive?: boolean) => void;
+  hideProgress: () => void;
+  setParams: (params: {
+    text?: string;
+    color?: string;
+    text_color?: string;
+    is_active?: boolean;
+    is_visible?: boolean;
+  }) => void;
+}
+
+export interface TelegramBackButton {
+  isVisible: boolean;
+  onClick: (callback: () => void) => void;
+  offClick: (callback: () => void) => void;
+  show: () => void;
+  hide: () => void;
+}
+
+export interface TelegramHapticFeedback {
+  impactOccurred: (style: HapticImpactStyle) => void;
+  notificationOccurred: (type: HapticNotificationType) => void;
+  selectionChanged: () => void;
+}
+
 export interface TelegramWebApp {
   initDataUnsafe?: {
     user?: TelegramUser;
@@ -20,6 +63,52 @@ export interface TelegramWebApp {
   openInvoice?: (invoiceUrl: string, callback?: (status: string) => void) => void;
   openLink?: (url: string, options?: { try_instant_view?: boolean }) => void;
   version?: string;
+  platform?: string;
+  colorScheme?: 'light' | 'dark';
+  themeParams?: {
+    bg_color?: string;
+    text_color?: string;
+    hint_color?: string;
+    link_color?: string;
+    button_color?: string;
+    button_text_color?: string;
+    secondary_bg_color?: string;
+  };
+  isExpanded?: boolean;
+  viewportHeight?: number;
+  viewportStableHeight?: number;
+  headerColor?: string;
+  backgroundColor?: string;
+  BackButton?: TelegramBackButton;
+  MainButton?: TelegramMainButton;
+  HapticFeedback?: TelegramHapticFeedback;
+  ready?: () => void;
+  expand?: () => void;
+  close?: () => void;
+  enableClosingConfirmation?: () => void;
+  disableClosingConfirmation?: () => void;
+  onEvent?: (eventType: string, eventData: any) => void;
+  offEvent?: (eventType: string, eventData: any) => void;
+  sendData?: (data: string) => void;
+  openTelegramLink?: (url: string) => void;
+  showPopup?: (params: {
+    title?: string;
+    message: string;
+    buttons?: Array<{
+      id?: string;
+      type?: 'default' | 'ok' | 'close' | 'cancel' | 'destructive';
+      text?: string;
+    }>;
+  }, callback?: (id: string) => void) => void;
+  showAlert?: (message: string, callback?: () => void) => void;
+  showConfirm?: (message: string, callback?: (confirmed: boolean) => void) => void;
+  showScanQrPopup?: (params: {
+    text?: string;
+  }, callback?: (data: string) => void) => void;
+  closeScanQrPopup?: () => void;
+  readTextFromClipboard?: (callback?: (text: string) => void) => void;
+  requestWriteAccess?: (callback?: (granted: boolean) => void) => void;
+  requestContact?: (callback?: (granted: boolean) => void) => void;
 }
 
 declare global {
@@ -85,4 +174,60 @@ export function isTelegramWebApp(): boolean {
     window.Telegram.WebApp.initDataUnsafe.user?.first_name;
   
   return hasWebApp && hasValidUser;
+}
+
+// Get Telegram WebApp instance
+export function getTelegramWebApp(): TelegramWebApp | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  return window.Telegram?.WebApp || null;
+}
+
+// Haptic Feedback Utilities - with error handling
+export function hapticImpact(style: HapticImpactStyle = 'medium'): void {
+  try {
+    const webApp = getTelegramWebApp();
+    if (webApp?.HapticFeedback?.impactOccurred) {
+      webApp.HapticFeedback.impactOccurred(style);
+    }
+  } catch (e) {
+    // Silently fail - haptic feedback is optional
+    console.warn('Haptic feedback error:', e);
+  }
+}
+
+export function hapticNotification(type: HapticNotificationType = 'success'): void {
+  try {
+    const webApp = getTelegramWebApp();
+    if (webApp?.HapticFeedback?.notificationOccurred) {
+      webApp.HapticFeedback.notificationOccurred(type);
+    }
+  } catch (e) {
+    // Silently fail - haptic feedback is optional
+    console.warn('Haptic feedback error:', e);
+  }
+}
+
+export function hapticSelection(): void {
+  try {
+    const webApp = getTelegramWebApp();
+    if (webApp?.HapticFeedback?.selectionChanged) {
+      webApp.HapticFeedback.selectionChanged();
+    }
+  } catch (e) {
+    // Silently fail - haptic feedback is optional
+    console.warn('Haptic feedback error:', e);
+  }
+}
+
+// Initialize Telegram WebApp
+export function initTelegramWebApp(): void {
+  const webApp = getTelegramWebApp();
+  if (webApp) {
+    // Expand the app to full height
+    webApp.expand?.();
+    // Call ready to notify Telegram that the app is ready
+    webApp.ready?.();
+  }
 }

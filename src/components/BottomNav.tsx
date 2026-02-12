@@ -3,6 +3,7 @@ import { Home, Wallet, Download, Settings, ShieldCheck } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAdmin } from "./AdminProvider";
 import { useNavBadges } from "@/hooks/useNavBadges";
+import { hapticSelection } from "@/lib/telegram";
 
 interface NavItem {
   icon: React.ElementType;
@@ -54,7 +55,10 @@ const BottomNav = () => {
           return (
             <motion.button
               key={item.path}
-              onClick={() => navigate(item.path)}
+              onClick={() => {
+                hapticSelection();
+                navigate(item.path);
+              }}
               whileHover={{ scale: 1.15 }}
               whileTap={{ scale: 0.9 }}
               transition={{ type: "spring", stiffness: 400, damping: 17 }}

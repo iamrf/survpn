@@ -1,7 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Wallet, Plus, CreditCard, ArrowUpRight, History, ArrowDownLeft, X, CheckCircle2, Clock, Share2, Users, TrendingUp, Copy, Gift, Star, Coins, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TelegramButton } from "@/components/TelegramButton";
+// Temporarily disabled to debug crash
+// import { useTelegramMainButton } from "@/hooks/useTelegramMainButton";
+// import { useTelegramBackButton } from "@/hooks/useTelegramBackButton";
+import { hapticImpact, hapticNotification, hapticSelection } from "@/lib/telegram";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
@@ -52,6 +58,11 @@ const WalletPage = () => {
   // Initialize transaction polling - this automatically checks pending transactions
   const { isChecking, pendingTransactions: pollingPendingTxs, checkAllPendingTransactions } = useTransactionPolling();
 
+  // Telegram BackButton - hide on wallet page (it's a main page)
+  // Hook is safe - returns no-ops if Telegram WebApp is not available
+  // Temporarily disabled to debug crash
+  // useTelegramBackButton({ isVisible: false });
+
   // RTK Query hooks
   const [syncUser] = useSyncUserMutation();
   const [createPayment, { isLoading: paymentLoading }] = useCreatePaymentMutation();
@@ -86,6 +97,17 @@ const WalletPage = () => {
       dispatch(syncTransactionsFromHistory(historyData.history));
     }
   }, [historyData, dispatch]);
+
+  // Show/hide MainButton based on amount input - temporarily disabled
+  // useEffect(() => {
+  //   const numAmount = parseFloat(amount);
+  //   if (numAmount > 0 && !paymentLoading) {
+  //     setMainButtonText(paymentMethod === 'telegram_stars' ? 'شارژ با ستاره‌های تلگرام' : 'شارژ حساب با رمزارز');
+  //     showMainButton();
+  //   } else {
+  //     hideMainButton();
+  //   }
+  // }, [amount, paymentMethod, paymentLoading, showMainButton, hideMainButton, setMainButtonText]);
 
   // Handle payment redirect from Plisio ("go to site" button)
   useEffect(() => {
@@ -184,9 +206,12 @@ const WalletPage = () => {
   // User data is automatically synced via getCurrentUser query in App.tsx
   // and kept up-to-date via RTK Query tag invalidation
 
-  const handleTopUp = async () => {
+  // Define handleTopUp using useCallback so it can be referenced by hooks
+  const handleTopUp = useCallback(async () => {
+    hapticImpact('medium');
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) {
+      hapticNotification('error');
       toast({
         title: "خطا",
         description: "لطفاً مبلغ معتبری وارد کنید",
@@ -233,6 +258,7 @@ const WalletPage = () => {
                 // Check if balance increased (payment completed)
                 if (updatedUser.balance && updatedUser.balance > previousBalance) {
                   clearInterval(checkInterval);
+                  hapticNotification('success');
                   toast({
                     title: "موفقیت",
                     description: "پرداخت با موفقیت انجام شد",
@@ -299,11 +325,42 @@ const WalletPage = () => {
         variant: "destructive",
       });
     }
-  };
+  }, [amount, paymentMethod, paymentLoading, tgUser, createPayment, syncUser, balance, dispatch, toast]);
+
+  // Telegram MainButton hook - temporarily disabled to debug crash
+  // const { show: showMainButton, hide: hideMainButton, setText: setMainButtonText } = useTelegramMainButton({
+  //   text: paymentMethod === 'telegram_stars' ? 'شارژ با ستاره‌های تلگرام' : 'شارژ حساب با رمزارز',
+  //   onClick: handleTopUp,
+  //   isVisible: false, // Will show when amount is entered
+  //   isActive: !paymentLoading && amount && parseFloat(amount) > 0,
+  // });
+
+  // Show/hide MainButton based on amount input - temporarily disabled
+  // useEffect(() => {
+  //   if (!showMainButton || !hideMainButton || !setMainButtonText) return;
+  //   
+  //   const numAmount = parseFloat(amount);
+  //   if (numAmount > 0 && !paymentLoading) {
+  //     try {
+  //       setMainButtonText(paymentMethod === 'telegram_stars' ? 'شارژ با ستاره‌های تلگرام' : 'شارژ حساب با رمزارز');
+  //       showMainButton();
+  //     } catch (e) {
+  //       console.warn('Error updating MainButton:', e);
+  //     }
+  //   } else {
+  //     try {
+  //       hideMainButton();
+  //     } catch (e) {
+  //       console.warn('Error hiding MainButton:', e);
+  //     }
+  //   }
+  // }, [amount, paymentMethod, paymentLoading, showMainButton, hideMainButton, setMainButtonText]);
 
   const handleWithdraw = async () => {
+    hapticImpact('medium');
     const numAmount = parseFloat(withdrawAmount);
     if (isNaN(numAmount) || numAmount <= 0) {
+      hapticNotification('error');
       toast({ title: "خطا", description: "لطفاً مبلغ معتبری وارد کنید", variant: "destructive" });
       return;
     }
@@ -342,12 +399,14 @@ const WalletPage = () => {
       }).unwrap();
       
       if (result.success) {
+        hapticNotification('success');
         toast({ title: "موفقیت", description: "درخواست برداشت ثبت شد و در حال بررسی است" });
         setWithdrawAmount("");
         setWithdrawPasskey("");
         // User data and history are auto-refreshed via RTK Query tag invalidation
         setIsWithdrawOpen(false);
       } else {
+        hapticNotification('error');
         toast({ title: "خطا", description: result.error || "خطا در ثبت درخواست", variant: "destructive" });
       }
     } catch (error: any) {
@@ -391,6 +450,7 @@ const WalletPage = () => {
   const handleCheckPendingTransactions = async () => {
     if (!tgUser?.id || isCheckingPending) return; // Prevent concurrent calls
     
+    hapticImpact('light');
     setIsCheckingPending(true);
     
     // Get pending transactions from Redux store
@@ -500,6 +560,7 @@ const WalletPage = () => {
   const copyToClipboard = async (text: string) => {
     if (!text) return;
     
+    hapticSelection();
     try {
       // Try modern Clipboard API first
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -582,7 +643,8 @@ const WalletPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24 text-right" dir="rtl">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-background pb-24 text-right" dir="rtl">
       <div className="p-6 pt-12 space-y-4 max-w-lg mx-auto w-full">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -695,7 +757,7 @@ const WalletPage = () => {
               ))}
             </div>
 
-            <Button
+            <TelegramButton
               className="w-full h-12 gap-2 mt-4 font-vazir"
               onClick={handleTopUp}
               disabled={paymentLoading}
@@ -708,7 +770,7 @@ const WalletPage = () => {
                   {paymentMethod === 'telegram_stars' ? 'شارژ با ستاره‌های تلگرام' : 'شارژ حساب با رمزارز'}
                 </>
               )}
-            </Button>
+            </TelegramButton>
             <p className="text-[10px] text-center text-muted-foreground mt-2 font-vazir">
               {paymentMethod === 'telegram_stars' 
                 ? 'پرداخت سریع و امن با ستاره‌های تلگرام' 
@@ -1004,13 +1066,13 @@ const WalletPage = () => {
                     </div>
                   </div>
 
-                  <Button
+                  <TelegramButton
                     className="w-full h-12 font-vazir text-lg"
                     onClick={handleWithdraw}
                     disabled={withdrawLoading || !walletAddress || !hasPasskey}
                   >
                     {withdrawLoading ? "در حال ارسال..." : "تایید و ثبت درخواست"}
-                  </Button>
+                  </TelegramButton>
                 </div>
               </div>
             </DrawerContent>
@@ -1172,9 +1234,10 @@ const WalletPage = () => {
           </Drawer>
         </div>
 
+        </div>
+        <BottomNav />
       </div>
-      <BottomNav />
-    </div>
+    </ErrorBoundary>
   );
 };
 
