@@ -472,7 +472,10 @@ const WalletPage = () => {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'completed': return <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100">تکمیل شده</Badge>;
+      case 'completed':
+      case 'paid':
+      case 'mismatch':
+        return <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100">تکمیل شده</Badge>;
       case 'pending': return <Badge variant="secondary" className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">در انتظار</Badge>;
       case 'failed': return <Badge variant="destructive">ناموفق</Badge>;
       default: return <Badge variant="outline">{status}</Badge>;
@@ -1061,19 +1064,46 @@ const WalletPage = () => {
                           
                           {/* Transaction IDs */}
                           <div className="flex flex-col gap-2 pt-2 border-t border-border">
-                            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                              <span className="font-mono font-vazir">شناسه تراکنش:</span>
+                            <div
+                              className="flex items-center justify-between text-[10px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors active:scale-[0.98]"
+                              onClick={() => {
+                                copyToClipboard(tx.id);
+                                toast({ title: "کپی شد", description: "شناسه تراکنش کپی شد" });
+                              }}
+                            >
+                              <span className="font-mono font-vazir flex items-center gap-1">
+                                <Copy size={10} />
+                                شناسه تراکنش:
+                              </span>
                               <span className="font-mono" dir="ltr">{tx.id}</span>
                             </div>
                             {tx.plisio_invoice_id && (
-                              <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                                <span className="font-mono font-vazir">شناسه فاکتور Plisio:</span>
+                              <div
+                                className="flex items-center justify-between text-[10px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors active:scale-[0.98]"
+                                onClick={() => {
+                                  copyToClipboard(tx.plisio_invoice_id);
+                                  toast({ title: "کپی شد", description: "شناسه فاکتور Plisio کپی شد" });
+                                }}
+                              >
+                                <span className="font-mono font-vazir flex items-center gap-1">
+                                  <Copy size={10} />
+                                  شناسه فاکتور Plisio:
+                                </span>
                                 <span className="font-mono" dir="ltr">{tx.plisio_invoice_id}</span>
                               </div>
                             )}
                             {tx.telegram_stars_order_id && (
-                              <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                                <span className="font-mono font-vazir">شناسه سفارش Telegram Stars:</span>
+                              <div
+                                className="flex items-center justify-between text-[10px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors active:scale-[0.98]"
+                                onClick={() => {
+                                  copyToClipboard(tx.telegram_stars_order_id);
+                                  toast({ title: "کپی شد", description: "شناسه سفارش Telegram Stars کپی شد" });
+                                }}
+                              >
+                                <span className="font-mono font-vazir flex items-center gap-1">
+                                  <Copy size={10} />
+                                  شناسه سفارش Telegram Stars:
+                                </span>
                                 <span className="font-mono" dir="ltr">{tx.telegram_stars_order_id}</span>
                               </div>
                             )}
