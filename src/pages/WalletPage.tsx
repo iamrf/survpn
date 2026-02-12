@@ -433,7 +433,7 @@ const WalletPage = () => {
                   onClick={() => setPaymentMethod('telegram_stars')}
                 >
                   <Star className="w-4 h-4 ml-2" />
-                  ستاره‌های تلگرام STARS
+                  ستاره‌ تلگرام
                 </Button>
                 <Button
                   type="button"
