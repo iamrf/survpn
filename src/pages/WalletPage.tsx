@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Wallet, Plus, CreditCard, ArrowUpRight, History, ArrowDownLeft, X, CheckCircle2, Clock, Share2, Users, TrendingUp, Copy, Gift, Star, Coins, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +34,7 @@ const WalletPage = () => {
   const tgUser = getTelegramUser();
   const dispatch = useAppDispatch();
   const currentUser = useAppSelector((state) => state.user.currentUser);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [amount, setAmount] = useState<string>("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawPasskey, setWithdrawPasskey] = useState("");
@@ -76,6 +78,31 @@ const WalletPage = () => {
       dispatch(setPendingTransactions(pending));
     }
   }, [historyData, dispatch]);
+
+  // Handle payment success redirect from Plisio
+  useEffect(() => {
+    const paymentStatus = searchParams.get('payment');
+    const txId = searchParams.get('tx');
+    
+    if (paymentStatus === 'success') {
+      toast({
+        title: "پرداخت موفق",
+        description: txId ? `تراکنش ${txId} با موفقیت انجام شد` : "پرداخت با موفقیت انجام شد",
+      });
+      
+      // Refresh user data and transaction history
+      if (tgUser) {
+        syncUser(tgUser).unwrap().then(() => {
+          refetchHistory();
+        }).catch(console.error);
+      }
+      
+      // Clean up URL
+      searchParams.delete('payment');
+      searchParams.delete('tx');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams, tgUser, syncUser, refetchHistory, toast]);
 
   const history = historyData?.history || [];
   const balance = currentUser?.balance || 0;

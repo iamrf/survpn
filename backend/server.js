@@ -936,13 +936,20 @@ app.post('/api/payment/create', async (req, res) => {
             console.log('Plisio callback URL:', callbackUrl);
         }
 
+        // Frontend URL for redirects
+        const frontendUrl = process.env.FRONTEND_URL || 'https://app.survpn.xyz';
+        const successUrl = `${frontendUrl}/wallet?payment=success&tx=${orderId}`;
+        const returnUrl = `${frontendUrl}/wallet`;
+
         const params = {
             api_key: plisioApiKey,
             order_name: `TopUp${userId}`,
             order_number: orderId,
             source_currency: currency,
             source_amount: Number(amount), // Send as number
-            callback_url: callbackUrl
+            callback_url: callbackUrl,
+            url_success: successUrl, // Where to redirect user after successful payment
+            url_return: returnUrl // Where to redirect if user cancels
         };
 
         console.log('Attempting Plisio Invoice:', JSON.stringify(params, null, 2));
@@ -1069,7 +1076,37 @@ app.post('/api/payment/telegram-stars-callback', (req, res) => {
 // Plisio Callback
 // IMPORTANT: This endpoint must be publicly accessible (not behind Telegram guard)
 // Callback URL format: https://your-backend-domain.com/api/payment/callback
-// Plisio will POST to this URL when payment status changes
+// Plisio will POST to this URL when payment status changes (webhook)
+// Plisio will GET to this URL when user clicks "go to site" button (redirect)
+app.get('/api/payment/callback', (req, res) => {
+    // Handle GET request - user redirected from Plisio after payment
+    const { order_number, order_id, status, txn_id } = req.query;
+    
+    console.log('=== Plisio GET Callback (User Redirect) ===');
+    console.log('Query params:', req.query);
+    
+    const orderId = order_number || order_id;
+    
+    if (orderId) {
+        // Try to find the transaction to get user info
+        try {
+            const transaction = db.prepare('SELECT * FROM transactions WHERE id = ? OR plisio_invoice_id = ?').get(orderId, orderId);
+            if (transaction) {
+                console.log(`Redirecting user ${transaction.user_id} after payment for transaction ${orderId}`);
+                // Redirect to frontend wallet page with success message
+                const frontendUrl = process.env.FRONTEND_URL || 'https://app.survpn.xyz';
+                return res.redirect(`${frontendUrl}/wallet?payment=success&tx=${orderId}`);
+            }
+        } catch (error) {
+            console.error('Error finding transaction for redirect:', error);
+        }
+    }
+    
+    // Fallback redirect if transaction not found
+    const frontendUrl = process.env.FRONTEND_URL || 'https://app.survpn.xyz';
+    res.redirect(`${frontendUrl}/wallet?payment=success`);
+});
+
 app.post('/api/payment/callback', (req, res) => {
     const data = req.body;
     console.log('=== Plisio Callback Received ===');
