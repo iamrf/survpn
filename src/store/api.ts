@@ -6,13 +6,13 @@ const API_URL = config.apiUrl || '';
 // Define base query with error handling and retry logic
 const baseQueryWithRetry: BaseQueryFn = async (args, api, extraOptions) => {
     const baseQueryFn = fetchBaseQuery({
-        baseUrl: API_URL,
-        prepareHeaders: (headers) => {
-            headers.set('Content-Type', 'application/json');
-            return headers;
-        },
-        timeout: 30000,
-    });
+    baseUrl: API_URL,
+    prepareHeaders: (headers) => {
+        headers.set('Content-Type', 'application/json');
+        return headers;
+    },
+    timeout: 30000,
+});
 
     let result = await baseQueryFn(args, api, extraOptions);
 
@@ -135,6 +135,23 @@ export const api = createApi({
                 method: 'POST',
                 body: { userId, amount, paymentMethod },
             }),
+        }),
+
+        verifyPlisioTransaction: builder.mutation<{ 
+            success: boolean; 
+            message?: string;
+            error?: string;
+            transaction?: any;
+        }, { 
+            order_number?: string;
+            txn_id?: string;
+        }>({
+            query: (body) => ({
+                url: '/api/payment/verify-plisio',
+                method: 'POST',
+                body,
+            }),
+            invalidatesTags: ['User', 'Transactions'],
         }),
 
         // Transaction endpoints
@@ -408,6 +425,7 @@ export const {
     
     // Payment hooks
     useCreatePaymentMutation,
+    useVerifyPlisioTransactionMutation,
     
     // Transaction hooks
     useGetTransactionHistoryQuery,

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Wallet, History, User, Shield, Calendar, Clock, ArrowUpRight, ArrowDownLeft, Edit2, Check, X as Close, Copy, Database, TrendingUp, TrendingDown, Phone, Activity, HardDrive, Zap, Link2, Radio, Gift, Percent } from "lucide-react";
+import { ArrowLeft, Wallet, History, User, Shield, Calendar, Clock, ArrowUpRight, ArrowDownLeft, Edit2, Check, X as Close, Copy, Database, TrendingUp, TrendingDown, Phone, Activity, HardDrive, Zap, Link2, Radio, Gift, Percent, RefreshCw } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger, DrawerFooter, DrawerClose } from "@/components/ui/drawer";
 import { getUserDetail, getTransactionHistory, updateUserBalance, updateWithdrawalStatus, adminUpdateUserSecurity, getUserFinanceSummary } from "@/lib/api";
-import { useGetUserDetailQuery, useAdminUpdateUserReferralMutation, useGetReferralStatsQuery } from "@/store/api";
+import { useGetUserDetailQuery, useAdminUpdateUserReferralMutation, useGetReferralStatsQuery, useVerifyPlisioTransactionMutation } from "@/store/api";
 import BottomNav from "@/components/BottomNav";
 
 const AdminUserDetailPage = () => {
@@ -59,6 +59,7 @@ const AdminUserDetailPage = () => {
     const { data: userDetailData, refetch: refetchUserDetail } = useGetUserDetailQuery(id || "", { skip: !id });
     const [updateUserReferral] = useAdminUpdateUserReferralMutation();
     const { data: referralStatsData } = useGetReferralStatsQuery(Number(id || 0), { skip: !id });
+    const [verifyPlisioTransaction, { isLoading: verifyLoading }] = useVerifyPlisioTransactionMutation();
 
     const fetchData = async () => {
         if (!id) return;
@@ -1190,6 +1191,48 @@ const AdminUserDetailPage = () => {
                                                 <div className="py-4 text-center text-muted-foreground text-[10px] font-vazir italic">اطلاعات مالی در دسترس نیست</div>
                                             )}
                                         </div>
+
+                                        {/* Action Buttons for Pending Plisio Deposits */}
+                                        {selectedTx.type === 'deposit' && selectedTx.status === 'pending' && selectedTx.plisio_invoice_id && (
+                                            <div className="flex gap-3 pt-4 border-t border-white/5">
+                                                <Button
+                                                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white h-12 rounded-2xl shadow-lg shadow-blue-500/20 gap-2"
+                                                    onClick={async () => {
+                                                        try {
+                                                            const result = await verifyPlisioTransaction({
+                                                                order_number: selectedTx.id,
+                                                                txn_id: selectedTx.plisio_invoice_id
+                                                            }).unwrap();
+                                                            
+                                                            if (result.success) {
+                                                                toast({
+                                                                    title: "موفقیت",
+                                                                    description: result.message || "تراکنش با موفقیت تایید و به‌روزرسانی شد",
+                                                                });
+                                                                fetchData(); // Refresh data
+                                                                refetchUserDetail(); // Refresh user detail
+                                                            } else {
+                                                                toast({
+                                                                    title: "خطا",
+                                                                    description: result.error || "خطا در تایید تراکنش",
+                                                                    variant: "destructive",
+                                                                });
+                                                            }
+                                                        } catch (error: any) {
+                                                            toast({
+                                                                title: "خطا",
+                                                                description: error?.data?.error || "مشکلی در تایید تراکنش پیش آمد",
+                                                                variant: "destructive",
+                                                            });
+                                                        }
+                                                    }}
+                                                    disabled={verifyLoading}
+                                                >
+                                                    <RefreshCw size={20} className={verifyLoading ? "animate-spin" : ""} />
+                                                    {verifyLoading ? "در حال بررسی..." : "بررسی و تایید از Plisio"}
+                                                </Button>
+                                            </div>
+                                        )}
 
                                         {/* Action Buttons for Pending Withdrawals */}
                                         {selectedTx.type === 'withdrawal' && selectedTx.status === 'pending' && (

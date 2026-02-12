@@ -865,37 +865,37 @@ app.post('/api/payment/create', async (req, res) => {
             }
         } else {
             // Plisio crypto payment
-            const plisioApiKey = (process.env.PLISIO_API_KEY || '').trim();
+        const plisioApiKey = (process.env.PLISIO_API_KEY || '').trim();
 
-            // Use ngrok URL if available, otherwise null
-            const callbackUrl = process.env.BACKEND_URL
-                ? `${process.env.BACKEND_URL}/api/payment/callback`
-                : null;
+        // Use ngrok URL if available, otherwise null
+        const callbackUrl = process.env.BACKEND_URL
+            ? `${process.env.BACKEND_URL}/api/payment/callback`
+            : null;
 
-            const params = {
-                api_key: plisioApiKey,
-                order_name: `TopUp${userId}`,
-                order_number: orderId,
-                source_currency: currency,
-                source_amount: Number(amount), // Send as number
-                callback_url: callbackUrl
-            };
+        const params = {
+            api_key: plisioApiKey,
+            order_name: `TopUp${userId}`,
+            order_number: orderId,
+            source_currency: currency,
+            source_amount: Number(amount), // Send as number
+            callback_url: callbackUrl
+        };
 
-            console.log('Attempting Plisio Invoice:', JSON.stringify(params, null, 2));
+        console.log('Attempting Plisio Invoice:', JSON.stringify(params, null, 2));
 
-            const response = await axios.get('https://api.plisio.net/api/v1/invoices/new', {
-                params,
-                timeout: 30000 // 30s timeout
-            });
+        const response = await axios.get('https://api.plisio.net/api/v1/invoices/new', {
+            params,
+            timeout: 30000 // 30s timeout
+        });
 
-            if (response.data.status === 'error') {
-                const errorMsg = response.data.data?.message || JSON.stringify(response.data.data) || 'Plisio error';
-                throw new Error(errorMsg);
-            }
+        if (response.data.status === 'error') {
+            const errorMsg = response.data.data?.message || JSON.stringify(response.data.data) || 'Plisio error';
+            throw new Error(errorMsg);
+        }
 
-            const invoice = response.data.data;
+        const invoice = response.data.data;
 
-            // Save transaction
+        // Save transaction
             try {
                 db.prepare(`
                     INSERT INTO transactions (id, user_id, amount, currency, status, plisio_invoice_id, type, payment_method)
@@ -903,10 +903,10 @@ app.post('/api/payment/create', async (req, res) => {
                 `).run(orderId, userId, amount, currency, 'pending', invoice.txn_id);
             } catch (dbError) {
                 // If payment_method column doesn't exist, try without it
-                db.prepare(`
-                    INSERT INTO transactions (id, user_id, amount, currency, status, plisio_invoice_id, type)
-                    VALUES (?, ?, ?, ?, ?, ?, 'deposit')
-                `).run(orderId, userId, amount, currency, 'pending', invoice.txn_id);
+        db.prepare(`
+            INSERT INTO transactions (id, user_id, amount, currency, status, plisio_invoice_id, type)
+            VALUES (?, ?, ?, ?, ?, ?, 'deposit')
+        `).run(orderId, userId, amount, currency, 'pending', invoice.txn_id);
             }
 
             res.json({ success: true, invoice_url: invoice.invoice_url, payment_method: 'plisio' });
@@ -998,43 +998,70 @@ app.post('/api/payment/telegram-stars-callback', (req, res) => {
 // Plisio Callback
 app.post('/api/payment/callback', (req, res) => {
     const data = req.body;
-    console.log('Plisio callback received:', data);
+    console.log('Plisio callback received:', JSON.stringify(data, null, 2));
+    console.log('Plisio callback headers:', JSON.stringify(req.headers, null, 2));
 
-    const { order_number, status, txn_id } = data;
+    // Plisio may send data in different formats - try multiple field names
+    const order_number = data.order_number || data.order_id || data.orderNumber || data.orderId;
+    const status = data.status || data.state || data.payment_status;
+    const txn_id = data.txn_id || data.transaction_id || data.txnId || data.transactionId;
+
+    console.log('Extracted callback data:', { order_number, status, txn_id });
 
     if (!order_number || !status) {
+        console.error('Invalid callback data - missing order_number or status:', { order_number, status, fullData: data });
         return res.status(400).send('Invalid callback data');
     }
 
     try {
-        const transaction = db.prepare('SELECT * FROM transactions WHERE id = ?').get(order_number);
+        // Try to find transaction by order_number first, then by plisio_invoice_id (txn_id)
+        let transaction = db.prepare('SELECT * FROM transactions WHERE id = ?').get(order_number);
+        
+        if (!transaction && txn_id) {
+            console.log(`Transaction not found by order_number ${order_number}, trying txn_id ${txn_id}`);
+            transaction = db.prepare('SELECT * FROM transactions WHERE plisio_invoice_id = ?').get(txn_id);
+        }
 
         if (!transaction) {
-            console.error('Transaction not found:', order_number);
+            console.error('Transaction not found:', { order_number, txn_id });
             return res.status(404).send('Transaction not found');
         }
 
-        // status 'completed' or 'mismatch' (if partially paid, though we should handle it carefully)
-        if (status === 'completed' || status === 'mismatch') {
+        console.log('Found transaction:', { id: transaction.id, current_status: transaction.status, user_id: transaction.user_id, amount: transaction.amount });
+
+        // Check if already processed to avoid double crediting
+        if (transaction.status === 'completed' || transaction.status === 'paid') {
+            console.log(`Transaction ${order_number} already processed with status: ${transaction.status}`);
+            return res.send('OK - Already processed');
+        }
+
+        // Plisio status values: 'completed', 'mismatch', 'paid', 'pending', 'cancelled', 'expired'
+        // Treat 'completed', 'mismatch', and 'paid' as successful payments
+        if (status === 'completed' || status === 'mismatch' || status === 'paid') {
             let userId = transaction.user_id;
             let transactionAmount = transaction.amount;
             
+            console.log(`Processing successful payment for user ${userId}, amount: ${transactionAmount}, status: ${status}`);
+            
             db.transaction(() => {
+                // Update transaction status to 'completed' (normalize status)
                 db.prepare('UPDATE transactions SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-                    .run(status, order_number);
+                    .run('completed', order_number);
 
+                // Credit user balance
                 db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?')
                     .run(transactionAmount, userId);
             })();
-            console.log(`Payment successful for user ${userId}, amount: ${transactionAmount}`);
+            
+            console.log(`Payment successful for user ${userId}, amount: ${transactionAmount}, balance updated`);
 
             // Process referral commission for deposits
             try {
-                const user = db.prepare('SELECT referred_by FROM users WHERE id = ?').get(userId);
+                const user = db.prepare('SELECT referred_by, referral_bonus_rate FROM users WHERE id = ?').get(userId);
                 if (user && user.referred_by) {
                     const referrer = db.prepare('SELECT id, referral_bonus_rate FROM users WHERE id = ?').get(user.referred_by);
                     if (referrer) {
-                        const commissionRate = referrer.referral_bonus_rate || 10.00;
+                        const commissionRate = user.referral_bonus_rate || referrer.referral_bonus_rate || 10.00;
                         const commissionAmount = (transactionAmount * commissionRate) / 100;
                         
                         // Add commission to referrer's balance
@@ -1054,6 +1081,8 @@ app.post('/api/payment/callback', (req, res) => {
                 console.error('Error processing referral commission for deposit:', commErr);
             }
         } else {
+            // Update status for other states (pending, cancelled, expired, etc.)
+            console.log(`Updating transaction ${order_number} status to: ${status}`);
             db.prepare('UPDATE transactions SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
                 .run(status, order_number);
         }
@@ -1061,7 +1090,130 @@ app.post('/api/payment/callback', (req, res) => {
         res.send('OK');
     } catch (error) {
         console.error('Error handling Plisio callback:', error);
+        console.error('Error stack:', error.stack);
         res.status(500).send('Internal server error');
+    }
+});
+
+// Manual Plisio Transaction Verification Endpoint
+app.post('/api/payment/verify-plisio', async (req, res) => {
+    const { order_number, txn_id } = req.body;
+
+    if (!order_number && !txn_id) {
+        return res.status(400).json({ error: 'order_number or txn_id is required' });
+    }
+
+    try {
+        const plisioApiKey = (process.env.PLISIO_API_KEY || '').trim();
+        if (!plisioApiKey) {
+            return res.status(500).json({ error: 'Plisio API key not configured' });
+        }
+
+        // Get transaction from database
+        let transaction = null;
+        if (order_number) {
+            transaction = db.prepare('SELECT * FROM transactions WHERE id = ?').get(order_number);
+        }
+        if (!transaction && txn_id) {
+            transaction = db.prepare('SELECT * FROM transactions WHERE plisio_invoice_id = ?').get(txn_id);
+        }
+
+        if (!transaction) {
+            return res.status(404).json({ error: 'Transaction not found in database' });
+        }
+
+        // Verify with Plisio API
+        const verifyParams = {
+            api_key: plisioApiKey,
+            txn_id: transaction.plisio_invoice_id || txn_id
+        };
+
+        console.log('Verifying Plisio transaction:', verifyParams);
+
+        const verifyResponse = await axios.get('https://api.plisio.net/api/v1/operations', {
+            params: verifyParams,
+            timeout: 30000
+        });
+
+        console.log('Plisio verification response:', JSON.stringify(verifyResponse.data, null, 2));
+
+        if (verifyResponse.data.status === 'success' && verifyResponse.data.data) {
+            const plisioTransaction = Array.isArray(verifyResponse.data.data) 
+                ? verifyResponse.data.data[0] 
+                : verifyResponse.data.data;
+
+            const plisioStatus = plisioTransaction.status || plisioTransaction.payment_status;
+            
+            // If Plisio shows completed but our DB shows pending, update it
+            if ((plisioStatus === 'completed' || plisioStatus === 'paid' || plisioStatus === 'mismatch') 
+                && transaction.status === 'pending') {
+                
+                const userId = transaction.user_id;
+                const transactionAmount = transaction.amount;
+
+                db.transaction(() => {
+                    db.prepare('UPDATE transactions SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+                        .run('completed', transaction.id);
+
+                    db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?')
+                        .run(transactionAmount, userId);
+                });
+
+                console.log(`Manually verified and updated payment for user ${userId}, amount: ${transactionAmount}`);
+
+                // Process referral commission
+                try {
+                    const user = db.prepare('SELECT referred_by, referral_bonus_rate FROM users WHERE id = ?').get(userId);
+                    if (user && user.referred_by) {
+                        const referrer = db.prepare('SELECT id, referral_bonus_rate FROM users WHERE id = ?').get(user.referred_by);
+                        if (referrer) {
+                            const commissionRate = user.referral_bonus_rate || referrer.referral_bonus_rate || 10.00;
+                            const commissionAmount = (transactionAmount * commissionRate) / 100;
+                            
+                            db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(commissionAmount, referrer.id);
+                            
+                            const commissionId = `ref_dep_${Date.now()}_${referrer.id}_${userId}`;
+                            db.prepare(`
+                                INSERT INTO referral_commissions (id, referrer_id, referred_user_id, transaction_id, amount, commission_rate, commission_amount, type, status)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, 'transaction', 'paid')
+                            `).run(commissionId, referrer.id, userId, transaction.id, transactionAmount, commissionRate, commissionAmount);
+                        }
+                    }
+                } catch (commErr) {
+                    console.error('Error processing referral commission:', commErr);
+                }
+
+                return res.json({ 
+                    success: true, 
+                    message: 'Transaction verified and updated',
+                    transaction: {
+                        id: transaction.id,
+                        status: 'completed',
+                        amount: transactionAmount
+                    }
+                });
+            }
+
+            return res.json({
+                success: true,
+                message: 'Transaction verified',
+                database_status: transaction.status,
+                plisio_status: plisioStatus,
+                needs_update: (plisioStatus === 'completed' || plisioStatus === 'paid') && transaction.status === 'pending'
+            });
+        }
+
+        return res.json({ 
+            success: false, 
+            error: 'Could not verify transaction with Plisio',
+            response: verifyResponse.data
+        });
+    } catch (error) {
+        console.error('Error verifying Plisio transaction:', error);
+        return res.status(500).json({ 
+            error: 'Failed to verify transaction',
+            details: error.response?.data || error.message
+        });
     }
 });
 
@@ -1357,9 +1509,9 @@ app.post('/api/create-custom-subscription', async (req, res) => {
             db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(price, userId);
 
             transId = `custom_${Date.now()}_${userId}`;
-            db.prepare(`
-                INSERT INTO transactions (id, user_id, amount, currency, status, type)
-                VALUES (?, ?, ?, ?, ?, ?)
+        db.prepare(`
+            INSERT INTO transactions (id, user_id, amount, currency, status, type)
+            VALUES (?, ?, ?, ?, ?, ?)
             `).run(transId, userId, price, 'USD', 'completed', 'custom_subscription');
         })();
 
