@@ -83,11 +83,11 @@ const SubscriptionPlan: React.FC<SubscriptionPlanProps> = ({ plan, onPurchase, i
                             ${plan.price}
                         </Badge>
                     </div>
-                    <CardTitle className="text-2xl font-black font-vazir pt-4 bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
+                    <CardTitle className="text-2xl text-center font-black font-vazir pt-4 bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
                         {plan.name}
                     </CardTitle>
-                    <p className="text-xs text-muted-foreground font-vazir">
-                        {plan.description || 'پلن اختصاصی سرویس وی‌پی‌ان'}
+                    <p className="text-sm text-center text-muted-foreground font-vazir">
+                        {plan.description || 'با یک کلیک به صورت آنی فعال می شود'}
                     </p>
                 </CardHeader>
 
@@ -98,7 +98,7 @@ const SubscriptionPlan: React.FC<SubscriptionPlanProps> = ({ plan, onPurchase, i
                                 <div className="p-2 rounded-xl bg-primary/10 text-primary">
                                     <HardDrive className="w-4 h-4" />
                                 </div>
-                                <span className="text-sm font-vazir text-muted-foreground">ترافیک ماهانه</span>
+                                <span className="text-sm font-vazir text-muted-foreground">ترافیک / حجم</span>
                             </div>
                             <span className="font-black font-mono text-lg">{plan.traffic} GB</span>
                         </div>
@@ -116,7 +116,7 @@ const SubscriptionPlan: React.FC<SubscriptionPlanProps> = ({ plan, onPurchase, i
 
                     <div className="flex items-center gap-2 p-2 rounded-xl bg-yellow-500/5 border border-yellow-500/10">
                         <Zap className="w-3 h-3 text-yellow-500 animate-pulse" />
-                        <span className="text-[10px] text-yellow-500/80 font-vazir">فعال‌سازی آنی پس از خرید</span>
+                        <span className="text-[10px] text-yellow-500/80 font-vazir">فعال‌سازی آنی</span>
                     </div>
                 </CardContent>
 
