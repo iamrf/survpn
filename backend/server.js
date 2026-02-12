@@ -1166,8 +1166,15 @@ app.post('/api/create-custom-subscription', async (req, res) => {
     }
 
     try {
-        // Calculate price: $0.07 per GB + $0.03 per day
-        const price = (trafficGB * 0.07) + (durationDays * 0.03);
+        // Get pricing from configs (default: $0.07 per GB, $0.03 per day)
+        const trafficPriceConfig = db.prepare("SELECT value FROM configs WHERE key = 'custom_subscription_traffic_price'").get();
+        const durationPriceConfig = db.prepare("SELECT value FROM configs WHERE key = 'custom_subscription_duration_price'").get();
+        
+        const trafficPrice = parseFloat(trafficPriceConfig?.value || '0.07');
+        const durationPrice = parseFloat(durationPriceConfig?.value || '0.03');
+        
+        // Calculate price
+        const price = (trafficGB * trafficPrice) + (durationDays * durationPrice);
         
         // Get user balance
         const user = db.prepare('SELECT balance, username FROM users WHERE id = ?').get(userId);

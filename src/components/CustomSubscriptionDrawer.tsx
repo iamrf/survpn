@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Settings2, Zap, HardDrive, Clock, DollarSign, RefreshCw } from 'lucide-react';
-import { useCreateCustomSubscriptionMutation, useSyncUserMutation } from '@/store/api';
+import { useCreateCustomSubscriptionMutation, useSyncUserMutation, useGetConfigsQuery } from '@/store/api';
 import { useToast } from '@/components/ui/use-toast';
 import { getTelegramUser } from '@/lib/telegram';
 import { useAppSelector } from '@/store/hooks';
@@ -39,13 +39,19 @@ const CustomSubscriptionDrawer: React.FC = () => {
     const { toast } = useToast();
     const [createCustomSubscription, { isLoading }] = useCreateCustomSubscriptionMutation();
     const [syncUser] = useSyncUserMutation();
+    const { data: configsData } = useGetConfigsQuery();
+    const configs = configsData?.configs || {};
     const currentUser = useAppSelector((state) => state.user.currentUser);
     const balance = currentUser?.balance || 0;
 
-    // Calculate price: $0.07 per GB + $0.03 per day
+    // Get pricing from configs (default: $0.07 per GB, $0.03 per day)
+    const trafficPrice = parseFloat(configs['custom_subscription_traffic_price'] || '0.07');
+    const durationPrice = parseFloat(configs['custom_subscription_duration_price'] || '0.03');
+
+    // Calculate price dynamically based on configs
     const price = useMemo(() => {
-        return (traffic * 0.07) + (duration * 0.03);
-    }, [traffic, duration]);
+        return (traffic * trafficPrice) + (duration * durationPrice);
+    }, [traffic, duration, trafficPrice, durationPrice]);
 
     const canAfford = balance >= price;
     const remainingBalance = balance - price;
@@ -150,7 +156,7 @@ const CustomSubscriptionDrawer: React.FC = () => {
                                         className="w-20 text-center font-mono font-bold"
                                         dir="ltr"
                                     />
-                                    <span className="text-sm text-muted-foreground">GB</span>
+                                    <span className="text-sm text-muted-foreground">گیگابایت</span>
                                 </div>
                             </div>
                             <Slider
@@ -162,11 +168,11 @@ const CustomSubscriptionDrawer: React.FC = () => {
                                 className="w-full"
                             />
                             <div className="flex justify-between text-xs text-muted-foreground">
-                                <span>1 GB</span>
                                 <span>1000 GB</span>
+                                <span>1 GB</span>
                             </div>
                             <div className="text-xs text-muted-foreground text-right">
-                                هزینه: <span className="font-bold text-foreground">${(traffic * 0.07).toFixed(2)}</span>
+                                هزینه: <span className="font-bold text-foreground">${(traffic * trafficPrice).toFixed(2)}</span>
                             </div>
                         </div>
 
@@ -202,11 +208,11 @@ const CustomSubscriptionDrawer: React.FC = () => {
                                 className="w-full"
                             />
                             <div className="flex justify-between text-xs text-muted-foreground">
-                                <span>1 روز</span>
                                 <span>365 روز</span>
+                                <span>1 روز</span>
                             </div>
                             <div className="text-xs text-muted-foreground text-right">
-                                هزینه: <span className="font-bold text-foreground">${(duration * 0.03).toFixed(2)}</span>
+                                هزینه: <span className="font-bold text-foreground">${(duration * durationPrice).toFixed(2)}</span>
                             </div>
                         </div>
 
@@ -215,11 +221,11 @@ const CustomSubscriptionDrawer: React.FC = () => {
                             <CardContent className="p-4 space-y-3">
                                 <div className="flex items-center justify-between">
                                     <span className="text-sm text-muted-foreground">ترافیک ({traffic} GB)</span>
-                                    <span className="font-mono font-bold">${(traffic * 0.07).toFixed(2)}</span>
+                                    <span className="font-mono font-bold">${(traffic * trafficPrice).toFixed(2)}</span>
                                 </div>
                                 <div className="flex items-center justify-between">
                                     <span className="text-sm text-muted-foreground">مدت ({duration} روز)</span>
-                                    <span className="font-mono font-bold">${(duration * 0.03).toFixed(2)}</span>
+                                    <span className="font-mono font-bold">${(duration * durationPrice).toFixed(2)}</span>
                                 </div>
                                 <div className="border-t border-primary/10 pt-2 mt-2">
                                     <div className="flex items-center justify-between">

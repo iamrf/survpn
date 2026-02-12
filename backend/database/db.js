@@ -115,6 +115,16 @@ function runMigrations() {
             // Configs might already exist
         }
         
+        // Add default configs for custom subscription pricing
+        try {
+            db.exec(`
+                INSERT OR IGNORE INTO configs (key, value) VALUES ('custom_subscription_traffic_price', '0.07');
+                INSERT OR IGNORE INTO configs (key, value) VALUES ('custom_subscription_duration_price', '0.03');
+            `);
+        } catch (e) {
+            // Configs might already exist
+        }
+        
         console.log('Migrations completed');
     } catch (error) {
         console.error('Error running migrations:', error);
