@@ -322,7 +322,7 @@ const WalletPage = () => {
   };
 
   const handleCheckPendingTransactions = async () => {
-    if (!tgUser?.id) return;
+    if (!tgUser?.id || isCheckingPending) return; // Prevent concurrent calls
     
     setIsCheckingPending(true);
     
@@ -334,8 +334,11 @@ const WalletPage = () => {
         tx.type === 'deposit' && 
         (tx.payment_method === 'plisio' || tx.plisio_invoice_id)
     );
+    
+    // Limit to 3 transactions at a time
+    const transactionsToCheck = pendingTransactions.slice(0, 3);
 
-    if (pendingTransactions.length === 0) {
+    if (transactionsToCheck.length === 0) {
       toast({
         title: "اطلاع",
         description: "تراکنش در انتظاری برای بررسی یافت نشد",
@@ -348,8 +351,14 @@ const WalletPage = () => {
     let failedCount = 0;
     let alreadyCompletedCount = 0;
 
-    for (const tx of pendingTransactions) {
+    // Check transactions sequentially with delay to avoid overwhelming the API
+    for (const tx of transactionsToCheck) {
       try {
+        // Add delay between checks (except for the first one)
+        if (verifiedCount + failedCount + alreadyCompletedCount > 0) {
+          await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay between checks
+        }
+        
         const result = await verifyPlisioTransaction({
           order_number: tx.id,
           txn_id: tx.plisio_invoice_id || tx.id
@@ -373,9 +382,9 @@ const WalletPage = () => {
       }
     }
 
-    // Refresh user data and history
-    await syncUser(tgUser).unwrap();
-    refetchHistory();
+    // User data and history will be automatically refreshed via RTK Query cache invalidation
+    // The verifyPlisioTransaction mutation already invalidates 'User' and 'Transactions' tags
+    // No need to manually call syncUser or refetchHistory
 
     // Show summary toast
     const messages = [];

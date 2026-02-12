@@ -119,6 +119,9 @@ app.post('/api/user/language', (req, res) => {
     }
 });
 
+// Request lock to prevent concurrent sync requests for the same user
+const syncUserLocks = new Map();
+
 // Sync User Data
 app.post('/api/sync-user', async (req, res) => {
     const { id, first_name, last_name, username, language_code, photo_url, phone_number, referral_code } = req.body;
@@ -127,10 +130,31 @@ app.post('/api/sync-user', async (req, res) => {
         return res.status(400).json({ error: 'User ID is required' });
     }
 
-    const adminIds = (process.env.ADMIN_IDS || '').split(',').map(id => id.trim());
-    const role = adminIds.includes(id.toString()) ? 'admin' : 'user';
+    // Check if there's already a sync in progress for this user
+    const lockKey = `sync_${id}`;
+    if (syncUserLocks.has(lockKey)) {
+        console.log(`Sync already in progress for user ${id}, waiting for existing request...`);
+        try {
+            // Wait for the existing request to complete (max 3 seconds)
+            const existingPromise = syncUserLocks.get(lockKey);
+            const result = await Promise.race([
+                existingPromise,
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout waiting for existing sync')), 3000))
+            ]);
+            return res.json(result);
+        } catch (error) {
+            // If timeout or error, proceed with new request
+            console.log(`Existing sync timed out for user ${id}, proceeding with new request`);
+            syncUserLocks.delete(lockKey);
+        }
+    }
 
-    try {
+    // Create a promise for this sync request
+    const syncPromise = (async () => {
+        const adminIds = (process.env.ADMIN_IDS || '').split(',').map(id => id.trim());
+        const role = adminIds.includes(id.toString()) ? 'admin' : 'user';
+
+        try {
         // Check if user exists
         const existingUser = db.prepare('SELECT id, referred_by, referral_code FROM users WHERE id = ?').get(id);
         const isNewUser = !existingUser;
@@ -213,8 +237,15 @@ app.post('/api/sync-user', async (req, res) => {
         let dataUsed = 0;
         let mUser = null;
 
+        // Add timeout to Marzban calls to prevent hanging
+        const marzbanTimeout = 5000; // 5 seconds timeout
         try {
-            mUser = await marzban.getUser(marzbanUsername);
+            const getUserPromise = marzban.getUser(marzbanUsername);
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Marzban request timeout')), marzbanTimeout)
+            );
+            
+            mUser = await Promise.race([getUserPromise, timeoutPromise]);
 
             // Welcome Bonus Logic
             let welcomeTraffic = 5; // Default 5GB
@@ -232,7 +263,11 @@ app.post('/api/sync-user', async (req, res) => {
             // Welcome bonus only for new users on signup who haven't received it yet
             if (isNewUser && !mUser && user.has_welcome_bonus === 0) {
                 console.log(`Creating Marzban user with ${welcomeTraffic}GB and ${welcomeDuration} days Welcome Bonus for new user: ${marzbanUsername}`);
-                mUser = await marzban.createUser(marzbanUsername, WELCOME_BONUS, WELCOME_EXPIRE);
+                const createUserPromise = marzban.createUser(marzbanUsername, WELCOME_BONUS, WELCOME_EXPIRE);
+                const createTimeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Marzban create timeout')), marzbanTimeout)
+                );
+                mUser = await Promise.race([createUserPromise, createTimeoutPromise]);
                 db.prepare('UPDATE users SET has_welcome_bonus = 1 WHERE id = ?').run(id);
             } else if (mUser) {
                 // For existing users, just fetch their current data
@@ -246,31 +281,50 @@ app.post('/api/sync-user', async (req, res) => {
             dataLimit = mUser?.data_limit || 0;
             dataUsed = mUser?.used_traffic || 0;
         } catch (mErr) {
-            console.error(`Error syncing with Marzban for ${marzbanUsername}:`, mErr.message);
+            // Log error but don't block the response - user data should still be returned
+            console.error(`Error syncing with Marzban for ${marzbanUsername}:`, mErr.message || mErr);
+            // Continue with empty Marzban data - user can still use the app
         }
 
-        console.log(`User ${id} synced. Role: ${role}, Bonus: ${user.has_welcome_bonus}, Link: ${subscriptionUrl}`);
-        res.json({
-            success: true,
-            message: 'User synchronized successfully',
-            isAdmin: role === 'admin',
-            balance: user?.balance || 0,
-            referralCode: user?.referral_code,
-            phoneNumber: user?.phone_number,
-            createdAt: user?.created_at,
-            lastSeen: user?.last_seen,
-            subscriptionUrl,
-            dataLimit,
-            dataUsed,
-            expire: mUser?.expire,
-            status: mUser?.status,
-            username: marzbanUsername,
-            languageCode: user?.language_code,
-            walletAddress: user?.wallet_address,
-            hasPasskey: !!user?.withdrawal_passkey
-        });
+            console.log(`User ${id} synced. Role: ${role}, Bonus: ${user.has_welcome_bonus}, Link: ${subscriptionUrl}`);
+            const response = {
+                success: true,
+                message: 'User synchronized successfully',
+                isAdmin: role === 'admin',
+                balance: user?.balance || 0,
+                referralCode: user?.referral_code,
+                phoneNumber: user?.phone_number,
+                createdAt: user?.created_at,
+                lastSeen: user?.last_seen,
+                subscriptionUrl,
+                dataLimit,
+                dataUsed,
+                expire: mUser?.expire,
+                status: mUser?.status,
+                username: marzbanUsername,
+                languageCode: user?.language_code,
+                walletAddress: user?.wallet_address,
+                hasPasskey: !!user?.withdrawal_passkey
+            };
+            return response;
+        } catch (error) {
+            console.error('Error syncing user:', error);
+            throw error;
+        } finally {
+            // Remove lock after request completes
+            syncUserLocks.delete(lockKey);
+        }
+    })();
+
+    // Store the promise in the lock map
+    syncUserLocks.set(lockKey, syncPromise);
+
+    // Handle the response for this request
+    try {
+        const result = await syncPromise;
+        res.json(result);
     } catch (error) {
-        console.error('Error syncing user:', error);
+        console.error('Error in sync promise:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

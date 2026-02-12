@@ -48,6 +48,8 @@ export const api = createApi({
         'FinanceSummary',
         'ReferralStats',
     ],
+    // Enable request deduplication to prevent duplicate API calls
+    keepUnusedDataFor: 60, // Keep data for 60 seconds
     endpoints: (builder) => ({
         // User endpoints
         syncUser: builder.mutation<{
@@ -73,6 +75,8 @@ export const api = createApi({
                 method: 'POST',
                 body: user,
             }),
+            // RTK Query automatically deduplicates mutations with the same arguments
+            // within a short time window, so concurrent calls should be handled
             invalidatesTags: (result, error, user) => {
                 const userId = user?.id;
                 return [

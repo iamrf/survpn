@@ -20,7 +20,7 @@ const AdminUsersPage = lazy(() => import("./pages/AdminUsersPage"));
 const AdminTransactionsPage = lazy(() => import("./pages/AdminTransactionsPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { getTelegramUser } from "./lib/telegram";
 import { AdminProvider, useAdmin } from "./components/AdminProvider";
 import { TelegramAccessGuard } from "./components/TelegramAccessGuard";
@@ -35,56 +35,67 @@ const AppContent = () => {
   const { isAdmin, setIsAdmin } = useAdmin();
   const dispatch = useAppDispatch();
   const [syncUser] = useSyncUserMutation();
+  const isSyncingRef = useRef(false);
 
   useEffect(() => {
     const syncUserData = async () => {
+      // Prevent concurrent sync requests
+      if (isSyncingRef.current) {
+        console.log("Sync already in progress, skipping...");
+        return;
+      }
+
       const user = getTelegramUser();
       if (user) {
+        isSyncingRef.current = true;
         console.log("Syncing user data with backend...", user);
         
-        // Check for referral code from Telegram start parameter (deep link)
-        // Format: https://t.me/botname?start=referral_code
-        const { getReferralCodeFromStartParam } = await import('@/lib/telegram');
-        const referralCode = getReferralCodeFromStartParam();
-        console.log('[REFERRAL] Referral code from start param:', referralCode);
+        try {
+          // Check for referral code from Telegram start parameter (deep link)
+          // Format: https://t.me/botname?start=referral_code
+          const { getReferralCodeFromStartParam } = await import('@/lib/telegram');
+          const referralCode = getReferralCodeFromStartParam();
+          console.log('[REFERRAL] Referral code from start param:', referralCode);
+          
+          // Prepare user data with referral code if present
+          const userData = {
+            ...user,
+            ...(referralCode && { referral_code: referralCode })
+          };
+          console.log('[REFERRAL] User data with referral code:', { ...userData, referral_code: referralCode || 'none' });
         
-        // Prepare user data with referral code if present
-        const userData = {
-          ...user,
-          ...(referralCode && { referral_code: referralCode })
-        };
-        console.log('[REFERRAL] User data with referral code:', { ...userData, referral_code: referralCode || 'none' });
-      
-      syncUser(userData).unwrap().then((result) => {
-        if (result.success) {
-          console.log("User synced successfully", result.isAdmin ? "(Admin)" : "");
-          dispatch(setCurrentUser({
-            id: user.id,
-            isAdmin: result.isAdmin,
-            balance: result.balance,
-            referralCode: result.referralCode,
-            phoneNumber: result.phoneNumber,
-            createdAt: result.createdAt,
-            lastSeen: result.lastSeen,
-            languageCode: result.languageCode,
-            walletAddress: result.walletAddress,
-            hasPasskey: result.hasPasskey,
-            subscriptionUrl: result.subscriptionUrl,
-            dataLimit: result.dataLimit,
-            dataUsed: result.dataUsed,
-            expire: result.expire,
-            status: result.status,
-            username: result.username,
-          }));
-          if (result.isAdmin !== undefined) {
-            setIsAdmin(result.isAdmin);
+          const result = await syncUser(userData).unwrap();
+          if (result.success) {
+            console.log("User synced successfully", result.isAdmin ? "(Admin)" : "");
+            dispatch(setCurrentUser({
+              id: user.id,
+              isAdmin: result.isAdmin,
+              balance: result.balance,
+              referralCode: result.referralCode,
+              phoneNumber: result.phoneNumber,
+              createdAt: result.createdAt,
+              lastSeen: result.lastSeen,
+              languageCode: result.languageCode,
+              walletAddress: result.walletAddress,
+              hasPasskey: result.hasPasskey,
+              subscriptionUrl: result.subscriptionUrl,
+              dataLimit: result.dataLimit,
+              dataUsed: result.dataUsed,
+              expire: result.expire,
+              status: result.status,
+              username: result.username,
+            }));
+            if (result.isAdmin !== undefined) {
+              setIsAdmin(result.isAdmin);
+            }
+          } else {
+            console.error("Failed to sync user");
           }
-        } else {
-          console.error("Failed to sync user");
-        }
-        }).catch((error) => {
+        } catch (error) {
           console.error("Error syncing user:", error);
-        });
+        } finally {
+          isSyncingRef.current = false;
+        }
       }
     };
     syncUserData();

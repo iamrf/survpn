@@ -26,7 +26,7 @@ const initialState: TransactionsState = {
     checkingTransactions: [],
     lastCheckedAt: null,
     autoCheckEnabled: true,
-    checkInterval: 30000, // 30 seconds
+    checkInterval: 60000, // 60 seconds (increased to reduce load)
 };
 
 const transactionsSlice = createSlice({

@@ -8,7 +8,7 @@ import {
     setLastCheckedAt,
     removePendingTransaction,
 } from '@/store/slices/transactionsSlice';
-import { useVerifyPlisioTransactionMutation, useSyncUserMutation } from '@/store/api';
+import { useVerifyPlisioTransactionMutation } from '@/store/api';
 import { getTelegramUser } from '@/lib/telegram';
 
 /**
@@ -27,10 +27,11 @@ export const useTransactionPolling = () => {
     } = useAppSelector((state) => state.transactions);
 
     const [verifyPlisioTransaction] = useVerifyPlisioTransactionMutation();
-    const [syncUser] = useSyncUserMutation();
 
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const isCheckingRef = useRef(false);
+    const lastCheckTimeRef = useRef<number>(0);
+    const checkCooldownRef = useRef<Map<string, number>>(new Map()); // Track last check time per transaction
 
     // Extract pending Plisio transactions
     const pendingPlisioTransactions = pendingTransactions.filter(
@@ -46,7 +47,18 @@ export const useTransactionPolling = () => {
             return;
         }
 
+        // Rate limiting: Don't check the same transaction more than once per minute
+        const lastCheckTime = checkCooldownRef.current.get(tx.id) || 0;
+        const now = Date.now();
+        const timeSinceLastCheck = now - lastCheckTime;
+        const MIN_CHECK_INTERVAL = 60000; // 1 minute minimum between checks for same transaction
+
+        if (timeSinceLastCheck < MIN_CHECK_INTERVAL) {
+            return; // Skip this check, too soon
+        }
+
         dispatch(addCheckingTransaction(tx.id));
+        checkCooldownRef.current.set(tx.id, now);
 
         try {
             const result = await verifyPlisioTransaction({
@@ -63,10 +75,8 @@ export const useTransactionPolling = () => {
                         status: 'completed',
                     }));
                     
-                    // Refresh user data to update balance
-                    if (tgUser) {
-                        await syncUser(tgUser).unwrap();
-                    }
+                    // Don't call syncUser here - it will be called automatically via cache invalidation
+                    // The verifyPlisioTransaction mutation already invalidates 'User' and 'Transactions' tags
                 } else if (resultAny.already_completed) {
                     // Transaction was already completed
                     dispatch(updateTransactionStatus({
@@ -85,21 +95,45 @@ export const useTransactionPolling = () => {
     };
 
     const checkAllPendingTransactions = async () => {
+        // Prevent concurrent checks
         if (isCheckingRef.current || pendingPlisioTransactions.length === 0) {
             return;
         }
 
+        // Rate limiting: Don't run checks more than once per 10 seconds
+        const now = Date.now();
+        const timeSinceLastCheck = now - lastCheckTimeRef.current;
+        const MIN_BATCH_INTERVAL = 10000; // 10 seconds minimum between batch checks
+
+        if (timeSinceLastCheck < MIN_BATCH_INTERVAL) {
+            return; // Skip this batch, too soon
+        }
+
         isCheckingRef.current = true;
+        lastCheckTimeRef.current = now;
 
         try {
-            // Check all pending transactions in parallel (with limit)
-            const transactionsToCheck = pendingPlisioTransactions.slice(0, 5); // Limit to 5 at a time
+            // Check only transactions that haven't been checked recently
+            const transactionsToCheck = pendingPlisioTransactions
+                .filter((tx) => {
+                    const lastCheck = checkCooldownRef.current.get(tx.id) || 0;
+                    return (now - lastCheck) >= MIN_CHECK_INTERVAL;
+                })
+                .slice(0, 3); // Limit to 3 at a time to reduce load
             
-            await Promise.allSettled(
-                transactionsToCheck.map((tx) => checkTransaction(tx))
-            );
+            if (transactionsToCheck.length === 0) {
+                isCheckingRef.current = false;
+                return;
+            }
 
-            dispatch(setLastCheckedAt(Date.now()));
+            // Check transactions sequentially with delay to avoid overwhelming the API
+            for (const tx of transactionsToCheck) {
+                await checkTransaction(tx);
+                // Add small delay between checks
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+            }
+
+            dispatch(setLastCheckedAt(now));
         } catch (error) {
             console.error('Error in transaction polling:', error);
         } finally {
@@ -116,15 +150,18 @@ export const useTransactionPolling = () => {
             return;
         }
 
-        // Initial check
-        checkAllPendingTransactions();
+        // Don't start immediately, wait a bit
+        const initialDelay = setTimeout(() => {
+            checkAllPendingTransactions();
+        }, 5000); // Wait 5 seconds before first check
 
-        // Set up interval
+        // Set up interval with longer delay
         intervalRef.current = setInterval(() => {
             checkAllPendingTransactions();
-        }, checkInterval);
+        }, Math.max(checkInterval, 30000)); // Minimum 30 seconds
 
         return () => {
+            clearTimeout(initialDelay);
             if (intervalRef.current) {
                 clearInterval(intervalRef.current);
             }
