@@ -1142,65 +1142,144 @@ app.post('/api/payment/verify-plisio', async (req, res) => {
                 ? verifyResponse.data.data[0] 
                 : verifyResponse.data.data;
 
-            const plisioStatus = plisioTransaction.status || plisioTransaction.payment_status;
+            // Try multiple possible status field names
+            const plisioStatus = plisioTransaction.status || 
+                                plisioTransaction.payment_status || 
+                                plisioTransaction.state ||
+                                plisioTransaction.paymentStatus ||
+                                plisioTransaction.paymentState;
             
-            // If Plisio shows completed but our DB shows pending, update it
-            if ((plisioStatus === 'completed' || plisioStatus === 'paid' || plisioStatus === 'mismatch') 
-                && transaction.status === 'pending') {
-                
+            // Also check if there are confirmations (indicates payment received)
+            const hasConfirmations = plisioTransaction.confirmations > 0 || 
+                                    plisioTransaction.confirmations_count > 0 ||
+                                    plisioTransaction.confirmed === true ||
+                                    plisioTransaction.confirmed === 1;
+            
+            console.log('=== Plisio Verification Debug ===');
+            console.log('Plisio transaction status:', plisioStatus);
+            console.log('Database transaction status:', transaction.status);
+            console.log('Has confirmations:', hasConfirmations);
+            console.log('Full Plisio transaction data:', JSON.stringify(plisioTransaction, null, 2));
+            console.log('Transaction ID:', transaction.id);
+            console.log('Transaction amount:', transaction.amount);
+            console.log('================================');
+            
+            // Check if Plisio confirms payment is completed/paid
+            // Accept multiple status values and confirmation indicators
+            const isPlisioPaid = plisioStatus === 'completed' || 
+                                 plisioStatus === 'paid' || 
+                                 plisioStatus === 'mismatch' ||
+                                 plisioStatus === 'success' ||
+                                 plisioStatus === 'confirmed' ||
+                                 plisioStatus === 1 ||
+                                 plisioStatus === '1' ||
+                                 hasConfirmations ||
+                                 (plisioTransaction.amount && plisioTransaction.amount > 0 && plisioTransaction.confirmations >= 1);
+            
+            // Check if transaction is already completed in our DB (to avoid double crediting)
+            const isAlreadyCompleted = transaction.status === 'completed' || transaction.status === 'paid';
+            
+            if (isPlisioPaid && !isAlreadyCompleted) {
+                // Plisio confirms payment, but our DB shows pending - update it
                 const userId = transaction.user_id;
                 const transactionAmount = transaction.amount;
 
-                db.transaction(() => {
-                    db.prepare('UPDATE transactions SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-                        .run('completed', transaction.id);
+                console.log(`Updating transaction ${transaction.id} from ${transaction.status} to completed for user ${userId}, amount: ${transactionAmount}`);
 
-                    db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?')
-                        .run(transactionAmount, userId);
-                });
-
-                console.log(`Manually verified and updated payment for user ${userId}, amount: ${transactionAmount}`);
-
-                // Process referral commission
                 try {
-                    const user = db.prepare('SELECT referred_by, referral_bonus_rate FROM users WHERE id = ?').get(userId);
-                    if (user && user.referred_by) {
-                        const referrer = db.prepare('SELECT id, referral_bonus_rate FROM users WHERE id = ?').get(user.referred_by);
-                        if (referrer) {
-                            const commissionRate = user.referral_bonus_rate || referrer.referral_bonus_rate || 10.00;
-                            const commissionAmount = (transactionAmount * commissionRate) / 100;
-                            
-                            db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(commissionAmount, referrer.id);
-                            
-                            const commissionId = `ref_dep_${Date.now()}_${referrer.id}_${userId}`;
-                            db.prepare(`
-                                INSERT INTO referral_commissions (id, referrer_id, referred_user_id, transaction_id, amount, commission_rate, commission_amount, type, status)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, 'transaction', 'paid')
-                            `).run(commissionId, referrer.id, userId, transaction.id, transactionAmount, commissionRate, commissionAmount);
-                        }
-                    }
-                } catch (commErr) {
-                    console.error('Error processing referral commission:', commErr);
-                }
+                    db.transaction(() => {
+                        // Update transaction status
+                        const updateResult = db.prepare('UPDATE transactions SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+                            .run('completed', transaction.id);
+                        
+                        console.log('Transaction update result:', updateResult);
 
-                return res.json({ 
-                    success: true, 
-                    message: 'Transaction verified and updated',
+                        // Credit user balance
+                        const balanceResult = db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?')
+                            .run(transactionAmount, userId);
+                        
+                        console.log('Balance update result:', balanceResult);
+                        
+                        // Verify the update
+                        const updatedTransaction = db.prepare('SELECT * FROM transactions WHERE id = ?').get(transaction.id);
+                        const updatedUser = db.prepare('SELECT balance FROM users WHERE id = ?').get(userId);
+                        
+                        console.log('Updated transaction status:', updatedTransaction.status);
+                        console.log('Updated user balance:', updatedUser.balance);
+                    })();
+
+                    console.log(`Successfully updated payment for user ${userId}, amount: ${transactionAmount}`);
+
+                    // Process referral commission
+                    try {
+                        const user = db.prepare('SELECT referred_by, referral_bonus_rate FROM users WHERE id = ?').get(userId);
+                        if (user && user.referred_by) {
+                            const referrer = db.prepare('SELECT id, referral_bonus_rate FROM users WHERE id = ?').get(user.referred_by);
+                            if (referrer) {
+                                const commissionRate = user.referral_bonus_rate || referrer.referral_bonus_rate || 10.00;
+                                const commissionAmount = (transactionAmount * commissionRate) / 100;
+                                
+                                db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(commissionAmount, referrer.id);
+                                
+                                const commissionId = `ref_dep_${Date.now()}_${referrer.id}_${userId}`;
+                                db.prepare(`
+                                    INSERT INTO referral_commissions (id, referrer_id, referred_user_id, transaction_id, amount, commission_rate, commission_amount, type, status)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, 'transaction', 'paid')
+                                `).run(commissionId, referrer.id, userId, transaction.id, transactionAmount, commissionRate, commissionAmount);
+                                
+                                console.log(`Referral commission processed: User ${referrer.id} earned $${commissionAmount}`);
+                            }
+                        }
+                    } catch (commErr) {
+                        console.error('Error processing referral commission:', commErr);
+                    }
+
+                    // Fetch updated transaction to return
+                    const updatedTransaction = db.prepare('SELECT * FROM transactions WHERE id = ?').get(transaction.id);
+                    
+                    return res.json({ 
+                        success: true, 
+                        message: 'Transaction verified and updated successfully',
+                        transaction: {
+                            id: updatedTransaction.id,
+                            status: updatedTransaction.status,
+                            amount: updatedTransaction.amount,
+                            previous_status: transaction.status
+                        },
+                        updated: true
+                    });
+                } catch (dbError) {
+                    console.error('Database error during update:', dbError);
+                    return res.status(500).json({
+                        success: false,
+                        error: 'Failed to update transaction in database',
+                        details: dbError.message
+                    });
+                }
+            } else if (isAlreadyCompleted) {
+                // Already processed
+                return res.json({
+                    success: true,
+                    message: 'Transaction already completed',
                     transaction: {
                         id: transaction.id,
-                        status: 'completed',
-                        amount: transactionAmount
-                    }
+                        status: transaction.status,
+                        amount: transaction.amount
+                    },
+                    updated: false,
+                    already_completed: true
+                });
+            } else {
+                // Plisio shows pending or other status
+                return res.json({
+                    success: true,
+                    message: 'Transaction verified but payment not yet completed',
+                    database_status: transaction.status,
+                    plisio_status: plisioStatus,
+                    needs_update: false,
+                    updated: false
                 });
             }
-
-            return res.json({
-                success: true,
-                message: 'Transaction verified',
-                database_status: transaction.status,
-                plisio_status: plisioStatus,
-                needs_update: (plisioStatus === 'completed' || plisioStatus === 'paid') && transaction.status === 'pending'
-            });
         }
 
         return res.json({ 
