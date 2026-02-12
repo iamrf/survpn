@@ -79,30 +79,68 @@ const WalletPage = () => {
     }
   }, [historyData, dispatch]);
 
-  // Handle payment success redirect from Plisio
+  // Handle payment redirect from Plisio ("go to site" button)
   useEffect(() => {
     const paymentStatus = searchParams.get('payment');
     const txId = searchParams.get('tx');
     
-    if (paymentStatus === 'success') {
+    if (paymentStatus === 'pending' && txId) {
+      // User was redirected from Plisio - try to verify this specific transaction
       toast({
-        title: "پرداخت موفق",
-        description: txId ? `تراکنش ${txId} با موفقیت انجام شد` : "پرداخت با موفقیت انجام شد",
+        title: "بررسی پرداخت",
+        description: "در حال بررسی وضعیت پرداخت شما...",
       });
       
-      // Refresh user data and transaction history
-      if (tgUser) {
-        syncUser(tgUser).unwrap().then(() => {
-          refetchHistory();
-        }).catch(console.error);
-      }
+      // Verify the specific transaction
+      verifyPlisioTransaction({
+        order_number: txId,
+        txn_id: txId,
+      }).unwrap().then((result: any) => {
+        if (result.updated) {
+          toast({
+            title: "پرداخت موفق",
+            description: `تراکنش ${txId} تایید و به حساب شما اضافه شد`,
+          });
+        } else if (result.already_completed) {
+          toast({
+            title: "تراکنش تکمیل شده",
+            description: "این تراکنش قبلاً تایید شده است",
+          });
+        } else {
+          toast({
+            title: "در انتظار تایید",
+            description: "پرداخت شما هنوز تایید نشده. لطفاً چند دقیقه صبر کنید و دوباره بررسی کنید.",
+            variant: "destructive",
+          });
+        }
+      }).catch((err: any) => {
+        console.error('Error verifying payment:', err);
+        toast({
+          title: "در انتظار تایید",
+          description: "پرداخت شما در حال بررسی است. لطفاً از دکمه بررسی تراکنش‌ها استفاده کنید.",
+        });
+      });
+      
+      // Clean up URL
+      searchParams.delete('payment');
+      searchParams.delete('tx');
+      setSearchParams(searchParams, { replace: true });
+    } else if (paymentStatus === 'success') {
+      // Legacy success redirect - just refresh data
+      toast({
+        title: "بررسی پرداخت",
+        description: "در حال بررسی وضعیت پرداخت شما...",
+      });
+      
+      // Refresh history
+      refetchHistory();
       
       // Clean up URL
       searchParams.delete('payment');
       searchParams.delete('tx');
       setSearchParams(searchParams, { replace: true });
     }
-  }, [searchParams, setSearchParams, tgUser, syncUser, refetchHistory, toast]);
+  }, [searchParams, setSearchParams, tgUser, verifyPlisioTransaction, refetchHistory, toast]);
 
   const history = historyData?.history || [];
   const balance = currentUser?.balance || 0;

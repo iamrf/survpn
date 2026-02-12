@@ -294,6 +294,21 @@ export const api = createApi({
             providesTags: ['Stats'],
         }),
 
+        getDepositsStats: builder.query<{
+            success: boolean;
+            data: {
+                total: number;
+                byPaymentMethod: Array<{ payment_method: string; count: number; total: number }>;
+                byDay: Array<{ date: string; count: number; total: number }>;
+                byMonth: Array<{ month: string; count: number; total: number }>;
+                byStatus: Array<{ status: string; count: number; total: number }>;
+                recent: Array<any>;
+            };
+        }, void>({
+            query: () => '/api/admin/stats/deposits',
+            providesTags: ['Stats'],
+        }),
+
         getUserFinanceSummary: builder.query<{ success: boolean; summary?: any; error?: string }, number>({
             query: (userId) => `/api/admin/user/${userId}/finance-summary`,
             providesTags: (result, error, userId) => [{ type: 'FinanceSummary', id: userId }],

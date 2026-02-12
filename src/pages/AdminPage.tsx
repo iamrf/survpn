@@ -120,6 +120,7 @@ const AdminPage = () => {
         { label: "تعداد کاربران", value: usersList.length.toLocaleString('fa-IR') || "...", icon: Users, color: "text-blue-400" },
         { label: "درخواست برداشت", value: withdrawalsList.filter((w: any) => w.status === 'pending').length.toLocaleString('fa-IR') || "۰", icon: ArrowUpRight, color: "text-yellow-400" },
         { label: "مجموع واریزی‌ها", value: totalDeposits !== null ? `$${totalDeposits.toLocaleString()}` : "...", icon: Banknote, color: "text-green-400" },
+        { label: "تراکنش‌ها", value: "مشاهده همه", icon: Database, color: "text-purple-400" },
     ];
 
     const handleUpdateConfig = async (key: string, value: string) => {
@@ -294,13 +295,6 @@ const AdminPage = () => {
                     >
                         <Activity size={16} />
                         نمای کلی
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("transactions")}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-medium transition-all duration-300 ${activeTab === "transactions" ? "bg-primary text-primary-foreground shadow-lg" : "text-muted-foreground hover:text-white"}`}
-                    >
-                        <Database size={16} />
-                        تراکنش‌ها
                     </button>
                     <button
                         onClick={() => setActiveTab("withdrawals")}
@@ -487,32 +481,6 @@ const AdminPage = () => {
                                 </p>
                             </div>
 
-                        </motion.div>
-                    ) : activeTab === "transactions" ? (
-                        <motion.div
-                            key="transactions"
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -20 }}
-                            className="space-y-4"
-                        >
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-lg font-bold font-vazir">همه تراکنش‌ها</h3>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => navigate('/admin/transactions')}
-                                    className="text-xs font-vazir border-white/10 hover:bg-white/5"
-                                >
-                                    مشاهده همه
-                                    <ChevronRight size={14} className="mr-1" />
-                                </Button>
-                            </div>
-                            <div className="glass p-6 rounded-3xl border border-white/5 text-center">
-                                <p className="text-sm text-muted-foreground font-vazir">
-                                    برای مشاهده و مدیریت تمام تراکنش‌ها با فیلترهای پیشرفته، روی دکمه بالا کلیک کنید.
-                                </p>
-                            </div>
                         </motion.div>
                     ) : activeTab === "withdrawals" ? (
                         <motion.div

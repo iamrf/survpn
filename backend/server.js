@@ -665,11 +665,106 @@ app.get('/api/admin/withdrawals', (req, res) => {
 // Admin: Get total successful deposits
 app.get('/api/admin/stats/total-deposits', (req, res) => {
     try {
-        const result = db.prepare("SELECT SUM(amount) as total FROM transactions WHERE status = 'completed' AND type = 'deposit'").get();
+        // Calculate total deposits - only completed deposits
+        // This matches the calculation in /api/admin/stats/deposits
+        const result = db.prepare(`
+            SELECT SUM(amount) as total 
+            FROM transactions 
+            WHERE status = 'completed' 
+            AND type = 'deposit'
+        `).get();
         const total = result.total || 0;
         res.json({ success: true, total });
     } catch (error) {
         console.error('Error calculating total deposits:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: Get deposits statistics with breakdowns
+app.get('/api/admin/stats/deposits', (req, res) => {
+    try {
+        // Total deposits (only completed)
+        const totalResult = db.prepare("SELECT SUM(amount) as total FROM transactions WHERE status = 'completed' AND type = 'deposit'").get();
+        const total = totalResult.total || 0;
+
+        // Deposits by payment method
+        const byPaymentMethod = db.prepare(`
+            SELECT 
+                COALESCE(payment_method, 'unknown') as payment_method,
+                COUNT(*) as count,
+                SUM(amount) as total
+            FROM transactions 
+            WHERE status = 'completed' AND type = 'deposit'
+            GROUP BY payment_method
+        `).all();
+
+        // Deposits by day (last 30 days)
+        const byDay = db.prepare(`
+            SELECT 
+                DATE(created_at) as date,
+                COUNT(*) as count,
+                SUM(amount) as total
+            FROM transactions 
+            WHERE status = 'completed' 
+            AND type = 'deposit'
+            AND created_at >= datetime('now', '-30 days')
+            GROUP BY DATE(created_at)
+            ORDER BY date ASC
+        `).all();
+
+        // Deposits by month (last 12 months)
+        const byMonth = db.prepare(`
+            SELECT 
+                strftime('%Y-%m', created_at) as month,
+                COUNT(*) as count,
+                SUM(amount) as total
+            FROM transactions 
+            WHERE status = 'completed' 
+            AND type = 'deposit'
+            AND created_at >= datetime('now', '-12 months')
+            GROUP BY strftime('%Y-%m', created_at)
+            ORDER BY month ASC
+        `).all();
+
+        // Deposits by status
+        const byStatus = db.prepare(`
+            SELECT 
+                status,
+                COUNT(*) as count,
+                SUM(amount) as total
+            FROM transactions 
+            WHERE type = 'deposit'
+            GROUP BY status
+        `).all();
+
+        // Recent deposits (last 10)
+        const recent = db.prepare(`
+            SELECT 
+                t.*,
+                u.first_name,
+                u.last_name,
+                u.username
+            FROM transactions t
+            LEFT JOIN users u ON t.user_id = u.id
+            WHERE t.type = 'deposit'
+            ORDER BY t.created_at DESC
+            LIMIT 10
+        `).all();
+
+        res.json({
+            success: true,
+            data: {
+                total,
+                byPaymentMethod,
+                byDay,
+                byMonth,
+                byStatus,
+                recent
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching deposits statistics:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -938,7 +1033,7 @@ app.post('/api/payment/create', async (req, res) => {
 
         // Frontend URL for redirects
         const frontendUrl = process.env.FRONTEND_URL || 'https://app.survpn.xyz';
-        const successUrl = `${frontendUrl}/wallet?payment=success&tx=${orderId}`;
+        const successUrl = `${frontendUrl}/wallet?payment=pending&tx=${orderId}`;
         const returnUrl = `${frontendUrl}/wallet`;
 
         const params = {
@@ -1079,32 +1174,33 @@ app.post('/api/payment/telegram-stars-callback', (req, res) => {
 // Plisio will POST to this URL when payment status changes (webhook)
 // Plisio will GET to this URL when user clicks "go to site" button (redirect)
 app.get('/api/payment/callback', (req, res) => {
-    // Handle GET request - user redirected from Plisio after payment
+    // Handle GET request - user redirected from Plisio after payment ("go to site" button)
+    // This is just a redirect - NOT a payment confirmation
+    // The actual payment confirmation happens via the POST callback (webhook)
     const { order_number, order_id, status, txn_id } = req.query;
     
     console.log('=== Plisio GET Callback (User Redirect) ===');
     console.log('Query params:', req.query);
     
     const orderId = order_number || order_id;
+    const frontendUrl = process.env.FRONTEND_URL || 'https://app.survpn.xyz';
     
     if (orderId) {
-        // Try to find the transaction to get user info
         try {
             const transaction = db.prepare('SELECT * FROM transactions WHERE id = ? OR plisio_invoice_id = ?').get(orderId, orderId);
             if (transaction) {
-                console.log(`Redirecting user ${transaction.user_id} after payment for transaction ${orderId}`);
-                // Redirect to frontend wallet page with success message
-                const frontendUrl = process.env.FRONTEND_URL || 'https://app.survpn.xyz';
-                return res.redirect(`${frontendUrl}/wallet?payment=success&tx=${orderId}`);
+                console.log(`Redirecting user ${transaction.user_id} after payment for transaction ${orderId}, db status: ${transaction.status}`);
+                // Redirect to wallet - use "pending" status to trigger a manual check
+                // Don't say "success" because we haven't verified the payment yet
+                return res.redirect(`${frontendUrl}/wallet?payment=pending&tx=${orderId}`);
             }
         } catch (error) {
             console.error('Error finding transaction for redirect:', error);
         }
     }
     
-    // Fallback redirect if transaction not found
-    const frontendUrl = process.env.FRONTEND_URL || 'https://app.survpn.xyz';
-    res.redirect(`${frontendUrl}/wallet?payment=success`);
+    // Fallback redirect
+    res.redirect(`${frontendUrl}/wallet`);
 });
 
 app.post('/api/payment/callback', (req, res) => {
@@ -1263,7 +1359,7 @@ app.post('/api/payment/verify-plisio', async (req, res) => {
                 transaction_id: transaction.id
             });
         }
-        
+
         // Use order_number for lookup (not txn_id)
         const verifyParams = {
             api_key: plisioApiKey,
@@ -1272,26 +1368,10 @@ app.post('/api/payment/verify-plisio', async (req, res) => {
 
         console.log('Verifying Plisio transaction with order_number:', verifyParams);
 
-        // Try to get invoice details first (more accurate for payment status)
+        // Get operations (payment transactions) - this is the ONLY reliable lookup
+        // DO NOT use /api/v1/invoices as it may return invoices from OTHER transactions
         let verifyResponse;
-        let invoiceData = null;
         
-        try {
-            const invoiceResponse = await axios.get('https://api.plisio.net/api/v1/invoices', {
-                params: { api_key: plisioApiKey, order_number: orderNumber },
-                timeout: 30000
-            });
-            if (invoiceResponse.data.status === 'success' && invoiceResponse.data.data) {
-                invoiceData = Array.isArray(invoiceResponse.data.data) 
-                    ? invoiceResponse.data.data[0] 
-                    : invoiceResponse.data.data;
-                console.log('Invoice data from invoices endpoint:', JSON.stringify(invoiceData, null, 2));
-            }
-        } catch (invoiceError) {
-            console.log('Invoice endpoint not available, using operations endpoint');
-        }
-
-        // Get operations (payment transactions)
         verifyResponse = await axios.get('https://api.plisio.net/api/v1/operations', {
             params: verifyParams,
             timeout: 30000
@@ -1299,252 +1379,188 @@ app.post('/api/payment/verify-plisio', async (req, res) => {
 
         console.log('Plisio verification response:', JSON.stringify(verifyResponse.data, null, 2));
         
-        // If no results, try using the transaction ID directly (in case it's the Plisio ID format)
+        // If no results with order_number, try txn_id as fallback
         if (verifyResponse.data.status === 'success' && 
             (!verifyResponse.data.data || 
-             (verifyResponse.data.data.operations && verifyResponse.data.data.operations.length === 0))) {
+             !verifyResponse.data.data.operations ||
+             verifyResponse.data.data.operations.length === 0)) {
             console.log('No results with order_number, trying txn_id as fallback...');
-            if (transaction.plisio_invoice_id || txn_id) {
-                const altVerifyParams = {
-                    api_key: plisioApiKey,
-                    txn_id: transaction.plisio_invoice_id || txn_id
-                };
-            try {
-                const altResponse = await axios.get('https://api.plisio.net/api/v1/operations', {
-                    params: altVerifyParams,
-                    timeout: 30000
-                });
-                if (altResponse.data.status === 'success' && 
-                    altResponse.data.data && 
-                    altResponse.data.data.operations && 
-                    altResponse.data.data.operations.length > 0) {
-                    console.log('Found transaction using txn_id fallback!');
-                    verifyResponse = altResponse;
-                }
-            } catch (altError) {
-                console.log('Alternative lookup also failed:', altError.message);
-            }
-            }
-        }
-
-        if (verifyResponse.data.status === 'success' && verifyResponse.data.data) {
-            // Plisio returns data in data.operations array
-            let plisioTransaction = null;
             
-            if (verifyResponse.data.data.operations && Array.isArray(verifyResponse.data.data.operations)) {
-                // Get the first operation (most recent)
-                plisioTransaction = verifyResponse.data.data.operations[0];
-            } else if (Array.isArray(verifyResponse.data.data)) {
-                // Fallback: if data is directly an array
-                plisioTransaction = verifyResponse.data.data[0];
-            } else {
-                // Fallback: if data is an object
-                plisioTransaction = verifyResponse.data.data;
-            }
-            
-            if (!plisioTransaction) {
-                return res.json({
-                    success: false,
-                    error: 'No transaction found in Plisio response',
-                    response: verifyResponse.data
-                });
-            }
-
-            // Use invoice data if available (more accurate), otherwise use operation data
-            const transactionData = invoiceData || plisioTransaction;
-            
-            // Try multiple possible status field names
-            const plisioStatus = transactionData.status || 
-                                transactionData.payment_status || 
-                                transactionData.state ||
-                                transactionData.paymentStatus ||
-                                transactionData.paymentState ||
-                                plisioTransaction.status;
-            
-            // Also check if there are confirmations (indicates payment received)
-            const hasConfirmations = (transactionData.confirmations > 0) || 
-                                    (transactionData.confirmations_count > 0) ||
-                                    (transactionData.confirmed === true) ||
-                                    (transactionData.confirmed === 1) ||
-                                    (plisioTransaction.confirmations > 0);
-            
-            // Check if there are any completed payment operations in the operations array
-            let hasCompletedPayment = false;
-            if (verifyResponse.data.data && verifyResponse.data.data.operations && Array.isArray(verifyResponse.data.data.operations)) {
-                const completedOps = verifyResponse.data.data.operations.filter((op) => 
-                    (op.status === 'completed' || op.status === 'paid') && op.type === 'payment'
-                );
-                hasCompletedPayment = completedOps.length > 0;
-                if (hasCompletedPayment) {
-                    console.log(`Found ${completedOps.length} completed payment operation(s)`);
-                    console.log('Completed payment operations:', JSON.stringify(completedOps, null, 2));
-                }
-            }
-            
-            console.log('=== Plisio Verification Debug ===');
-            console.log('Plisio transaction status:', plisioStatus);
-            console.log('Database transaction status:', transaction.status);
-            console.log('Has confirmations:', hasConfirmations);
-            console.log('Has completed payment operations:', hasCompletedPayment);
-            console.log('Invoice data available:', !!invoiceData);
-            console.log('Full Plisio transaction data:', JSON.stringify(plisioTransaction, null, 2));
-            if (invoiceData) {
-                console.log('Invoice data:', JSON.stringify(invoiceData, null, 2));
-            }
-            console.log('Transaction ID:', transaction.id);
-            console.log('Transaction amount:', transaction.amount);
-            console.log('================================');
-            
-            // Check if Plisio confirms payment is completed/paid
-            // Plisio status values: 'new' (pending), 'pending', 'completed', 'paid', 'mismatch', 'expired', 'cancelled'
-            // Accept multiple status values and confirmation indicators
-            const isPlisioPaid = plisioStatus === 'completed' || 
-                                 plisioStatus === 'paid' || 
-                                 plisioStatus === 'mismatch' ||
-                                 plisioStatus === 'success' ||
-                                 plisioStatus === 'confirmed' ||
-                                 plisioStatus === 1 ||
-                                 plisioStatus === '1' ||
-                                 hasConfirmations ||
-                                 (plisioTransaction.amount && plisioTransaction.amount > 0 && plisioTransaction.confirmations >= 1);
-            
-            // Check if status indicates pending (not paid)
-            const isPlisioPending = plisioStatus === 'new' || 
-                                   plisioStatus === 'pending' || 
-                                   plisioStatus === 'expired' || 
-                                   plisioStatus === 'cancelled' ||
-                                   !plisioStatus;
-            
-            // Check if transaction is already completed in our DB (to avoid double crediting)
-            const isAlreadyCompleted = transaction.status === 'completed' || transaction.status === 'paid';
-            
-            console.log('Payment check results:');
-            console.log('- Plisio status:', plisioStatus);
-            console.log('- isPlisioPaid:', isPlisioPaid);
-            console.log('- isPlisioPending:', isPlisioPending);
-            console.log('- isAlreadyCompleted:', isAlreadyCompleted);
-            
-            // If Plisio shows pending status, don't update
-            if (isPlisioPending && !isPlisioPaid) {
-                return res.json({
-                    success: true,
-                    message: `Transaction is still pending in Plisio (status: ${plisioStatus})`,
-                    database_status: transaction.status,
-                    plisio_status: plisioStatus,
-                    needs_update: false,
-                    updated: false,
-                    note: 'Payment has not been completed yet according to Plisio. Status will update automatically when payment is received.'
-                });
-            }
-            
-            if (isPlisioPaid && !isAlreadyCompleted) {
-                // Plisio confirms payment, but our DB shows pending - update it
-                const userId = transaction.user_id;
-                const transactionAmount = transaction.amount;
-
-                console.log(`Updating transaction ${transaction.id} from ${transaction.status} to completed for user ${userId}, amount: ${transactionAmount}`);
-
+            // Only try fallback if we have a DIFFERENT plisio_invoice_id (not same as order_number)
+            const plisioId = transaction.plisio_invoice_id || txn_id;
+            if (plisioId && plisioId !== orderNumber) {
                 try {
-                    db.transaction(() => {
-                        // Update transaction status
-                        const updateResult = db.prepare('UPDATE transactions SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-                            .run('completed', transaction.id);
-                        
-                        console.log('Transaction update result:', updateResult);
-
-                        // Credit user balance
-                        const balanceResult = db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?')
-                            .run(transactionAmount, userId);
-                        
-                        console.log('Balance update result:', balanceResult);
-                        
-                        // Verify the update
-                        const updatedTransaction = db.prepare('SELECT * FROM transactions WHERE id = ?').get(transaction.id);
-                        const updatedUser = db.prepare('SELECT balance FROM users WHERE id = ?').get(userId);
-                        
-                        console.log('Updated transaction status:', updatedTransaction.status);
-                        console.log('Updated user balance:', updatedUser.balance);
-                    })();
-
-                    console.log(`Successfully updated payment for user ${userId}, amount: ${transactionAmount}`);
-
-                    // Process referral commission
-                    try {
-                        const user = db.prepare('SELECT referred_by, referral_bonus_rate FROM users WHERE id = ?').get(userId);
-                        if (user && user.referred_by) {
-                            const referrer = db.prepare('SELECT id, referral_bonus_rate FROM users WHERE id = ?').get(user.referred_by);
-                            if (referrer) {
-                                const commissionRate = user.referral_bonus_rate || referrer.referral_bonus_rate || 10.00;
-                                const commissionAmount = (transactionAmount * commissionRate) / 100;
-                                
-                                db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(commissionAmount, referrer.id);
-                                
-                                const commissionId = `ref_dep_${Date.now()}_${referrer.id}_${userId}`;
-                                db.prepare(`
-                                    INSERT INTO referral_commissions (id, referrer_id, referred_user_id, transaction_id, amount, commission_rate, commission_amount, type, status)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, 'transaction', 'paid')
-                                `).run(commissionId, referrer.id, userId, transaction.id, transactionAmount, commissionRate, commissionAmount);
-                                
-                                console.log(`Referral commission processed: User ${referrer.id} earned $${commissionAmount}`);
-                            }
-                        }
-                    } catch (commErr) {
-                        console.error('Error processing referral commission:', commErr);
+                    const altResponse = await axios.get('https://api.plisio.net/api/v1/operations', {
+                        params: { api_key: plisioApiKey, txn_id: plisioId },
+                        timeout: 30000
+                    });
+                    if (altResponse.data.status === 'success' && 
+                        altResponse.data.data?.operations?.length > 0) {
+                        console.log('Found transaction using txn_id fallback!');
+                        verifyResponse = altResponse;
                     }
-
-                    // Fetch updated transaction to return
-                    const updatedTransaction = db.prepare('SELECT * FROM transactions WHERE id = ?').get(transaction.id);
-                    
-                    return res.json({ 
-                        success: true, 
-                        message: 'Transaction verified and updated successfully',
-                        transaction: {
-                            id: updatedTransaction.id,
-                            status: updatedTransaction.status,
-                            amount: updatedTransaction.amount,
-                            previous_status: transaction.status
-                        },
-                        updated: true
-                    });
-                } catch (dbError) {
-                    console.error('Database error during update:', dbError);
-                    return res.status(500).json({
-                        success: false,
-                        error: 'Failed to update transaction in database',
-                        details: dbError.message
-                    });
+                } catch (altError) {
+                    console.log('Alternative lookup also failed:', altError.message);
                 }
-            } else if (isAlreadyCompleted) {
-                // Already processed
-                return res.json({
-                    success: true,
-                    message: 'Transaction already completed',
-                    transaction: {
-                        id: transaction.id,
-                        status: transaction.status,
-                        amount: transaction.amount
-                    },
-                    updated: false,
-                    already_completed: true
-                });
-            } else {
-                // Plisio shows pending or other status
-                return res.json({
-                    success: true,
-                    message: 'Transaction verified but payment not yet completed',
-                    database_status: transaction.status,
-                    plisio_status: plisioStatus,
-                    needs_update: false,
-                    updated: false
-                });
             }
         }
+        
+        // Extract the matching Plisio operation
+        const operations = verifyResponse.data?.data?.operations || [];
+        
+        if (operations.length === 0) {
+            // No operations found - transaction NOT found on Plisio
+            // DO NOT confirm, return not found
+            console.log(`No Plisio operations found for order_number=${orderNumber}`);
+            return res.json({
+                success: true,
+                message: 'Transaction not found in Plisio. It may not have been created or may have expired.',
+                database_status: transaction.status,
+                plisio_status: 'not_found',
+                updated: false,
+                needs_update: false,
+                note: 'No matching invoice found on Plisio for this transaction ID.'
+            });
+        }
+        
+        // Find the operation that matches THIS specific transaction
+        // Match by order_number or by the plisio_invoice_id we stored
+        let plisioTransaction = null;
+        for (const op of operations) {
+            // Exact match on order_number
+            if (op.order_number === orderNumber || op.order_id === orderNumber) {
+                plisioTransaction = op;
+                break;
+            }
+        }
+        
+        // If no exact match, use the first operation (it was filtered by order_number already)
+        if (!plisioTransaction) {
+            plisioTransaction = operations[0];
+        }
+        
+        console.log('Matched Plisio operation:', JSON.stringify(plisioTransaction, null, 2));
+        
+        // Get the status ONLY from the matched operation
+        const plisioStatus = plisioTransaction.status;
+        
+        console.log('=== Plisio Verification Debug ===');
+        console.log('Plisio operation status:', plisioStatus);
+        console.log('Database transaction status:', transaction.status);
+        console.log('Plisio txn_id:', plisioTransaction.txn_id || plisioTransaction.id);
+        console.log('Transaction ID:', transaction.id);
+        console.log('Transaction amount:', transaction.amount);
+        console.log('================================');
+        
+        // STRICT status check - only accept explicit "completed" or "paid" statuses
+        // from the SPECIFIC matched operation
+        const isPlisioPaid = plisioStatus === 'completed' || 
+                             plisioStatus === 'paid' || 
+                             plisioStatus === 'mismatch'; // mismatch = paid but wrong amount
+        
+        // Check if transaction is already completed in our DB (to avoid double crediting)
+        const isAlreadyCompleted = transaction.status === 'completed' || transaction.status === 'paid';
+        
+        console.log('Payment check results:');
+        console.log('- Plisio status:', plisioStatus);
+        console.log('- isPlisioPaid:', isPlisioPaid);
+        console.log('- isAlreadyCompleted:', isAlreadyCompleted);
+        
+        // If Plisio does NOT show a paid status, don't update - return current status
+        if (!isPlisioPaid) {
+            return res.json({
+                success: true,
+                message: `Transaction is not paid in Plisio (status: ${plisioStatus})`,
+                database_status: transaction.status,
+                plisio_status: plisioStatus,
+                needs_update: false,
+                updated: false,
+                note: 'Payment has not been completed yet according to Plisio.'
+            });
+        }
+        
+        // === Payment IS confirmed by Plisio ===
+        
+        // Already processed? Don't double-credit
+        if (isAlreadyCompleted) {
+            return res.json({
+                success: true,
+                message: 'Transaction already completed',
+                transaction: {
+                    id: transaction.id,
+                    status: transaction.status,
+                    amount: transaction.amount
+                },
+                updated: false,
+                already_completed: true
+            });
+        }
+        
+        // Plisio confirms payment, but our DB shows pending - update it
+        const userId = transaction.user_id;
+        const transactionAmount = transaction.amount;
 
-        return res.json({ 
-            success: false, 
-            error: 'Could not verify transaction with Plisio',
-            response: verifyResponse.data
-        });
+        console.log(`Updating transaction ${transaction.id} from ${transaction.status} to completed for user ${userId}, amount: ${transactionAmount}`);
+
+        try {
+            db.transaction(() => {
+                // Update transaction status
+                db.prepare('UPDATE transactions SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+                    .run('completed', transaction.id);
+
+                // Credit user balance
+                db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?')
+                    .run(transactionAmount, userId);
+            })();
+
+            console.log(`Successfully updated payment for user ${userId}, amount: ${transactionAmount}`);
+
+            // Process referral commission
+            try {
+                const user = db.prepare('SELECT referred_by, referral_bonus_rate FROM users WHERE id = ?').get(userId);
+                if (user && user.referred_by) {
+                    const referrer = db.prepare('SELECT id, referral_bonus_rate FROM users WHERE id = ?').get(user.referred_by);
+                    if (referrer) {
+                        const commissionRate = user.referral_bonus_rate || referrer.referral_bonus_rate || 10.00;
+                        const commissionAmount = (transactionAmount * commissionRate) / 100;
+                        
+                        db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(commissionAmount, referrer.id);
+                        
+                        const commissionId = `ref_dep_${Date.now()}_${referrer.id}_${userId}`;
+                        db.prepare(`
+                            INSERT INTO referral_commissions (id, referrer_id, referred_user_id, transaction_id, amount, commission_rate, commission_amount, type, status)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, 'transaction', 'paid')
+                        `).run(commissionId, referrer.id, userId, transaction.id, transactionAmount, commissionRate, commissionAmount);
+                        
+                        console.log(`Referral commission processed: User ${referrer.id} earned $${commissionAmount}`);
+                    }
+                }
+            } catch (commErr) {
+                console.error('Error processing referral commission:', commErr);
+            }
+
+            // Fetch updated transaction to return
+            const updatedTransaction = db.prepare('SELECT * FROM transactions WHERE id = ?').get(transaction.id);
+            
+            return res.json({ 
+                success: true, 
+                message: 'Transaction verified and updated successfully',
+                transaction: {
+                    id: updatedTransaction.id,
+                    status: updatedTransaction.status,
+                    amount: updatedTransaction.amount,
+                    previous_status: transaction.status
+                },
+                updated: true
+            });
+        } catch (dbError) {
+            console.error('Database error during update:', dbError);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to update transaction in database',
+                details: dbError.message
+            });
+        }
     } catch (error) {
         console.error('Error verifying Plisio transaction:', error);
         return res.status(500).json({ 

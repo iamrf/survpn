@@ -18,6 +18,7 @@ const AdminUserDetailPage = lazy(() => import("./pages/AdminUserDetailPage"));
 const AdminPendingWithdrawalsPage = lazy(() => import("./pages/AdminPendingWithdrawalsPage"));
 const AdminUsersPage = lazy(() => import("./pages/AdminUsersPage"));
 const AdminTransactionsPage = lazy(() => import("./pages/AdminTransactionsPage"));
+const AdminDepositsPage = lazy(() => import("./pages/AdminDepositsPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 import { useEffect, useRef } from "react";
