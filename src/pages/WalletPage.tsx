@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Wallet, Plus, CreditCard, ArrowUpRight, History, ArrowDownLeft, X, CheckCircle2, Clock, Share2, Users, TrendingUp, Copy, Gift, Star, Coins } from "lucide-react";
+import { Wallet, Plus, CreditCard, ArrowUpRight, History, ArrowDownLeft, X, CheckCircle2, Clock, Share2, Users, TrendingUp, Copy, Gift, Star, Coins, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,8 @@ import BottomNav from "@/components/BottomNav";
 import { WalletBalanceSkeleton, TransactionSkeleton } from "@/components/skeletons";
 import { motion } from "framer-motion";
 import { getTelegramUser } from "@/lib/telegram";
-import { useAppSelector } from "@/store/hooks";
+import { useAppSelector, useAppDispatch } from "@/store/hooks";
+import { store } from "@/store";
 import { 
   useCreatePaymentMutation, 
   useSyncUserMutation, 
@@ -19,11 +20,18 @@ import {
   useRequestWithdrawalMutation, 
   useCancelWithdrawalMutation,
   useGetReferralStatsQuery,
-  useGetConfigsQuery
+  useGetConfigsQuery,
+  useVerifyPlisioTransactionMutation
 } from "@/store/api";
+import {
+  setPendingTransactions,
+  addPendingTransaction,
+} from "@/store/slices/transactionsSlice";
+import { useTransactionPolling } from "@/hooks/useTransactionPolling";
 
 const WalletPage = () => {
   const tgUser = getTelegramUser();
+  const dispatch = useAppDispatch();
   const currentUser = useAppSelector((state) => state.user.currentUser);
   const [amount, setAmount] = useState<string>("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
@@ -35,10 +43,15 @@ const WalletPage = () => {
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isReferralOpen, setIsReferralOpen] = useState(false);
+  const [isCheckingPending, setIsCheckingPending] = useState(false);
+
+  // Initialize transaction polling - this automatically checks pending transactions
+  const { isChecking } = useTransactionPolling();
 
   // RTK Query hooks
   const [syncUser] = useSyncUserMutation();
   const [createPayment, { isLoading: paymentLoading }] = useCreatePaymentMutation();
+  const [verifyPlisioTransaction] = useVerifyPlisioTransactionMutation();
   const [requestWithdrawal, { isLoading: withdrawLoading }] = useRequestWithdrawalMutation();
   const [cancelWithdrawal] = useCancelWithdrawalMutation();
   
@@ -53,6 +66,16 @@ const WalletPage = () => {
   );
 
   const { data: configsData } = useGetConfigsQuery();
+
+  // Update Redux store with pending transactions when history changes
+  useEffect(() => {
+    if (historyData?.history) {
+      const pending = historyData.history.filter(
+        (tx: any) => tx.status === 'pending' && tx.type === 'deposit'
+      );
+      dispatch(setPendingTransactions(pending));
+    }
+  }, [historyData, dispatch]);
 
   const history = historyData?.history || [];
   const balance = currentUser?.balance || 0;
@@ -170,6 +193,19 @@ const WalletPage = () => {
           }
         } else if (result.invoice_url) {
           // Handle Plisio payment
+          // Add transaction to Redux for automatic polling
+          if (result.order_id) {
+            dispatch(addPendingTransaction({
+              id: result.order_id,
+              user_id: tgUser.id,
+              type: 'deposit',
+              amount: numAmount,
+              status: 'pending',
+              payment_method: paymentMethod,
+              plisio_invoice_id: result.order_id, // Will be updated when we get the actual invoice ID
+              created_at: new Date().toISOString(),
+            }));
+          }
           window.location.href = result.invoice_url;
         } else {
           toast({
@@ -283,6 +319,83 @@ const WalletPage = () => {
     } finally {
       setCancelLoading(null);
     }
+  };
+
+  const handleCheckPendingTransactions = async () => {
+    if (!tgUser?.id) return;
+    
+    setIsCheckingPending(true);
+    
+    // Get pending transactions from Redux store
+    const state = store.getState();
+    const pendingTransactions = state.transactions.pendingTransactions.filter(
+      (tx: any) => 
+        tx.status === 'pending' && 
+        tx.type === 'deposit' && 
+        (tx.payment_method === 'plisio' || tx.plisio_invoice_id)
+    );
+
+    if (pendingTransactions.length === 0) {
+      toast({
+        title: "اطلاع",
+        description: "تراکنش در انتظاری برای بررسی یافت نشد",
+      });
+      setIsCheckingPending(false);
+      return;
+    }
+
+    let verifiedCount = 0;
+    let failedCount = 0;
+    let alreadyCompletedCount = 0;
+
+    for (const tx of pendingTransactions) {
+      try {
+        const result = await verifyPlisioTransaction({
+          order_number: tx.id,
+          txn_id: tx.plisio_invoice_id || tx.id
+        }).unwrap();
+
+        if (result.success) {
+          if ((result as any).updated) {
+            verifiedCount++;
+          } else if ((result as any).already_completed) {
+            alreadyCompletedCount++;
+          } else {
+            // Transaction verified but not updated (still pending)
+            failedCount++;
+          }
+        } else {
+          failedCount++;
+        }
+      } catch (error: any) {
+        console.error('Error verifying transaction:', error);
+        failedCount++;
+      }
+    }
+
+    // Refresh user data and history
+    await syncUser(tgUser).unwrap();
+    refetchHistory();
+
+    // Show summary toast
+    const messages = [];
+    if (verifiedCount > 0) {
+      messages.push(`${verifiedCount} تراکنش تایید و به‌روزرسانی شد`);
+    }
+    if (alreadyCompletedCount > 0) {
+      messages.push(`${alreadyCompletedCount} تراکنش قبلاً تکمیل شده بود`);
+    }
+    if (failedCount > 0) {
+      messages.push(`${failedCount} تراکنش هنوز در انتظار است`);
+    }
+
+    toast({
+      title: verifiedCount > 0 ? "موفقیت" : "بررسی انجام شد",
+      description: messages.length > 0 ? messages.join('، ') : "بررسی انجام شد",
+      variant: verifiedCount > 0 ? "default" : "default",
+    });
+
+    setIsCheckingPending(false);
   };
 
   const getStatusBadge = (status: string) => {
@@ -805,8 +918,27 @@ const WalletPage = () => {
             <DrawerContent className="max-w-lg mx-auto" dir="rtl">
               <div className="p-6 pb-12">
                 <DrawerHeader className="p-0 mb-6">
-                  <DrawerTitle className="text-right font-vazir text-xl">تاریخچه تراکنش‌ها</DrawerTitle>
-                  <DrawerDescription className="text-right font-vazir text-muted-foreground">تراکنش‌های اخیر حساب شما</DrawerDescription>
+                  <div className="flex items-center justify-between mb-2">
+                    <DrawerTitle className="text-right font-vazir text-xl">تاریخچه تراکنش‌ها</DrawerTitle>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCheckPendingTransactions}
+                      disabled={isCheckingPending || isChecking}
+                      className="h-8 px-3 text-xs font-vazir gap-2"
+                    >
+                      <RefreshCw size={14} className={(isCheckingPending || isChecking) ? "animate-spin" : ""} />
+                      {(isCheckingPending || isChecking) ? "در حال بررسی..." : "بررسی تراکنش‌های در انتظار"}
+                    </Button>
+                  </div>
+                  <DrawerDescription className="text-right font-vazir text-muted-foreground">
+                    تراکنش‌های اخیر حساب شما
+                    {history.filter((tx: any) => tx.status === 'pending' && tx.type === 'deposit').length > 0 && (
+                      <span className="block mt-1 text-xs">
+                        {history.filter((tx: any) => tx.status === 'pending' && tx.type === 'deposit').length} تراکنش در انتظار
+                      </span>
+                    )}
+                  </DrawerDescription>
                 </DrawerHeader>
                 <ScrollArea className="h-[60vh] pr-4">
                   <div className="space-y-4">
