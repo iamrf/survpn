@@ -100,7 +100,7 @@ const HomePage = () => {
     <div className="min-h-screen flex flex-col pb-24 bg-background selection:bg-primary/30">
       <ProfileCard />
 
-      <div className="px-5 space-y-12 mt-6">
+      <div className="px-5 space-y-12 my-6">
 
         <section className="relative space-y-8">
           <motion.div
@@ -155,7 +155,7 @@ const HomePage = () => {
                     اشتراک بلافاصله پس از خرید فعال می‌شود
                 </span>
             </div>
-            <div className="pt-2 pb-16">
+            <div className="pt-2">
               <CustomSubscriptionDrawer />
             </div>
           </div>
