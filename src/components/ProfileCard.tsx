@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { useSyncUserMutation, useGetPlansQuery } from "@/store/api";
+import { useSyncUserMutation, useGetPlansQuery, useGetCurrentUserQuery } from "@/store/api";
 import { useAppSelector } from "@/store/hooks";
 import { getPlanInfo } from "@/lib/planUtils";
 
@@ -18,7 +18,9 @@ const ProfileCard = () => {
   const [copied, setCopied] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  const [syncUser, { isLoading: loading }] = useSyncUserMutation();
+  const [syncUser] = useSyncUserMutation();
+  // Subscribe to getCurrentUser for automatic refresh via tag invalidation
+  const { isLoading: loading } = useGetCurrentUserQuery(tgUser, { skip: !tgUser });
   const currentUser = useAppSelector((state) => state.user.currentUser);
   
   const referralCode = currentUser?.referralCode || "";
@@ -95,21 +97,8 @@ const ProfileCard = () => {
   
   const statusBadge = getStatusBadge(status);
 
-  const fetchUserData = async () => {
-    if (tgUser) {
-      try {
-        await syncUser(tgUser).unwrap();
-      } catch (error) {
-        console.error("Error fetching user data:", error);
-      }
-    }
-  };
-
-  useEffect(() => {
-    if (tgUser && !currentUser) {
-      fetchUserData();
-    }
-  }, [tgUser, currentUser]);
+  // User data is fetched by useGetCurrentUserQuery above and kept in sync
+  // via RTK Query tag invalidation. No manual fetchUserData needed.
 
   const handleVerifyPhone = () => {
     const webApp = (window as any).Telegram?.WebApp;
@@ -144,8 +133,7 @@ const ProfileCard = () => {
                   title: "موفقیت",
                   description: "شماره تماس شما تایید شد",
                 });
-                // Refresh user data to get updated phone number
-                await fetchUserData();
+                // User data auto-refreshes via syncUser invalidating 'User' tag
               }
             } catch (error) {
               console.error("Error syncing phone number:", error);
@@ -166,7 +154,6 @@ const ProfileCard = () => {
               if (retryPhone) {
                 try {
                   await syncUser({ ...tgUser, phone_number: retryPhone }).unwrap();
-                  await fetchUserData();
                   toast({
                     title: "موفقیت",
                     description: "شماره تماس شما تایید شد",

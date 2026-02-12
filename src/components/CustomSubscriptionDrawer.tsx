@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Settings2, Zap, HardDrive, Clock, DollarSign, RefreshCw } from 'lucide-react';
-import { useCreateCustomSubscriptionMutation, useSyncUserMutation, useGetConfigsQuery } from '@/store/api';
+import { useCreateCustomSubscriptionMutation, useGetConfigsQuery } from '@/store/api';
 import { useToast } from '@/components/ui/use-toast';
 import { getTelegramUser } from '@/lib/telegram';
 import { useAppSelector } from '@/store/hooks';
@@ -38,7 +38,6 @@ const CustomSubscriptionDrawer: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
     const { toast } = useToast();
     const [createCustomSubscription, { isLoading }] = useCreateCustomSubscriptionMutation();
-    const [syncUser] = useSyncUserMutation();
     const { data: configsData } = useGetConfigsQuery();
     const configs = configsData?.configs || {};
     const currentUser = useAppSelector((state) => state.user.currentUser);
@@ -88,12 +87,8 @@ const CustomSubscriptionDrawer: React.FC = () => {
                     title: "موفقیت",
                     description: result.message || "اشتراک سفارشی با موفقیت ایجاد شد",
                 });
-                
-                // Refresh user data
-                const tgUser = getTelegramUser();
-                if (tgUser) {
-                    await syncUser(tgUser).unwrap().catch(console.error);
-                }
+                // User data auto-refreshes via RTK Query tag invalidation
+                // createCustomSubscription invalidates 'User' tag → getCurrentUser refetches
                 
                 setIsOpen(false);
                 // Reset values

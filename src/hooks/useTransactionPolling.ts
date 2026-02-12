@@ -1,24 +1,36 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
-    setPendingTransactions,
     addCheckingTransaction,
     removeCheckingTransaction,
     updateTransactionStatus,
     setLastCheckedAt,
-    removePendingTransaction,
 } from '@/store/slices/transactionsSlice';
 import { useVerifyPlisioTransactionMutation } from '@/store/api';
-import { getTelegramUser } from '@/lib/telegram';
+
+// Constants - defined at module level so they're accessible everywhere
+const MIN_CHECK_INTERVAL_PER_TX = 60000; // 1 minute minimum between checks for same transaction
+const MIN_BATCH_INTERVAL = 10000; // 10 seconds minimum between batch checks
+const MAX_BATCH_SIZE = 3; // Max transactions to check per batch
+const DELAY_BETWEEN_CHECKS = 1000; // 1 second delay between sequential checks
+const INITIAL_DELAY = 5000; // 5 seconds before first check
+const MIN_POLL_INTERVAL = 30000; // Minimum polling interval
 
 /**
- * Custom hook for automatically polling and checking pending transactions
- * This hook runs in the background and checks pending Plisio transactions periodically
+ * Custom hook for automatically polling and checking pending Plisio transactions.
+ * 
+ * How it works:
+ * - Reads pending transactions from Redux store (synced from RTK Query cache)
+ * - Periodically calls verifyPlisioTransaction for each pending Plisio deposit
+ * - On successful verification, RTK Query cache invalidation handles:
+ *   - Refreshing user balance (via 'User' tag → getCurrentUser refetch)
+ *   - Refreshing transaction history (via 'Transactions' tag)
+ *   - Refreshing admin stats (via 'Stats' tag)
+ * - Updates Redux transactions slice for UI state (checking indicators)
  */
 export const useTransactionPolling = () => {
     const dispatch = useAppDispatch();
-    const tgUser = getTelegramUser();
-    
+
     const {
         pendingTransactions,
         autoCheckEnabled,
@@ -31,7 +43,7 @@ export const useTransactionPolling = () => {
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const isCheckingRef = useRef(false);
     const lastCheckTimeRef = useRef<number>(0);
-    const checkCooldownRef = useRef<Map<string, number>>(new Map()); // Track last check time per transaction
+    const checkCooldownRef = useRef<Map<string, number>>(new Map());
 
     // Extract pending Plisio transactions
     const pendingPlisioTransactions = pendingTransactions.filter(
@@ -41,7 +53,7 @@ export const useTransactionPolling = () => {
             (tx.payment_method === 'plisio' || tx.plisio_invoice_id)
     );
 
-    const checkTransaction = async (tx: any) => {
+    const checkTransaction = useCallback(async (tx: any) => {
         // Skip if already checking this transaction
         if (checkingTransactions.includes(tx.id)) {
             return;
@@ -50,10 +62,8 @@ export const useTransactionPolling = () => {
         // Rate limiting: Don't check the same transaction more than once per minute
         const lastCheckTime = checkCooldownRef.current.get(tx.id) || 0;
         const now = Date.now();
-        const timeSinceLastCheck = now - lastCheckTime;
-        const MIN_CHECK_INTERVAL = 60000; // 1 minute minimum between checks for same transaction
 
-        if (timeSinceLastCheck < MIN_CHECK_INTERVAL) {
+        if ((now - lastCheckTime) < MIN_CHECK_INTERVAL_PER_TX) {
             return; // Skip this check, too soon
         }
 
@@ -67,18 +77,18 @@ export const useTransactionPolling = () => {
             }).unwrap();
 
             if (result.success) {
-                const resultAny = result as any;
-                if (resultAny.updated) {
+                if (result.updated) {
                     // Transaction was verified and updated
+                    // RTK Query cache invalidation will automatically:
+                    // - Refetch getCurrentUser (updates balance via 'User' tag)
+                    // - Refetch transaction history (via 'Transactions' tag)
+                    // - Refetch admin stats (via 'Stats' tag)
                     dispatch(updateTransactionStatus({
                         id: tx.id,
                         status: 'completed',
                     }));
-                    
-                    // Don't call syncUser here - it will be called automatically via cache invalidation
-                    // The verifyPlisioTransaction mutation already invalidates 'User' and 'Transactions' tags
-                } else if (resultAny.already_completed) {
-                    // Transaction was already completed
+                } else if (result.already_completed) {
+                    // Transaction was already completed, just update local state
                     dispatch(updateTransactionStatus({
                         id: tx.id,
                         status: 'completed',
@@ -92,9 +102,9 @@ export const useTransactionPolling = () => {
         } finally {
             dispatch(removeCheckingTransaction(tx.id));
         }
-    };
+    }, [checkingTransactions, dispatch, verifyPlisioTransaction]);
 
-    const checkAllPendingTransactions = async () => {
+    const checkAllPendingTransactions = useCallback(async () => {
         // Prevent concurrent checks
         if (isCheckingRef.current || pendingPlisioTransactions.length === 0) {
             return;
@@ -102,10 +112,7 @@ export const useTransactionPolling = () => {
 
         // Rate limiting: Don't run checks more than once per 10 seconds
         const now = Date.now();
-        const timeSinceLastCheck = now - lastCheckTimeRef.current;
-        const MIN_BATCH_INTERVAL = 10000; // 10 seconds minimum between batch checks
-
-        if (timeSinceLastCheck < MIN_BATCH_INTERVAL) {
+        if ((now - lastCheckTimeRef.current) < MIN_BATCH_INTERVAL) {
             return; // Skip this batch, too soon
         }
 
@@ -117,10 +124,10 @@ export const useTransactionPolling = () => {
             const transactionsToCheck = pendingPlisioTransactions
                 .filter((tx) => {
                     const lastCheck = checkCooldownRef.current.get(tx.id) || 0;
-                    return (now - lastCheck) >= MIN_CHECK_INTERVAL;
+                    return (now - lastCheck) >= MIN_CHECK_INTERVAL_PER_TX;
                 })
-                .slice(0, 3); // Limit to 3 at a time to reduce load
-            
+                .slice(0, MAX_BATCH_SIZE);
+
             if (transactionsToCheck.length === 0) {
                 isCheckingRef.current = false;
                 return;
@@ -130,7 +137,7 @@ export const useTransactionPolling = () => {
             for (const tx of transactionsToCheck) {
                 await checkTransaction(tx);
                 // Add small delay between checks
-                await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+                await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_CHECKS));
             }
 
             dispatch(setLastCheckedAt(now));
@@ -139,7 +146,7 @@ export const useTransactionPolling = () => {
         } finally {
             isCheckingRef.current = false;
         }
-    };
+    }, [pendingPlisioTransactions, checkTransaction, dispatch]);
 
     useEffect(() => {
         if (!autoCheckEnabled || pendingPlisioTransactions.length === 0) {
@@ -153,12 +160,12 @@ export const useTransactionPolling = () => {
         // Don't start immediately, wait a bit
         const initialDelay = setTimeout(() => {
             checkAllPendingTransactions();
-        }, 5000); // Wait 5 seconds before first check
+        }, INITIAL_DELAY);
 
         // Set up interval with longer delay
         intervalRef.current = setInterval(() => {
             checkAllPendingTransactions();
-        }, Math.max(checkInterval, 30000)); // Minimum 30 seconds
+        }, Math.max(checkInterval, MIN_POLL_INTERVAL));
 
         return () => {
             clearTimeout(initialDelay);
@@ -166,7 +173,7 @@ export const useTransactionPolling = () => {
                 clearInterval(intervalRef.current);
             }
         };
-    }, [autoCheckEnabled, checkInterval, pendingPlisioTransactions.length]);
+    }, [autoCheckEnabled, checkInterval, pendingPlisioTransactions.length, checkAllPendingTransactions]);
 
     return {
         pendingTransactions: pendingPlisioTransactions,

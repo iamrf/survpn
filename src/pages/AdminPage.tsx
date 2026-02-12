@@ -331,8 +331,9 @@ const AdminPage = () => {
                                         onClick={() => {
                                             if (index === 0) navigate('/admin/users');
                                             if (index === 1) navigate('/admin/withdrawals/pending');
+                                            if (index === 3) navigate('/admin/transactions');
                                         }}
-                                        className={`glass p-5 rounded-3xl flex items-center justify-between border border-white/5 shadow-xl ${index <= 1 ? 'cursor-pointer hover:bg-white/5 active:scale-95 transition-all' : ''}`}
+                                        className={`glass p-5 rounded-3xl flex items-center justify-between border border-white/5 shadow-xl ${index <= 1 || index === 3 ? 'cursor-pointer hover:bg-white/5 active:scale-95 transition-all' : ''}`}
                                     >
                                         <div className="flex items-center gap-4">
                                             <div className={`p-3 rounded-2xl bg-white/5 ${stat.color}`}>
@@ -343,7 +344,7 @@ const AdminPage = () => {
                                                 <p className="text-xl font-bold font-mono">{stat.value}</p>
                                             </div>
                                         </div>
-                                        {index <= 1 && <ChevronRight size={16} className="text-muted-foreground rotate-180" />}
+                                        {(index <= 1 || index === 3) && <ChevronRight size={16} className="text-muted-foreground rotate-180" />}
                                     </motion.div>
                                 ))}
                             </div>

@@ -16,7 +16,8 @@ import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { store } from "@/store";
 import { 
   useCreatePaymentMutation, 
-  useSyncUserMutation, 
+  useSyncUserMutation,
+  useGetCurrentUserQuery,
   useGetTransactionHistoryQuery, 
   useRequestWithdrawalMutation, 
   useCancelWithdrawalMutation,
@@ -56,6 +57,9 @@ const WalletPage = () => {
   const [verifyPlisioTransaction] = useVerifyPlisioTransactionMutation();
   const [requestWithdrawal, { isLoading: withdrawLoading }] = useRequestWithdrawalMutation();
   const [cancelWithdrawal] = useCancelWithdrawalMutation();
+
+  // Subscribe to user data query for automatic refresh via tag invalidation
+  useGetCurrentUserQuery(tgUser, { skip: !tgUser });
   
   const { data: historyData, isLoading: historyLoading, refetch: refetchHistory } = useGetTransactionHistoryQuery(
     tgUser?.id || 0,
@@ -173,12 +177,8 @@ const WalletPage = () => {
     });
   }, [referralCode]);
 
-  // Sync user data on mount
-  useEffect(() => {
-    if (tgUser && !currentUser) {
-      syncUser(tgUser).unwrap().catch(console.error);
-    }
-  }, [tgUser, currentUser, syncUser]);
+  // User data is automatically synced via getCurrentUser query in App.tsx
+  // and kept up-to-date via RTK Query tag invalidation
 
   const handleTopUp = async () => {
     const numAmount = parseFloat(amount);
@@ -216,16 +216,18 @@ const WalletPage = () => {
             // Open invoice link using WebApp API
             webApp.openLink(result.invoice_url);
             
-            // Set up polling to check payment status
+            // Set up polling to check payment status via syncUser
+            // This is needed for Telegram Stars since there's no callback mechanism
             let checkCount = 0;
-            const maxChecks = 150; // 5 minutes (150 * 2 seconds)
+            const maxChecks = 60; // 2 minutes (60 * 2 seconds)
+            const previousBalance = balance;
             
             const checkInterval = setInterval(async () => {
               checkCount++;
               try {
                 const updatedUser = await syncUser(tgUser).unwrap();
                 // Check if balance increased (payment completed)
-                if (updatedUser.balance && updatedUser.balance > balance) {
+                if (updatedUser.balance && updatedUser.balance > previousBalance) {
                   clearInterval(checkInterval);
                   toast({
                     title: "موفقیت",
@@ -339,9 +341,7 @@ const WalletPage = () => {
         toast({ title: "موفقیت", description: "درخواست برداشت ثبت شد و در حال بررسی است" });
         setWithdrawAmount("");
         setWithdrawPasskey("");
-        // Refresh user data and history
-        await syncUser(tgUser).unwrap();
-        refetchHistory();
+        // User data and history are auto-refreshed via RTK Query tag invalidation
         setIsWithdrawOpen(false);
       } else {
         toast({ title: "خطا", description: result.error || "خطا در ثبت درخواست", variant: "destructive" });
@@ -369,9 +369,7 @@ const WalletPage = () => {
       
       if (result.success) {
         toast({ title: "موفقیت", description: "درخواست با موفقیت لغو شد و مبلغ به موجودی شما بازگشت" });
-        // Refresh user data and history
-        await syncUser(tgUser).unwrap();
-        refetchHistory();
+        // User data and history are auto-refreshed via RTK Query tag invalidation
       } else {
         toast({ title: "خطا", description: result.error || "خطا در لغو درخواست", variant: "destructive" });
       }
@@ -576,15 +574,26 @@ const WalletPage = () => {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-3 mb-8"
+          className="flex items-center justify-between mb-8"
         >
-          <div className="p-3 rounded-2xl bg-primary/10 text-primary">
-            <Wallet className="h-8 w-8" />
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-2xl bg-primary/10 text-primary">
+              <Wallet className="h-8 w-8" />
+            </div>
+            <div className="text-right">
+              <h1 className="text-2xl font-bold font-vazir">کیف پول</h1>
+              <p className="text-muted-foreground text-sm font-vazir">امور مالی، واریز و برداشت</p>
+            </div>
           </div>
-          <div className="text-right">
-            <h1 className="text-2xl font-bold font-vazir">کیف پول</h1>
-            <p className="text-muted-foreground text-sm font-vazir">امور مالی، واریز و برداشت</p>
-          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10"
+            onClick={handleCheckPendingTransactions}
+            disabled={isCheckingPending || isChecking}
+          >
+            <RefreshCw size={18} className={isCheckingPending || isChecking ? "animate-spin" : ""} />
+          </Button>
         </motion.div>
 
         {/* Current Balance Card */}

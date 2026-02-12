@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Settings, User, Phone, Shield, ChevronLeft, CreditCard, Share2, LogOut, Globe } from "lucide-react";
 import { useState, useEffect } from "react";
 import { getTelegramUser } from "@/lib/telegram";
-import { useSyncUserMutation, useUpdateWalletAddressMutation, useUpdateWithdrawalPasskeyMutation, useUpdateUserLanguageMutation } from "@/store/api";
+import { useSyncUserMutation, useGetCurrentUserQuery, useUpdateWalletAddressMutation, useUpdateWithdrawalPasskeyMutation, useUpdateUserLanguageMutation } from "@/store/api";
 import { useAppSelector } from "@/store/hooks";
 import BottomNav from "@/components/BottomNav";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -27,6 +27,9 @@ const SettingsPage = () => {
   const [updateWalletAddress, { isLoading: updatingWallet }] = useUpdateWalletAddressMutation();
   const [updateWithdrawalPasskey, { isLoading: updatingPasskey }] = useUpdateWithdrawalPasskeyMutation();
   const [updateUserLanguage, { isLoading: updatingLanguage }] = useUpdateUserLanguageMutation();
+  
+  // Subscribe to user data for automatic refresh via tag invalidation
+  useGetCurrentUserQuery(tgUser, { skip: !tgUser });
 
   const phoneNumber = currentUser?.phoneNumber || null;
   const walletAddress = currentUser?.walletAddress || "";
@@ -40,24 +43,14 @@ const SettingsPage = () => {
     referralCode: currentUser?.referralCode
   };
 
-  const fetchUserData = async () => {
-    if (tgUser) {
-      try {
-        await syncUser(tgUser).unwrap();
-      } catch (error) {
-        console.error("Error fetching user data:", error);
-      }
-    }
-  };
+  // User data is automatically synced via getCurrentUser query in App.tsx
+  // and kept up-to-date via RTK Query tag invalidation
 
   useEffect(() => {
-    if (tgUser && !currentUser) {
-      fetchUserData();
-    }
     if (currentUser?.walletAddress) {
       setNewWalletAddress(currentUser.walletAddress);
     }
-  }, [tgUser, currentUser, syncUser]);
+  }, [currentUser?.walletAddress]);
 
   const handleUpdateWallet = async () => {
     if (!newWalletAddress || !tgUser) return;
@@ -68,8 +61,7 @@ const SettingsPage = () => {
       }).unwrap();
       
       if (result.success) {
-        // Refresh user data
-        await syncUser(tgUser).unwrap();
+        // User data auto-refreshed via RTK Query tag invalidation ('User' tag)
         setIsWalletDrawerOpen(false);
         toast({ title: "موفقیت", description: "آدرس ولت با موفقیت بروزرسانی شد" });
       } else {
@@ -93,8 +85,7 @@ const SettingsPage = () => {
       }).unwrap();
       
       if (result.success) {
-        // Refresh user data
-        await syncUser(tgUser).unwrap();
+        // User data auto-refreshed via RTK Query tag invalidation ('User' tag)
         setNewPasskey("");
         setIsPasskeyDrawerOpen(false);
         toast({ title: "موفقیت", description: "رمز عبور برداشت با موفقیت تنظیم شد" });

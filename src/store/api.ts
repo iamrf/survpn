@@ -32,6 +32,38 @@ const baseQueryWithRetry: BaseQueryFn = async (args, api, extraOptions) => {
 
 const baseQuery = baseQueryWithRetry;
 
+/**
+ * RTK Query API - Tag Strategy:
+ * 
+ * Tags & what provides them:
+ * - 'User'           → getCurrentUser query (current authenticated user)
+ * - 'Plans'          → getPlans query (user-visible plans)
+ * - 'AdminPlans'     → getAdminPlans, getAdminPlan queries
+ * - 'Users'          → getUsers query (admin: all users list)
+ * - 'UserDetail'     → getUserDetail query (admin: specific user, scoped by userId)
+ * - 'Transactions'   → getTransactionHistory query (user's transactions, scoped by userId)
+ * - 'AdminTransactions' → getAllTransactions query (admin: all transactions)
+ * - 'Withdrawals'    → getAllWithdrawals query (admin: all withdrawals)
+ * - 'Configs'        → getConfigs query (admin: system configs)
+ * - 'Stats'          → getTotalDeposits, getDepositsStats queries (admin: stats)
+ * - 'FinanceSummary' → getUserFinanceSummary query (admin: user finance, scoped by userId)
+ * - 'ReferralStats'  → getReferralStats query (referral stats, scoped by userId)
+ * 
+ * Invalidation chains:
+ * - Payment created    → Transactions (new pending tx)
+ * - Payment verified   → User, Transactions, AdminTransactions, Stats, FinanceSummary
+ * - Plan purchased     → User, Transactions, AdminTransactions, Stats, FinanceSummary, Plans
+ * - Custom sub created → User, Transactions, AdminTransactions, Stats, FinanceSummary
+ * - Withdrawal request → User, Withdrawals, Transactions, AdminTransactions, Stats, FinanceSummary
+ * - Withdrawal cancel  → User, Withdrawals, Transactions, AdminTransactions, Stats, FinanceSummary
+ * - Withdrawal status  → User, Users, UserDetail, Withdrawals, Transactions, AdminTransactions, Stats, FinanceSummary
+ * - Balance updated    → UserDetail, Users, Transactions, AdminTransactions, Stats, FinanceSummary
+ * - User settings      → User
+ * - Referral updated   → UserDetail, Users, ReferralStats
+ * - Config updated     → Configs
+ * - Plan CRUD          → AdminPlans, Plans
+ */
+
 export const api = createApi({
     reducerPath: 'api',
     baseQuery,
@@ -42,16 +74,49 @@ export const api = createApi({
         'Users',
         'UserDetail',
         'Transactions',
+        'AdminTransactions',
         'Withdrawals',
         'Configs',
         'Stats',
         'FinanceSummary',
         'ReferralStats',
     ],
-    // Enable request deduplication to prevent duplicate API calls
-    keepUnusedDataFor: 60, // Keep data for 60 seconds
+    keepUnusedDataFor: 60,
     endpoints: (builder) => ({
+        // ──────────────────────────────────────────────────────────────
         // User endpoints
+        // ──────────────────────────────────────────────────────────────
+
+        // getCurrentUser: fetches the current user's data (provides 'User' tag)
+        // This is the "source of truth" query for user data. Mutations that
+        // affect the user's own data invalidate 'User' to trigger a refetch.
+        getCurrentUser: builder.query<{
+            success: boolean;
+            isAdmin?: boolean;
+            balance?: number;
+            referralCode?: string;
+            phoneNumber?: string;
+            createdAt?: string;
+            lastSeen?: string;
+            languageCode?: string;
+            walletAddress?: string;
+            hasPasskey?: boolean;
+            subscriptionUrl?: string;
+            dataLimit?: number;
+            dataUsed?: number;
+            expire?: number;
+            status?: string;
+            username?: string;
+        }, any>({
+            query: (user) => ({
+                url: '/api/sync-user',
+                method: 'POST',
+                body: user,
+            }),
+            providesTags: ['User'],
+        }),
+
+        // syncUser: mutation variant of user sync (for explicit calls that need .unwrap())
         syncUser: builder.mutation<{
             success: boolean;
             isAdmin?: boolean;
@@ -75,16 +140,8 @@ export const api = createApi({
                 method: 'POST',
                 body: user,
             }),
-            // RTK Query automatically deduplicates mutations with the same arguments
-            // within a short time window, so concurrent calls should be handled
-            invalidatesTags: (result, error, user) => {
-                const userId = user?.id;
-                return [
-                    'User',
-                    ...(userId ? [{ type: 'ReferralStats' as const, id: userId }] : []),
-                    'ReferralStats', // Also invalidate all referral stats
-                ];
-            },
+            // After sync completes, refetch the getCurrentUser query
+            invalidatesTags: ['User', 'ReferralStats'],
         }),
 
         updateWalletAddress: builder.mutation<{ success: boolean; message?: string }, { userId: number; walletAddress: string }>({
@@ -114,7 +171,9 @@ export const api = createApi({
             invalidatesTags: ['User'],
         }),
 
+        // ──────────────────────────────────────────────────────────────
         // Payment endpoints
+        // ──────────────────────────────────────────────────────────────
         createPayment: builder.mutation<{ 
             success: boolean; 
             invoice_url?: string; 
@@ -139,6 +198,8 @@ export const api = createApi({
                 method: 'POST',
                 body: { userId, amount, paymentMethod },
             }),
+            // A new pending transaction is created in the DB
+            invalidatesTags: ['Transactions', 'AdminTransactions'],
         }),
 
         verifyPlisioTransaction: builder.mutation<{ 
@@ -146,6 +207,8 @@ export const api = createApi({
             message?: string;
             error?: string;
             transaction?: any;
+            updated?: boolean;
+            already_completed?: boolean;
         }, { 
             order_number?: string;
             txn_id?: string;
@@ -155,16 +218,31 @@ export const api = createApi({
                 method: 'POST',
                 body,
             }),
-            invalidatesTags: ['User', 'Transactions'],
+            // When a payment is verified, user balance changes, transactions update, stats change
+            invalidatesTags: (result) => {
+                // Only invalidate everything if the transaction was actually updated
+                if (result?.updated) {
+                    return ['User', 'Transactions', 'AdminTransactions', 'Stats', 'FinanceSummary'];
+                }
+                // For already_completed or no change, just refresh transactions list
+                return ['Transactions', 'AdminTransactions'];
+            },
         }),
 
+        // ──────────────────────────────────────────────────────────────
         // Transaction endpoints
+        // ──────────────────────────────────────────────────────────────
         getTransactionHistory: builder.query<{ success: boolean; history?: any[] }, number>({
             query: (userId) => `/api/transactions/${userId}`,
-            providesTags: ['Transactions'],
+            providesTags: (result, error, userId) => [
+                { type: 'Transactions', id: userId },
+                'Transactions',
+            ],
         }),
 
+        // ──────────────────────────────────────────────────────────────
         // Withdrawal endpoints
+        // ──────────────────────────────────────────────────────────────
         requestWithdrawal: builder.mutation<{ success: boolean; message?: string; error?: string; balance?: number }, {
             userId: number;
             amount: number;
@@ -176,7 +254,8 @@ export const api = createApi({
                 method: 'POST',
                 body,
             }),
-            invalidatesTags: ['User', 'Withdrawals', 'Transactions'],
+            // Withdrawal deducts balance, creates transaction, creates withdrawal request
+            invalidatesTags: ['User', 'Withdrawals', 'Transactions', 'AdminTransactions', 'Stats', 'FinanceSummary'],
         }),
 
         cancelWithdrawal: builder.mutation<{ success: boolean; message?: string; error?: string }, {
@@ -188,10 +267,13 @@ export const api = createApi({
                 method: 'POST',
                 body: { userId, withdrawalId },
             }),
-            invalidatesTags: ['Withdrawals', 'Transactions', 'User'],
+            // Cancel restores balance, updates transaction, updates withdrawal
+            invalidatesTags: ['User', 'Withdrawals', 'Transactions', 'AdminTransactions', 'Stats', 'FinanceSummary'],
         }),
 
+        // ──────────────────────────────────────────────────────────────
         // Plans endpoints
+        // ──────────────────────────────────────────────────────────────
         getPlans: builder.query<{ success: boolean; plans?: any[] }, void>({
             query: () => '/api/plans',
             providesTags: ['Plans'],
@@ -206,7 +288,8 @@ export const api = createApi({
                 method: 'POST',
                 body: { userId, planId },
             }),
-            invalidatesTags: ['User', 'Plans'],
+            // Purchase deducts balance, creates transaction, may create subscription
+            invalidatesTags: ['User', 'Plans', 'Transactions', 'AdminTransactions', 'Stats', 'FinanceSummary'],
         }),
 
         createCustomSubscription: builder.mutation<{ success: boolean; message?: string; error?: string; price?: number; newBalance?: number }, {
@@ -219,10 +302,13 @@ export const api = createApi({
                 method: 'POST',
                 body,
             }),
-            invalidatesTags: ['User', 'Transactions'],
+            // Custom subscription deducts balance, creates transaction
+            invalidatesTags: ['User', 'Transactions', 'AdminTransactions', 'Stats', 'FinanceSummary'],
         }),
 
+        // ──────────────────────────────────────────────────────────────
         // Admin endpoints
+        // ──────────────────────────────────────────────────────────────
         getUsers: builder.query<{ success: boolean; users?: any[] }, void>({
             query: () => '/api/admin/users',
             providesTags: ['Users'],
@@ -243,7 +329,10 @@ export const api = createApi({
                 method: 'POST',
                 body: { wallet_address: walletAddress, withdrawal_passkey: passkey },
             }),
-            invalidatesTags: (result, error, { userId }) => [{ type: 'UserDetail', id: userId }, 'Users'],
+            invalidatesTags: (result, error, { userId }) => [
+                { type: 'UserDetail', id: userId },
+                'Users',
+            ],
         }),
 
         updateUserBalance: builder.mutation<{ success: boolean; message?: string; error?: string }, {
@@ -261,6 +350,8 @@ export const api = createApi({
                 { type: 'FinanceSummary', id: userId },
                 'Users',
                 'Transactions',
+                'AdminTransactions',
+                'Stats',
             ],
         }),
 
@@ -274,7 +365,7 @@ export const api = createApi({
                 url: '/api/admin/transactions',
                 params,
             }),
-            providesTags: ['Transactions'],
+            providesTags: ['AdminTransactions'],
         }),
 
         updateWithdrawalStatus: builder.mutation<{ success: boolean; message?: string; error?: string }, {
@@ -286,7 +377,8 @@ export const api = createApi({
                 method: 'POST',
                 body: { id: withdrawalId, status },
             }),
-            invalidatesTags: ['Withdrawals', 'Users', 'Transactions', 'User'],
+            // Withdrawal status change affects user balance, withdrawal list, transactions, stats
+            invalidatesTags: ['User', 'Users', 'Withdrawals', 'Transactions', 'AdminTransactions', 'Stats', 'FinanceSummary'],
         }),
 
         getTotalDeposits: builder.query<{ success: boolean; total: number }, void>({
@@ -392,7 +484,9 @@ export const api = createApi({
             invalidatesTags: ['AdminPlans', 'Plans'],
         }),
 
+        // ──────────────────────────────────────────────────────────────
         // Referral endpoints
+        // ──────────────────────────────────────────────────────────────
         getReferralStats: builder.query<{
             success: boolean;
             stats?: {
@@ -445,6 +539,8 @@ export const api = createApi({
 
 export const {
     // User hooks
+    useGetCurrentUserQuery,
+    useLazyGetCurrentUserQuery,
     useSyncUserMutation,
     useUpdateWalletAddressMutation,
     useUpdateWithdrawalPasskeyMutation,

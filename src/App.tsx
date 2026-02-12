@@ -26,81 +26,60 @@ import { getTelegramUser } from "./lib/telegram";
 import { AdminProvider, useAdmin } from "./components/AdminProvider";
 import { TelegramAccessGuard } from "./components/TelegramAccessGuard";
 import { store } from "./store";
-import { useSyncUserMutation } from "./store/api";
-import { setCurrentUser } from "./store/slices/userSlice";
-import { useAppDispatch } from "./store/hooks";
+import { useGetCurrentUserQuery, useSyncUserMutation } from "./store/api";
+import { useAppSelector } from "./store/hooks";
 
 const queryClient = new QueryClient();
 
 const AppContent = () => {
   const { isAdmin, setIsAdmin } = useAdmin();
-  const dispatch = useAppDispatch();
+  const tgUser = getTelegramUser();
+  const currentUser = useAppSelector((state) => state.user.currentUser);
+  const initialSyncDone = useRef(false);
+
+  // Use getCurrentUser query - this provides the 'User' tag
+  // When 'User' tag is invalidated (by payment verification, plan purchase, etc.),
+  // this query automatically refetches and updates Redux via extraReducers
+  const { data: userData } = useGetCurrentUserQuery(tgUser, {
+    skip: !tgUser,
+    // Refetch when window regains focus (user comes back to app)
+    refetchOnFocus: true,
+  });
+
+  // Initial sync with referral code handling (only once)
   const [syncUser] = useSyncUserMutation();
-  const isSyncingRef = useRef(false);
 
   useEffect(() => {
-    const syncUserData = async () => {
-      // Prevent concurrent sync requests
-      if (isSyncingRef.current) {
-        console.log("Sync already in progress, skipping...");
-        return;
-      }
+    const doInitialSync = async () => {
+      if (initialSyncDone.current || !tgUser) return;
+      initialSyncDone.current = true;
 
-      const user = getTelegramUser();
-      if (user) {
-        isSyncingRef.current = true;
-        console.log("Syncing user data with backend...", user);
-        
-        try {
-          // Check for referral code from Telegram start parameter (deep link)
-          // Format: https://t.me/botname?start=referral_code
-          const { getReferralCodeFromStartParam } = await import('@/lib/telegram');
-          const referralCode = getReferralCodeFromStartParam();
+      try {
+        // Check for referral code from Telegram start parameter (deep link)
+        const { getReferralCodeFromStartParam } = await import('@/lib/telegram');
+        const referralCode = getReferralCodeFromStartParam();
+
+        if (referralCode) {
+          // If there's a referral code, use mutation to pass it along
           console.log('[REFERRAL] Referral code from start param:', referralCode);
-          
-          // Prepare user data with referral code if present
-          const userData = {
-            ...user,
-            ...(referralCode && { referral_code: referralCode })
-          };
-          console.log('[REFERRAL] User data with referral code:', { ...userData, referral_code: referralCode || 'none' });
-        
-          const result = await syncUser(userData).unwrap();
-          if (result.success) {
-            console.log("User synced successfully", result.isAdmin ? "(Admin)" : "");
-            dispatch(setCurrentUser({
-              id: user.id,
-              isAdmin: result.isAdmin,
-              balance: result.balance,
-              referralCode: result.referralCode,
-              phoneNumber: result.phoneNumber,
-              createdAt: result.createdAt,
-              lastSeen: result.lastSeen,
-              languageCode: result.languageCode,
-              walletAddress: result.walletAddress,
-              hasPasskey: result.hasPasskey,
-              subscriptionUrl: result.subscriptionUrl,
-              dataLimit: result.dataLimit,
-              dataUsed: result.dataUsed,
-              expire: result.expire,
-              status: result.status,
-              username: result.username,
-            }));
-            if (result.isAdmin !== undefined) {
-              setIsAdmin(result.isAdmin);
-            }
-          } else {
-            console.error("Failed to sync user");
-          }
-        } catch (error) {
-          console.error("Error syncing user:", error);
-        } finally {
-          isSyncingRef.current = false;
+          await syncUser({
+            ...tgUser,
+            referral_code: referralCode,
+          }).unwrap();
         }
+      } catch (error) {
+        console.error("Error in initial sync:", error);
       }
     };
-    syncUserData();
-  }, [setIsAdmin, dispatch, syncUser]);
+    doInitialSync();
+  }, [tgUser, syncUser]);
+
+  // Update admin status when user data changes
+  useEffect(() => {
+    if (currentUser?.isAdmin !== undefined) {
+      setIsAdmin(currentUser.isAdmin);
+    }
+  }, [currentUser?.isAdmin, setIsAdmin]);
 
   return (
     <TooltipProvider>
@@ -121,6 +100,7 @@ const AppContent = () => {
                 <Route path="/admin/user/:id" element={<AdminUserDetailPage />} />
                 <Route path="/admin/withdrawals/pending" element={<AdminPendingWithdrawalsPage />} />
                 <Route path="/admin/transactions" element={<AdminTransactionsPage />} />
+                <Route path="/admin/deposits" element={<AdminDepositsPage />} />
               </>
             }
             <Route path="*" element={<NotFound />} />

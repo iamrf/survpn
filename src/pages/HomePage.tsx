@@ -12,7 +12,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
 import { Star, Zap } from "lucide-react";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
-import { useGetPlansQuery, usePurchasePlanMutation, useSyncUserMutation } from "@/store/api";
+import { useGetPlansQuery, usePurchasePlanMutation, useGetCurrentUserQuery } from "@/store/api";
 import { setSubscriptionData, setPurchasingPlanId } from "@/store/slices/index";
 import { getPlanInfo } from "@/lib/planUtils";
 
@@ -29,7 +29,10 @@ const HomePage = () => {
   const { data: plansData, isLoading } = useGetPlansQuery();
   const plans = plansData?.plans || [];
   const [purchasePlan] = usePurchasePlanMutation();
-  const [syncUser] = useSyncUserMutation();
+
+  // Subscribe to user data for automatic refresh via tag invalidation
+  const tgUser = getTelegramUser();
+  useGetCurrentUserQuery(tgUser, { skip: !tgUser });
 
   // Get current user from Redux
   const currentUser = useAppSelector((state) => state.user.currentUser);
@@ -51,33 +54,19 @@ const HomePage = () => {
     }
   }, [dispatch, currentUser?.subscriptionUrl, currentUser?.dataLimit, currentUser?.expire, plans.length]);
 
-  // Refresh user data after purchase
-  const refreshUserData = async () => {
-    const user = getTelegramUser();
-    if (user) {
-      try {
-        await syncUser(user).unwrap();
-      } catch (error) {
-        console.error("Error refreshing user data:", error);
-      }
-    }
-  };
-
   const handlePurchase = async (plan: any) => {
-    const user = getTelegramUser();
-    if (!user) return;
+    if (!tgUser) return;
 
     dispatch(setPurchasingPlanId(plan.id));
     try {
-      const result = await purchasePlan({ userId: user.id, planId: plan.id }).unwrap();
+      const result = await purchasePlan({ userId: tgUser.id, planId: plan.id }).unwrap();
       if (result.success) {
         toast({
           title: "خرید موفق",
           description: result.message,
         });
-
-        // Refresh user data (will automatically update subscription data via Redux)
-        await refreshUserData();
+        // User data is auto-refreshed via RTK Query tag invalidation
+        // purchasePlan invalidates 'User' tag → getCurrentUser refetches
       } else {
         toast({
           variant: "destructive",
