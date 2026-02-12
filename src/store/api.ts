@@ -481,6 +481,7 @@ export const {
     useGetAllTransactionsQuery,
     useGetTotalDepositsQuery,
     useLazyGetTotalDepositsQuery,
+    useGetDepositsStatsQuery,
     useGetUserFinanceSummaryQuery,
     useLazyGetUserFinanceSummaryQuery,
     useGetConfigsQuery,
