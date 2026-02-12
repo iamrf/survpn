@@ -24,5 +24,5 @@ CREATE INDEX IF NOT EXISTS idx_referral_commissions_referred ON referral_commiss
 CREATE INDEX IF NOT EXISTS idx_users_referred_by ON users (referred_by);
 
 -- Add default configs for referral system
-INSERT OR IGNORE INTO configs (key, value) VALUES ('referral_registration_bonus', '1.00');
-INSERT OR IGNORE INTO configs (key, value) VALUES ('default_referral_commission_rate', '10.00');
+INSERT OR IGNORE INTO configs (key, value) VALUES ('referral_registration_bonus', '0.00');
+INSERT OR IGNORE INTO configs (key, value) VALUES ('default_referral_commission_rate', '20.00');

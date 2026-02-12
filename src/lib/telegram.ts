@@ -17,6 +17,8 @@ export interface TelegramWebApp {
     start_param?: string;
   };
   requestContact?: (callback: (data: { status: string; response?: any }) => void) => void;
+  openInvoice?: (invoiceUrl: string, callback?: (status: string) => void) => void;
+  openLink?: (url: string, options?: { try_instant_view?: boolean }) => void;
   version?: string;
 }
 

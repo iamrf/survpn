@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ShieldCheck, Users, Settings, Database, Activity, Search, RefreshCcw, ChevronRight, ArrowUpRight, Copy, Check, X as Close, Wallet, Banknote, User, TrendingUp, TrendingDown, Clock, ExternalLink, Package, Plus, Edit, Trash2, Gift, Percent } from "lucide-react";
+import { ShieldCheck, Users, Settings, Database, Activity, Search, RefreshCcw, ChevronRight, ArrowUpRight, Copy, Check, X as Close, Wallet, Banknote, User, TrendingUp, TrendingDown, Clock, ExternalLink, Package, Plus, Edit, Trash2, Gift, Percent, Star } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
@@ -61,6 +61,8 @@ const AdminPage = () => {
     const [isCustomSubscriptionDrawerOpen, setIsCustomSubscriptionDrawerOpen] = useState(false);
     const [customTrafficPrice, setCustomTrafficPrice] = useState<string>('');
     const [customDurationPrice, setCustomDurationPrice] = useState<string>('');
+    const [isTelegramStarsDrawerOpen, setIsTelegramStarsDrawerOpen] = useState(false);
+    const [telegramStarsPerUSD, setTelegramStarsPerUSD] = useState<string>('');
 
     // Plans State
     const [isPlanDrawerOpen, setIsPlanDrawerOpen] = useState(false);
@@ -447,6 +449,34 @@ const AdminPage = () => {
                                 </div>
                                 <p className="text-[10px] text-muted-foreground font-vazir text-right mt-2">
                                     این قیمت‌ها برای محاسبه هزینه اشتراک‌های سفارشی استفاده می‌شود.
+                                </p>
+                            </div>
+
+                            {/* Telegram Stars Pricing Section */}
+                            <div className="glass rounded-3xl p-6 border border-white/5 shadow-xl space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-lg font-semibold flex items-center gap-2 font-vazir">
+                                        <Star size={20} className="text-primary" />
+                                        نرخ تبدیل ستاره‌های تلگرام
+                                    </h2>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 text-xs font-vazir border-white/10 hover:bg-white/5"
+                                        onClick={() => setIsTelegramStarsDrawerOpen(true)}
+                                    >
+                                        ویرایش
+                                    </Button>
+                                </div>
+                                <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-right">
+                                    <div className="flex items-end gap-1">
+                                        <span className="text-[10px] text-muted-foreground font-vazir mb-1">ستاره به ازای هر دلار</span>
+                                        <span className="text-xl font-bold font-mono text-primary">{configs['telegram_stars_per_usd'] || '100'}</span>
+                                        <span className="text-[10px] text-muted-foreground font-vazir mb-1">ستاره</span>
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground font-vazir text-right mt-2">
+                                    این نرخ برای تبدیل مبلغ دلاری به ستاره‌های تلگرام استفاده می‌شود.
                                 </p>
                             </div>
 
@@ -870,6 +900,64 @@ const AdminPage = () => {
                             <DrawerClose asChild>
                                 <Button variant="ghost" className="rounded-xl h-12">انصراف</Button>
                             </DrawerClose>
+                        </DrawerFooter>
+                    </div>
+                </DrawerContent>
+            </Drawer>
+
+            {/* Telegram Stars Pricing Drawer */}
+            <Drawer open={isTelegramStarsDrawerOpen} onOpenChange={setIsTelegramStarsDrawerOpen}>
+                <DrawerContent className="max-w-md mx-auto bg-card/95 backdrop-blur-xl border-white/10 font-vazir" dir="rtl">
+                    <div className="mx-auto mt-4 h-1.5 w-12 rounded-full bg-white/10" />
+                    <div className="p-6 space-y-6">
+                        <DrawerHeader className="p-0 text-right">
+                            <DrawerTitle className="text-xl font-black">مدیریت نرخ تبدیل ستاره‌های تلگرام</DrawerTitle>
+                            <DrawerDescription className="font-vazir text-muted-foreground">
+                                تنظیم تعداد ستاره‌های تلگرام به ازای هر دلار
+                            </DrawerDescription>
+                        </DrawerHeader>
+
+                        <div className="space-y-4">
+                            <div className="space-y-2 text-right">
+                                <Label htmlFor="stars-per-usd">ستاره به ازای هر دلار</Label>
+                                <div className="relative">
+                                    <Input
+                                        id="stars-per-usd"
+                                        type="number"
+                                        step="1"
+                                        min="1"
+                                        className="bg-white/5 border-white/10 rounded-xl pl-10 font-mono text-left"
+                                        value={telegramStarsPerUSD || configs['telegram_stars_per_usd'] || '100'}
+                                        onChange={(e) => setTelegramStarsPerUSD(e.target.value)}
+                                    />
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">⭐</span>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">تعداد ستاره‌های تلگرام که معادل یک دلار است</p>
+                            </div>
+                        </div>
+
+                        <DrawerFooter className="p-0 gap-3">
+                            <Button
+                                className="w-full rounded-xl font-bold h-12"
+                                onClick={async () => {
+                                    await handleUpdateConfig('telegram_stars_per_usd', telegramStarsPerUSD || configs['telegram_stars_per_usd'] || '100');
+                                    setIsTelegramStarsDrawerOpen(false);
+                                    setTelegramStarsPerUSD('');
+                                }}
+                                disabled={saveConfigLoading}
+                            >
+                                {saveConfigLoading ? "در حال ذخیره..." : "ذخیره تغییرات"}
+                            </Button>
+                            <Button
+                                variant="outline"
+                                className="w-full rounded-xl font-bold h-12 border-white/10 hover:bg-white/5"
+                                onClick={() => {
+                                    setIsTelegramStarsDrawerOpen(false);
+                                    setTelegramStarsPerUSD('');
+                                }}
+                            >
+                                انصراف
+                            </Button>
                         </DrawerFooter>
                     </div>
                 </DrawerContent>

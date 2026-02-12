@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Wallet, Plus, CreditCard, ArrowUpRight, History, ArrowDownLeft, X, CheckCircle2, Clock, Share2, Users, TrendingUp, Copy, Gift } from "lucide-react";
+import { Wallet, Plus, CreditCard, ArrowUpRight, History, ArrowDownLeft, X, CheckCircle2, Clock, Share2, Users, TrendingUp, Copy, Gift, Star, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,7 @@ const WalletPage = () => {
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawPasskey, setWithdrawPasskey] = useState("");
   const [cancelLoading, setCancelLoading] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'plisio' | 'telegram_stars'>('telegram_stars');
   const { toast } = useToast();
 
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
@@ -102,19 +103,81 @@ const WalletPage = () => {
       return;
     }
 
-      if (!tgUser) {
-        toast({
-          title: "خطا",
-          description: "اطلاعات کاربر یافت نشد",
-          variant: "destructive",
-        });
-        return;
-      }
+    if (!tgUser) {
+      toast({
+        title: "خطا",
+        description: "اطلاعات کاربر یافت نشد",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
-      const result = await createPayment({ userId: tgUser.id, amount: numAmount }).unwrap();
-      if (result.success && result.invoice_url) {
-        window.location.href = result.invoice_url;
+      const result = await createPayment({ 
+        userId: tgUser.id, 
+        amount: numAmount,
+        paymentMethod: paymentMethod
+      }).unwrap();
+      
+      if (result.success) {
+        if (paymentMethod === 'telegram_stars') {
+          // Handle Telegram Stars payment
+          const webApp = window.Telegram?.WebApp;
+          
+          if (result.invoice_url && webApp?.openLink) {
+            // Open invoice link using WebApp API
+            webApp.openLink(result.invoice_url);
+            
+            // Set up polling to check payment status
+            let checkCount = 0;
+            const maxChecks = 150; // 5 minutes (150 * 2 seconds)
+            
+            const checkInterval = setInterval(async () => {
+              checkCount++;
+              try {
+                const updatedUser = await syncUser(tgUser).unwrap();
+                // Check if balance increased (payment completed)
+                if (updatedUser.balance && updatedUser.balance > balance) {
+                  clearInterval(checkInterval);
+                  toast({
+                    title: "موفقیت",
+                    description: "پرداخت با موفقیت انجام شد",
+                  });
+                  setAmount("");
+                } else if (checkCount >= maxChecks) {
+                  clearInterval(checkInterval);
+                }
+              } catch (err) {
+                console.error('Error checking payment status:', err);
+                if (checkCount >= maxChecks) {
+                  clearInterval(checkInterval);
+                }
+              }
+            }, 2000); // Check every 2 seconds
+          } else if (result.invoice_data) {
+            // Fallback: if invoice_url is not available, show error
+            toast({
+              title: "خطا",
+              description: "خطا در ایجاد لینک پرداخت. لطفاً دوباره تلاش کنید.",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "خطا",
+              description: "پرداخت با ستاره‌های تلگرام در این نسخه در دسترس نیست",
+              variant: "destructive",
+            });
+          }
+        } else if (result.invoice_url) {
+          // Handle Plisio payment
+          window.location.href = result.invoice_url;
+        } else {
+          toast({
+            title: "خطا",
+            description: result.error || "خطا در ایجاد تراکنش",
+            variant: "destructive",
+          });
+        }
       } else {
         toast({
           title: "خطا",
@@ -359,6 +422,31 @@ const WalletPage = () => {
             <CardDescription className="font-vazir">مبلغ مورد نظر را وارد کنید (به دلار)</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Payment Method Selection */}
+            <div className="space-y-2">
+              <label className="text-sm font-vazir text-right block">روش پرداخت</label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant={paymentMethod === 'telegram_stars' ? 'default' : 'outline'}
+                  className={`font-vazir h-12 ${paymentMethod === 'telegram_stars' ? 'bg-primary' : ''}`}
+                  onClick={() => setPaymentMethod('telegram_stars')}
+                >
+                  <Star className="w-4 h-4 ml-2" />
+                  ستاره‌های تلگرام STARS
+                </Button>
+                <Button
+                  type="button"
+                  variant={paymentMethod === 'plisio' ? 'default' : 'outline'}
+                  className={`font-vazir h-12 ${paymentMethod === 'plisio' ? 'bg-primary' : ''}`}
+                  onClick={() => setPaymentMethod('plisio')}
+                >
+                  <Coins className="w-4 h-4 ml-2" />
+                  کریپتو ( رمز ارز )
+                </Button>
+              </div>
+            </div>
+
             <div className="relative">
               <Input
                 type="number"
@@ -396,12 +484,14 @@ const WalletPage = () => {
               ) : (
                 <>
                   <Plus className="w-5 h-5" />
-                  شارژ حساب با کریپتو
+                  {paymentMethod === 'telegram_stars' ? 'شارژ با ستاره‌های تلگرام' : 'شارژ حساب با رمزارز'}
                 </>
               )}
             </Button>
             <p className="text-[10px] text-center text-muted-foreground mt-2 font-vazir">
-              پرداخت امن از طریق درگاه
+              {paymentMethod === 'telegram_stars' 
+                ? 'پرداخت سریع و امن با ستاره‌های تلگرام' 
+                : 'پرداخت امن از طریق درگاه کریپتو'}
             </p>
           </CardContent>
         </Card>

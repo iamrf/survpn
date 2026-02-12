@@ -125,6 +125,15 @@ function runMigrations() {
             // Configs might already exist
         }
         
+        // Add default config for Telegram Stars per USD
+        try {
+            db.exec(`
+                INSERT OR IGNORE INTO configs (key, value) VALUES ('telegram_stars_per_usd', '100');
+            `);
+        } catch (e) {
+            // Config might already exist
+        }
+        
         console.log('Migrations completed');
     } catch (error) {
         console.error('Error running migrations:', error);

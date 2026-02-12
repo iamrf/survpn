@@ -788,7 +788,7 @@ app.delete('/api/admin/plans/:id', (req, res) => {
 
 // Create Payment Invoice
 app.post('/api/payment/create', async (req, res) => {
-    const { userId, amount, currency = 'USD' } = req.body;
+    const { userId, amount, currency = 'USD', paymentMethod = 'plisio' } = req.body;
 
     if (!userId || !amount) {
         return res.status(400).json({ error: 'User ID and amount are required' });
@@ -796,58 +796,202 @@ app.post('/api/payment/create', async (req, res) => {
 
     try {
         const orderId = `${Date.now()}`.slice(-10); // Shorter order number
-        const plisioApiKey = (process.env.PLISIO_API_KEY || '').trim();
 
-        // Use ngrok URL if available, otherwise null
-        const callbackUrl = process.env.BACKEND_URL
-            ? `${process.env.BACKEND_URL}/api/payment/callback`
-            : null;
+        if (paymentMethod === 'telegram_stars') {
+            // Telegram Stars payment
+            // Get Stars per USD from configs (default: 100 Stars per USD)
+            const starsConfig = db.prepare("SELECT value FROM configs WHERE key = 'telegram_stars_per_usd'").get();
+            const starsPerUSD = parseFloat(starsConfig?.value || process.env.TELEGRAM_STARS_PER_USD || '100');
+            const starsAmount = Math.ceil(amount * starsPerUSD);
+            const botToken = process.env.BOT_TOKEN;
 
-        const params = {
-            api_key: plisioApiKey,
-            order_name: `TopUp${userId}`,
-            order_number: orderId,
-            source_currency: currency,
-            source_amount: Number(amount), // Send as number
-            callback_url: callbackUrl
-        };
+            if (!botToken) {
+                return res.status(500).json({ error: 'Bot token not configured' });
+            }
 
-        console.log('Attempting Plisio Invoice:', JSON.stringify(params, null, 2));
+            // Save transaction with pending status
+            try {
+                db.prepare(`
+                    INSERT INTO transactions (id, user_id, amount, currency, status, type, payment_method)
+                    VALUES (?, ?, ?, ?, ?, 'deposit', 'telegram_stars')
+                `).run(orderId, userId, amount, currency, 'pending');
+            } catch (dbError) {
+                // If payment_method column doesn't exist, try without it
+                db.prepare(`
+                    INSERT INTO transactions (id, user_id, amount, currency, status, type)
+                    VALUES (?, ?, ?, ?, ?, 'deposit')
+                `).run(orderId, userId, amount, currency, 'pending');
+            }
 
-        const response = await axios.get('https://api.plisio.net/api/v1/invoices/new', {
-            params,
-            timeout: 30000 // 30s timeout
-        });
+            // Create invoice link using Telegram Bot API
+            const callbackUrl = process.env.BACKEND_URL
+                ? `${process.env.BACKEND_URL}/api/payment/telegram-stars-callback`
+                : null;
 
-        if (response.data.status === 'error') {
-            const errorMsg = response.data.data?.message || JSON.stringify(response.data.data) || 'Plisio error';
-            throw new Error(errorMsg);
+            try {
+                // Use createInvoiceLink method for Telegram Stars
+                const invoiceResponse = await axios.post(`https://api.telegram.org/bot${botToken}/createInvoiceLink`, {
+                    title: `Top Up ${amount} USD`,
+                    description: `Account top-up for user ${userId}`,
+                    payload: orderId,
+                    provider_token: '', // Empty for Stars
+                    currency: 'XTR', // Telegram Stars currency code
+                    prices: [{
+                        label: `${amount} USD`,
+                        amount: starsAmount * 100 // Amount in smallest currency unit (cents for Stars)
+                    }],
+                    ...(callbackUrl && { provider_data: JSON.stringify({ callback_url: callbackUrl }) })
+                });
+
+                if (invoiceResponse.data.ok && invoiceResponse.data.result) {
+                    res.json({ 
+                        success: true, 
+                        payment_method: 'telegram_stars',
+                        invoice_url: invoiceResponse.data.result,
+                        stars_amount: starsAmount,
+                        order_id: orderId,
+                        amount: amount
+                    });
+                } else {
+                    throw new Error(invoiceResponse.data.description || 'Failed to create invoice');
+                }
+            } catch (invoiceError) {
+                console.error('Error creating Telegram Stars invoice:', invoiceError.response?.data || invoiceError.message);
+                // Return error but still save transaction for manual processing
+                res.status(500).json({ 
+                    error: 'Failed to create Telegram Stars invoice',
+                    details: invoiceError.response?.data?.description || invoiceError.message
+                });
+            }
+        } else {
+            // Plisio crypto payment
+            const plisioApiKey = (process.env.PLISIO_API_KEY || '').trim();
+
+            // Use ngrok URL if available, otherwise null
+            const callbackUrl = process.env.BACKEND_URL
+                ? `${process.env.BACKEND_URL}/api/payment/callback`
+                : null;
+
+            const params = {
+                api_key: plisioApiKey,
+                order_name: `TopUp${userId}`,
+                order_number: orderId,
+                source_currency: currency,
+                source_amount: Number(amount), // Send as number
+                callback_url: callbackUrl
+            };
+
+            console.log('Attempting Plisio Invoice:', JSON.stringify(params, null, 2));
+
+            const response = await axios.get('https://api.plisio.net/api/v1/invoices/new', {
+                params,
+                timeout: 30000 // 30s timeout
+            });
+
+            if (response.data.status === 'error') {
+                const errorMsg = response.data.data?.message || JSON.stringify(response.data.data) || 'Plisio error';
+                throw new Error(errorMsg);
+            }
+
+            const invoice = response.data.data;
+
+            // Save transaction
+            try {
+                db.prepare(`
+                    INSERT INTO transactions (id, user_id, amount, currency, status, plisio_invoice_id, type, payment_method)
+                    VALUES (?, ?, ?, ?, ?, ?, 'deposit', 'plisio')
+                `).run(orderId, userId, amount, currency, 'pending', invoice.txn_id);
+            } catch (dbError) {
+                // If payment_method column doesn't exist, try without it
+                db.prepare(`
+                    INSERT INTO transactions (id, user_id, amount, currency, status, plisio_invoice_id, type)
+                    VALUES (?, ?, ?, ?, ?, ?, 'deposit')
+                `).run(orderId, userId, amount, currency, 'pending', invoice.txn_id);
+            }
+
+            res.json({ success: true, invoice_url: invoice.invoice_url, payment_method: 'plisio' });
         }
-
-        const invoice = response.data.data;
-
-        // Save transaction
-        db.prepare(`
-            INSERT INTO transactions (id, user_id, amount, currency, status, plisio_invoice_id, type)
-            VALUES (?, ?, ?, ?, ?, ?, 'deposit')
-        `).run(orderId, userId, amount, currency, 'pending', invoice.txn_id);
-
-        res.json({ success: true, invoice_url: invoice.invoice_url });
     } catch (error) {
         console.error('Error creating payment:');
         if (error.response) {
-            // The request was made and the server responded with a status code
-            // that falls out of the range of 2xx
             console.error('Plisio Response Data:', JSON.stringify(error.response.data, null, 2));
             console.error('Plisio Response Status:', error.response.status);
         } else if (error.request) {
-            // The request was made but no response was received
             console.error('Plisio Request Error (No Response):', error.request);
         } else {
-            // Something happened in setting up the request that triggered an Error
             console.error('Error Message:', error.message);
         }
         res.status(500).json({ error: error.message || 'Internal server error' });
+    }
+});
+
+// Telegram Stars Payment Callback
+app.post('/api/payment/telegram-stars-callback', (req, res) => {
+    const data = req.body;
+    console.log('Telegram Stars callback received:', data);
+
+    const { order_id, status, stars_amount } = data;
+
+    if (!order_id || !status) {
+        return res.status(400).send('Invalid callback data');
+    }
+
+    try {
+        const transaction = db.prepare('SELECT * FROM transactions WHERE id = ?').get(order_id);
+
+        if (!transaction) {
+            console.error('Transaction not found:', order_id);
+            return res.status(404).send('Transaction not found');
+        }
+
+        // status 'paid' means payment was successful
+        if (status === 'paid') {
+            let userId = transaction.user_id;
+            let transactionAmount = transaction.amount;
+            
+            db.transaction(() => {
+                db.prepare('UPDATE transactions SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+                    .run('completed', order_id);
+
+                db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?')
+                    .run(transactionAmount, userId);
+            })();
+            console.log(`Telegram Stars payment successful for user ${userId}, amount: ${transactionAmount}`);
+
+            // Process referral commission for deposits
+            try {
+                const user = db.prepare('SELECT referred_by, referral_bonus_rate FROM users WHERE id = ?').get(userId);
+                if (user && user.referred_by) {
+                    const referrer = db.prepare('SELECT id, referral_bonus_rate FROM users WHERE id = ?').get(user.referred_by);
+                    if (referrer) {
+                        const commissionRate = user.referral_bonus_rate || referrer.referral_bonus_rate || 10.00;
+                        const commissionAmount = (transactionAmount * commissionRate) / 100;
+                        
+                        db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(commissionAmount, referrer.id);
+                        
+                        const commissionId = `ref_${Date.now()}_${referrer.id}_${userId}`;
+                        db.prepare(`
+                            INSERT INTO referral_commissions (id, referrer_id, referred_user_id, transaction_id, amount, commission_rate, commission_amount, type, status)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, 'transaction', 'paid')
+                        `).run(commissionId, referrer.id, userId, order_id, transactionAmount, commissionRate, commissionAmount);
+                        
+                        console.log(`Referral commission: User ${referrer.id} earned $${commissionAmount} (${commissionRate}%) from user ${userId}'s deposit`);
+                    }
+                }
+            } catch (commErr) {
+                console.error('Error processing referral commission for deposit:', commErr);
+            }
+
+            res.status(200).send('OK');
+        } else {
+            // Payment failed or cancelled
+            db.prepare('UPDATE transactions SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+                .run('failed', order_id);
+            res.status(200).send('OK');
+        }
+    } catch (error) {
+        console.error('Error handling Telegram Stars callback:', error);
+        res.status(500).send('Internal server error');
     }
 });
 

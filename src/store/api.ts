@@ -111,11 +111,29 @@ export const api = createApi({
         }),
 
         // Payment endpoints
-        createPayment: builder.mutation<{ success: boolean; invoice_url?: string; error?: string }, { userId: number; amount: number }>({
-            query: ({ userId, amount }) => ({
+        createPayment: builder.mutation<{ 
+            success: boolean; 
+            invoice_url?: string; 
+            error?: string;
+            payment_method?: string;
+            stars_amount?: number;
+            order_id?: string;
+            invoice_data?: {
+                title: string;
+                description: string;
+                payload: string;
+                currency: string;
+                prices: Array<{ label: string; amount: number }>;
+            };
+        }, { 
+            userId: number; 
+            amount: number;
+            paymentMethod?: 'plisio' | 'telegram_stars';
+        }>({
+            query: ({ userId, amount, paymentMethod = 'plisio' }) => ({
                 url: '/api/payment/create',
                 method: 'POST',
-                body: { userId, amount },
+                body: { userId, amount, paymentMethod },
             }),
         }),
 
