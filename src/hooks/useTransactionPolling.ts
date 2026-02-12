@@ -59,6 +59,11 @@ export const useTransactionPolling = () => {
             return;
         }
 
+        // Skip if transaction is no longer pending (might have been updated by RTK Query refetch)
+        if (tx.status !== 'pending') {
+            return;
+        }
+
         // Rate limiting: Don't check the same transaction more than once per minute
         const lastCheckTime = checkCooldownRef.current.get(tx.id) || 0;
         const now = Date.now();
@@ -120,9 +125,18 @@ export const useTransactionPolling = () => {
         lastCheckTimeRef.current = now;
 
         try {
-            // Check only transactions that haven't been checked recently
+            // Check only transactions that haven't been checked recently and are still pending
             const transactionsToCheck = pendingPlisioTransactions
                 .filter((tx) => {
+                    // Must still be pending
+                    if (tx.status !== 'pending') {
+                        return false;
+                    }
+                    // Must not be currently checking
+                    if (checkingTransactions.includes(tx.id)) {
+                        return false;
+                    }
+                    // Must have passed cooldown period
                     const lastCheck = checkCooldownRef.current.get(tx.id) || 0;
                     return (now - lastCheck) >= MIN_CHECK_INTERVAL_PER_TX;
                 })
@@ -146,7 +160,7 @@ export const useTransactionPolling = () => {
         } finally {
             isCheckingRef.current = false;
         }
-    }, [pendingPlisioTransactions, checkTransaction, dispatch]);
+    }, [pendingPlisioTransactions, checkTransaction, dispatch, checkingTransactions]);
 
     useEffect(() => {
         if (!autoCheckEnabled || pendingPlisioTransactions.length === 0) {

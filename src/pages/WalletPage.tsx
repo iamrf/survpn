@@ -28,6 +28,7 @@ import {
 import {
   setPendingTransactions,
   addPendingTransaction,
+  syncTransactionsFromHistory,
 } from "@/store/slices/transactionsSlice";
 import { useTransactionPolling } from "@/hooks/useTransactionPolling";
 
@@ -49,7 +50,7 @@ const WalletPage = () => {
   const [isCheckingPending, setIsCheckingPending] = useState(false);
 
   // Initialize transaction polling - this automatically checks pending transactions
-  const { isChecking } = useTransactionPolling();
+  const { isChecking, pendingTransactions: pollingPendingTxs, checkAllPendingTransactions } = useTransactionPolling();
 
   // RTK Query hooks
   const [syncUser] = useSyncUserMutation();
@@ -73,13 +74,16 @@ const WalletPage = () => {
 
   const { data: configsData } = useGetConfigsQuery();
 
-  // Update Redux store with pending transactions when history changes
+  // Get checking transactions from Redux for UI indicators
+  const checkingTransactions = useAppSelector((state) => state.transactions.checkingTransactions);
+  const lastCheckedAt = useAppSelector((state) => state.transactions.lastCheckedAt);
+  const autoCheckEnabled = useAppSelector((state) => state.transactions.autoCheckEnabled);
+
+  // Sync RTK Query history with Redux store - intelligently merge pending transactions
   useEffect(() => {
     if (historyData?.history) {
-      const pending = historyData.history.filter(
-        (tx: any) => tx.status === 'pending' && tx.type === 'deposit'
-      );
-      dispatch(setPendingTransactions(pending));
+      // Use smart sync that preserves transactions being checked
+      dispatch(syncTransactionsFromHistory(historyData.history));
     }
   }, [historyData, dispatch]);
 
@@ -143,7 +147,7 @@ const WalletPage = () => {
       searchParams.delete('payment');
       searchParams.delete('tx');
       setSearchParams(searchParams, { replace: true });
-    }
+      }
   }, [searchParams, setSearchParams, tgUser, verifyPlisioTransaction, refetchHistory, toast]);
 
   const history = historyData?.history || [];
@@ -191,14 +195,14 @@ const WalletPage = () => {
       return;
     }
 
-    if (!tgUser) {
-      toast({
-        title: "خطا",
-        description: "اطلاعات کاربر یافت نشد",
-        variant: "destructive",
-      });
-      return;
-    }
+      if (!tgUser) {
+        toast({
+          title: "خطا",
+          description: "اطلاعات کاربر یافت نشد",
+          variant: "destructive",
+        });
+        return;
+      }
 
     try {
       const result = await createPayment({ 
@@ -273,7 +277,7 @@ const WalletPage = () => {
               created_at: new Date().toISOString(),
             }));
           }
-          window.location.href = result.invoice_url;
+        window.location.href = result.invoice_url;
         } else {
           toast({
             title: "خطا",
@@ -586,23 +590,35 @@ const WalletPage = () => {
           className="flex items-center justify-between mb-8"
         >
           <div className="flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-primary/10 text-primary">
-              <Wallet className="h-8 w-8" />
-            </div>
-            <div className="text-right">
-              <h1 className="text-2xl font-bold font-vazir">کیف پول</h1>
-              <p className="text-muted-foreground text-sm font-vazir">امور مالی، واریز و برداشت</p>
-            </div>
+          <div className="p-3 rounded-2xl bg-primary/10 text-primary">
+            <Wallet className="h-8 w-8" />
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-10 w-10 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10"
-            onClick={handleCheckPendingTransactions}
-            disabled={isCheckingPending || isChecking}
-          >
-            <RefreshCw size={18} className={isCheckingPending || isChecking ? "animate-spin" : ""} />
-          </Button>
+          <div className="text-right">
+            <h1 className="text-2xl font-bold font-vazir">کیف پول</h1>
+            <p className="text-muted-foreground text-sm font-vazir">امور مالی، واریز و برداشت</p>
+          </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Auto-check status indicator */}
+            {autoCheckEnabled && pollingPendingTxs.length > 0 && (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-primary/10 border border-primary/20">
+                <div className={`w-2 h-2 rounded-full ${isChecking ? 'bg-green-500 animate-pulse' : 'bg-green-500/50'}`} />
+                <span className="text-[10px] text-muted-foreground font-vazir">
+                  {pollingPendingTxs.length} در انتظار
+                </span>
+              </div>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10"
+              onClick={handleCheckPendingTransactions}
+              disabled={isCheckingPending || isChecking}
+              title={isChecking ? "در حال بررسی خودکار..." : "بررسی دستی تراکنش‌ها"}
+            >
+              <RefreshCw size={18} className={isCheckingPending || isChecking ? "animate-spin" : ""} />
+            </Button>
+          </div>
         </motion.div>
 
         {/* Current Balance Card */}
@@ -1011,7 +1027,7 @@ const WalletPage = () => {
               <div className="p-6 pb-12">
                 <DrawerHeader className="p-0 mb-6">
                   <div className="flex items-center justify-between mb-2">
-                    <DrawerTitle className="text-right font-vazir text-xl">تاریخچه تراکنش‌ها</DrawerTitle>
+                  <DrawerTitle className="text-right font-vazir text-xl">تاریخچه تراکنش‌ها</DrawerTitle>
                     <Button
                       variant="outline"
                       size="sm"
@@ -1030,6 +1046,19 @@ const WalletPage = () => {
                         {history.filter((tx: any) => tx.status === 'pending' && tx.type === 'deposit').length} تراکنش در انتظار
                       </span>
                     )}
+                    {autoCheckEnabled && pollingPendingTxs.length > 0 && (
+                      <div className="flex items-center gap-2 mt-2 text-[10px]">
+                        <div className={`w-1.5 h-1.5 rounded-full ${isChecking ? 'bg-green-500 animate-pulse' : 'bg-green-500/50'}`} />
+                        <span>
+                          بررسی خودکار فعال
+                          {lastCheckedAt && (
+                            <span className="mr-1">
+                              • آخرین بررسی: {new Date(lastCheckedAt).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    )}
                   </DrawerDescription>
                 </DrawerHeader>
                 <ScrollArea className="h-[60vh] pr-4">
@@ -1046,13 +1075,19 @@ const WalletPage = () => {
                         const isPositive = isDeposit;
                         const isNegative = isWithdrawal || isSubscription;
                         
+                        const isBeingChecked = checkingTransactions.includes(tx.id);
                         return (
-                        <div key={tx.id} className="flex flex-col p-3 rounded-lg border bg-card gap-3">
+                        <div key={tx.id} className={`flex flex-col p-3 rounded-lg border bg-card gap-3 ${isBeingChecked ? 'ring-2 ring-primary/50 bg-primary/5' : ''}`}>
                           <div className="flex items-center justify-between">
                             <div className="text-left space-y-1">
-                              <p className={`text-sm font-bold font-vazir ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                                {isPositive ? '+' : '-'}${tx.amount}
-                              </p>
+                              <div className="flex items-center gap-2">
+                                <p className={`text-sm font-bold font-vazir ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                                  {isPositive ? '+' : '-'}${tx.amount}
+                                </p>
+                                {isBeingChecked && (
+                                  <RefreshCw size={12} className="text-primary animate-spin" />
+                                )}
+                              </div>
                               {getStatusBadge(tx.status)}
                             </div>
                             <div className="flex items-center gap-3">

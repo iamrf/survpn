@@ -386,10 +386,10 @@ const AdminPage = () => {
                             {/* Default Referral Commission Section */}
                             <div className="glass rounded-3xl p-6 border border-white/5 shadow-xl space-y-4">
                                 <div className="flex items-center justify-between">
-                                    <h2 className="text-lg font-semibold flex items-center gap-2 font-vazir">
+                                <h2 className="text-lg font-semibold flex items-center gap-2 font-vazir">
                                         <Gift size={20} className="text-primary" />
                                         کمیسیون پیش‌فرض معرفی
-                                    </h2>
+                                </h2>
                                     <Button
                                         size="sm"
                                         variant="outline"
@@ -405,8 +405,8 @@ const AdminPage = () => {
                                             <span className="text-[10px] text-muted-foreground font-vazir mb-1">نرخ کمیسیون</span>
                                             <span className="text-xl font-bold font-mono text-primary">{configs['default_referral_commission_rate'] || '10.00'}</span>
                                             <span className="text-[10px] text-muted-foreground font-vazir mb-1">%</span>
-                                        </div>
-                                    </div>
+                                </div>
+                            </div>
                                     <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-right">
                                         <div className="flex items-end gap-1">
                                             <span className="text-[10px] text-muted-foreground font-vazir mb-1">پاداش ثبت‌نام</span>

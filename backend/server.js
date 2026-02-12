@@ -153,10 +153,10 @@ app.post('/api/sync-user', async (req, res) => {
 
     // Create a promise for this sync request
     const syncPromise = (async () => {
-        const adminIds = (process.env.ADMIN_IDS || '').split(',').map(id => id.trim());
-        const role = adminIds.includes(id.toString()) ? 'admin' : 'user';
+    const adminIds = (process.env.ADMIN_IDS || '').split(',').map(id => id.trim());
+    const role = adminIds.includes(id.toString()) ? 'admin' : 'user';
 
-        try {
+    try {
         // Check if user exists
         const existingUser = db.prepare('SELECT id, referred_by, referral_code FROM users WHERE id = ?').get(id);
         const isNewUser = !existingUser;
@@ -288,29 +288,29 @@ app.post('/api/sync-user', async (req, res) => {
             // Continue with empty Marzban data - user can still use the app
         }
 
-            console.log(`User ${id} synced. Role: ${role}, Bonus: ${user.has_welcome_bonus}, Link: ${subscriptionUrl}`);
+        console.log(`User ${id} synced. Role: ${role}, Bonus: ${user.has_welcome_bonus}, Link: ${subscriptionUrl}`);
             const response = {
-                success: true,
-                message: 'User synchronized successfully',
-                isAdmin: role === 'admin',
-                balance: user?.balance || 0,
-                referralCode: user?.referral_code,
-                phoneNumber: user?.phone_number,
-                createdAt: user?.created_at,
-                lastSeen: user?.last_seen,
-                subscriptionUrl,
-                dataLimit,
-                dataUsed,
-                expire: mUser?.expire,
-                status: mUser?.status,
-                username: marzbanUsername,
-                languageCode: user?.language_code,
-                walletAddress: user?.wallet_address,
-                hasPasskey: !!user?.withdrawal_passkey
+            success: true,
+            message: 'User synchronized successfully',
+            isAdmin: role === 'admin',
+            balance: user?.balance || 0,
+            referralCode: user?.referral_code,
+            phoneNumber: user?.phone_number,
+            createdAt: user?.created_at,
+            lastSeen: user?.last_seen,
+            subscriptionUrl,
+            dataLimit,
+            dataUsed,
+            expire: mUser?.expire,
+            status: mUser?.status,
+            username: marzbanUsername,
+            languageCode: user?.language_code,
+            walletAddress: user?.wallet_address,
+            hasPasskey: !!user?.withdrawal_passkey
             };
             return response;
-        } catch (error) {
-            console.error('Error syncing user:', error);
+    } catch (error) {
+        console.error('Error syncing user:', error);
             throw error;
         } finally {
             // Remove lock after request completes

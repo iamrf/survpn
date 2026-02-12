@@ -86,6 +86,39 @@ const transactionsSlice = createSlice({
             state.checkingTransactions = [];
             state.lastCheckedAt = null;
         },
+        // Sync transactions from RTK Query history - intelligently merge with Redux state
+        syncTransactionsFromHistory: (state, action: PayloadAction<Transaction[]>) => {
+            const historyTransactions = action.payload;
+            
+            // Get all pending deposits from history
+            const pendingFromHistory = historyTransactions.filter(
+                (tx) => tx.status === 'pending' && tx.type === 'deposit'
+            );
+            
+            // Merge: Keep transactions that are being checked, update others from history
+            const existingIds = new Set(state.pendingTransactions.map(tx => tx.id));
+            const historyIds = new Set(pendingFromHistory.map(tx => tx.id));
+            
+            // Remove transactions that are no longer pending in history
+            state.pendingTransactions = state.pendingTransactions.filter(tx => {
+                // Keep if still in history as pending, or if currently being checked
+                return historyIds.has(tx.id) || state.checkingTransactions.includes(tx.id);
+            });
+            
+            // Add new pending transactions from history
+            pendingFromHistory.forEach(tx => {
+                if (!existingIds.has(tx.id)) {
+                    state.pendingTransactions.push(tx);
+                } else {
+                    // Update existing transaction with latest data from history (except status if checking)
+                    const existing = state.pendingTransactions.find(t => t.id === tx.id);
+                    if (existing && !state.checkingTransactions.includes(tx.id)) {
+                        // Only update if not currently being checked
+                        Object.assign(existing, tx);
+                    }
+                }
+            });
+        },
     },
 });
 
@@ -100,6 +133,7 @@ export const {
     setAutoCheckEnabled,
     setCheckInterval,
     clearTransactions,
+    syncTransactionsFromHistory,
 } = transactionsSlice.actions;
 
 export default transactionsSlice.reducer;

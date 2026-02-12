@@ -26,7 +26,7 @@ const ProfileCard = () => {
   const referralCode = currentUser?.referralCode || "";
   const phoneNumber = currentUser?.phoneNumber || null;
   const walletAddress = currentUser?.walletAddress || null;
-  
+
   // Get plans for plan name detection
   const { data: plansData } = useGetPlansQuery();
   const plans = plansData?.plans || [];
@@ -126,16 +126,16 @@ const ProfileCard = () => {
           const phoneToSync = phoneFromInitData || phoneFromCallback || null;
 
           if (phoneToSync) {
-            try {
+          try {
               const result = await syncUser({ ...tgUser, phone_number: phoneToSync }).unwrap();
-              if (result.success) {
-                toast({
-                  title: "موفقیت",
-                  description: "شماره تماس شما تایید شد",
-                });
+            if (result.success) {
+              toast({
+                title: "موفقیت",
+                description: "شماره تماس شما تایید شد",
+              });
                 // User data auto-refreshes via syncUser invalidating 'User' tag
-              }
-            } catch (error) {
+            }
+          } catch (error) {
               console.error("Error syncing phone number:", error);
               toast({
                 title: "خطا",
@@ -261,7 +261,7 @@ const ProfileCard = () => {
           <h2 className="text-lg font-bold text-foreground truncate font-vazir text-right">
             {displayName}
           </h2>
-          
+
           {/* Subscription Info */}
           {hasActiveSubscription ? (
             <div className="mt-2 space-y-2">
