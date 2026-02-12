@@ -10,7 +10,7 @@ import { SubscriptionPlanSkeleton, SubscriptionCardSkeleton } from "@/components
 import { getTelegramUser } from "@/lib/telegram";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
-import { Star } from "lucide-react";
+import { Star, Zap } from "lucide-react";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { useGetPlansQuery, usePurchasePlanMutation, useSyncUserMutation } from "@/store/api";
 import { setSubscriptionData, setPurchasingPlanId } from "@/store/slices/index";
@@ -146,9 +146,16 @@ const HomePage = () => {
           <div className="relative space-y-4 max-w-sm">
             <h2 className="text-2xl font-black tracking-tight font-vazir">سرویس اختصاصی می‌خواهید؟</h2>
             <p className="text-sm text-muted-foreground font-vazir leading-relaxed">
-              اگر نیاز به حجم یا زمان متفاوتی دارید، پلن سفارشی خود را بسازید. کارشناسان ما در سریع‌ترین زمان با شما ارتباط می‌گیرند.
+              اگر نیاز به حجم یا زمان متفاوتی دارید، پلن سفارشی خود را بسازید.
             </p>
-            <div className="pt-2">
+            {/* Quick Info */}
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/10">
+                <Zap className="w-4 h-4 text-yellow-500" />
+                <span className="text-xs text-yellow-600 dark:text-yellow-500">
+                    اشتراک بلافاصله پس از خرید فعال می‌شود
+                </span>
+            </div>
+            <div className="pt-2 pb-16">
               <CustomSubscriptionDrawer />
             </div>
           </div>

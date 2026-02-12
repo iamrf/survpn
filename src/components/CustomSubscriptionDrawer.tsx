@@ -122,12 +122,12 @@ const CustomSubscriptionDrawer: React.FC = () => {
             </DrawerTrigger>
             <DrawerContent className="font-vazir" dir="rtl">
                 <div className="mx-auto w-full max-w-md p-6">
-                    <DrawerHeader>
+                    {/* <DrawerHeader>
                         <DrawerTitle className="text-right text-xl">اشتراک سفارشی</DrawerTitle>
                         <DrawerDescription className="text-right">
                             ترافیک و مدت زمان مورد نظر خود را انتخاب کنید
                         </DrawerDescription>
-                    </DrawerHeader>
+                    </DrawerHeader> */}
 
                     <div className="space-y-6 py-6">
                         {/* Traffic Slider */}
@@ -166,7 +166,7 @@ const CustomSubscriptionDrawer: React.FC = () => {
                                 <span>1000 GB</span>
                             </div>
                             <div className="text-xs text-muted-foreground text-right">
-                                هزینه: <span className="font-bold text-foreground">${(traffic * 0.07).toFixed(2)}</span> (هر GB = $0.07)
+                                هزینه: <span className="font-bold text-foreground">${(traffic * 0.07).toFixed(2)}</span>
                             </div>
                         </div>
 
@@ -206,7 +206,7 @@ const CustomSubscriptionDrawer: React.FC = () => {
                                 <span>365 روز</span>
                             </div>
                             <div className="text-xs text-muted-foreground text-right">
-                                هزینه: <span className="font-bold text-foreground">${(duration * 0.03).toFixed(2)}</span> (هر روز = $0.03)
+                                هزینه: <span className="font-bold text-foreground">${(duration * 0.03).toFixed(2)}</span>
                             </div>
                         </div>
 
