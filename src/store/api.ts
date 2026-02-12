@@ -218,14 +218,19 @@ export const api = createApi({
                 method: 'POST',
                 body,
             }),
-            // When a payment is verified, user balance changes, transactions update, stats change
+            // Only invalidate caches when something actually changed
             invalidatesTags: (result) => {
-                // Only invalidate everything if the transaction was actually updated
                 if (result?.updated) {
+                    // Transaction was confirmed and balance credited → refresh everything
                     return ['User', 'Transactions', 'AdminTransactions', 'Stats', 'FinanceSummary'];
                 }
-                // For already_completed or no change, just refresh transactions list
-                return ['Transactions', 'AdminTransactions'];
+                if (result?.already_completed) {
+                    // Already processed, just sync transaction list
+                    return ['Transactions'];
+                }
+                // No change (not_found, not_matched, still pending) → don't invalidate anything
+                // This prevents unnecessary refetches during polling of fake/unmatched transactions
+                return [];
             },
         }),
 

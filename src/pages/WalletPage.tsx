@@ -473,11 +473,17 @@ const WalletPage = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
-      case 'paid':
-      case 'mismatch':
+      case 'paid':      // legacy DB entries
+      case 'mismatch':  // Plisio: paid but wrong amount
         return <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100">تکمیل شده</Badge>;
-      case 'pending': return <Badge variant="secondary" className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">در انتظار</Badge>;
-      case 'failed': return <Badge variant="destructive">ناموفق</Badge>;
+      case 'pending':
+      case 'new':
+        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">در انتظار</Badge>;
+      case 'expired': return <Badge variant="secondary" className="bg-orange-100 text-orange-700 hover:bg-orange-100">منقضی شده</Badge>;
+      case 'cancelled': return <Badge variant="secondary" className="bg-gray-100 text-gray-700 hover:bg-gray-100">لغو شده</Badge>;
+      case 'failed':
+      case 'error':
+        return <Badge variant="destructive">ناموفق</Badge>;
       default: return <Badge variant="outline">{status}</Badge>;
     }
   };

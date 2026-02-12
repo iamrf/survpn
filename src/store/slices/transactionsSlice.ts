@@ -5,7 +5,7 @@ export interface Transaction {
     user_id: number;
     type: 'deposit' | 'withdrawal' | 'subscription' | 'custom_subscription';
     amount: number;
-    status: 'pending' | 'completed' | 'paid' | 'failed' | 'cancelled' | 'expired';
+    status: 'pending' | 'new' | 'completed' | 'paid' | 'mismatch' | 'failed' | 'error' | 'cancelled' | 'expired';
     payment_method?: 'plisio' | 'telegram_stars' | 'heleket';
     plisio_invoice_id?: string;
     telegram_stars_order_id?: string;
