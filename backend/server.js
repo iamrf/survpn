@@ -1487,6 +1487,36 @@ app.get('/api/transactions/:id', (req, res) => {
     }
 });
 
+// Get All Transactions (Admin) with filters
+app.get('/api/admin/transactions', (req, res) => {
+    try {
+        const { status, type, limit = 100 } = req.query;
+        
+        let query = 'SELECT * FROM transactions WHERE 1=1';
+        const params = [];
+        
+        if (status) {
+            query += ' AND status = ?';
+            params.push(status);
+        }
+        
+        if (type) {
+            query += ' AND type = ?';
+            params.push(type);
+        }
+        
+        query += ' ORDER BY created_at DESC LIMIT ?';
+        params.push(parseInt(limit));
+        
+        const transactions = db.prepare(query).all(...params);
+        
+        res.json({ success: true, transactions });
+    } catch (error) {
+        console.error('Error fetching all transactions:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Request Withdrawal
 app.post('/api/withdraw', (req, res) => {
     const { userId, amount, currency, passkey } = req.body;

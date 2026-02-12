@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const AdminPage = () => {
-    const [activeTab, setActiveTab] = useState<"overview" | "withdrawals" | "plans">("overview");
+    const [activeTab, setActiveTab] = useState<"overview" | "transactions" | "withdrawals" | "plans">("overview");
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 
     // Withdrawal Detail Drawer State
@@ -296,6 +296,13 @@ const AdminPage = () => {
                         نمای کلی
                     </button>
                     <button
+                        onClick={() => setActiveTab("transactions")}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-medium transition-all duration-300 ${activeTab === "transactions" ? "bg-primary text-primary-foreground shadow-lg" : "text-muted-foreground hover:text-white"}`}
+                    >
+                        <Database size={16} />
+                        تراکنش‌ها
+                    </button>
+                    <button
                         onClick={() => setActiveTab("withdrawals")}
                         className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-medium transition-all duration-300 ${activeTab === "withdrawals" ? "bg-primary text-primary-foreground shadow-lg" : "text-muted-foreground hover:text-white"}`}
                     >
@@ -480,6 +487,32 @@ const AdminPage = () => {
                                 </p>
                             </div>
 
+                        </motion.div>
+                    ) : activeTab === "transactions" ? (
+                        <motion.div
+                            key="transactions"
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            className="space-y-4"
+                        >
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-bold font-vazir">همه تراکنش‌ها</h3>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => navigate('/admin/transactions')}
+                                    className="text-xs font-vazir border-white/10 hover:bg-white/5"
+                                >
+                                    مشاهده همه
+                                    <ChevronRight size={14} className="mr-1" />
+                                </Button>
+                            </div>
+                            <div className="glass p-6 rounded-3xl border border-white/5 text-center">
+                                <p className="text-sm text-muted-foreground font-vazir">
+                                    برای مشاهده و مدیریت تمام تراکنش‌ها با فیلترهای پیشرفته، روی دکمه بالا کلیک کنید.
+                                </p>
+                            </div>
                         </motion.div>
                     ) : activeTab === "withdrawals" ? (
                         <motion.div

@@ -843,6 +843,27 @@ const WalletPage = () => {
                               </div>
                             </div>
                           </div>
+                          
+                          {/* Transaction IDs */}
+                          <div className="flex flex-col gap-2 pt-2 border-t border-border">
+                            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                              <span className="font-mono font-vazir">شناسه تراکنش:</span>
+                              <span className="font-mono" dir="ltr">{tx.id}</span>
+                            </div>
+                            {tx.plisio_invoice_id && (
+                              <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                                <span className="font-mono font-vazir">شناسه فاکتور Plisio:</span>
+                                <span className="font-mono" dir="ltr">{tx.plisio_invoice_id}</span>
+                              </div>
+                            )}
+                            {tx.telegram_stars_order_id && (
+                              <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                                <span className="font-mono font-vazir">شناسه سفارش Telegram Stars:</span>
+                                <span className="font-mono" dir="ltr">{tx.telegram_stars_order_id}</span>
+                              </div>
+                            )}
+                          </div>
+                          
                           {tx.type === 'withdrawal' && tx.status === 'pending' && (
                             <Button
                               variant="destructive"

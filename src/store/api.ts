@@ -265,6 +265,14 @@ export const api = createApi({
             providesTags: ['Withdrawals'],
         }),
 
+        getAllTransactions: builder.query<{ success: boolean; transactions?: any[] }, { status?: string; type?: string; limit?: number }>({
+            query: (params) => ({
+                url: '/api/admin/transactions',
+                params,
+            }),
+            providesTags: ['Transactions'],
+        }),
+
         updateWithdrawalStatus: builder.mutation<{ success: boolean; message?: string; error?: string }, {
             withdrawalId: string;
             status: 'completed' | 'failed';
@@ -451,6 +459,7 @@ export const {
     useGetAllWithdrawalsQuery,
     useLazyGetAllWithdrawalsQuery,
     useUpdateWithdrawalStatusMutation,
+    useGetAllTransactionsQuery,
     useGetTotalDepositsQuery,
     useLazyGetTotalDepositsQuery,
     useGetUserFinanceSummaryQuery,

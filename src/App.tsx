@@ -17,6 +17,7 @@ const AdminPage = lazy(() => import("./pages/AdminPage"));
 const AdminUserDetailPage = lazy(() => import("./pages/AdminUserDetailPage"));
 const AdminPendingWithdrawalsPage = lazy(() => import("./pages/AdminPendingWithdrawalsPage"));
 const AdminUsersPage = lazy(() => import("./pages/AdminUsersPage"));
+const AdminTransactionsPage = lazy(() => import("./pages/AdminTransactionsPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 import { useEffect } from "react";
@@ -107,6 +108,7 @@ const AppContent = () => {
                 <Route path="/admin/users" element={<AdminUsersPage />} />
                 <Route path="/admin/user/:id" element={<AdminUserDetailPage />} />
                 <Route path="/admin/withdrawals/pending" element={<AdminPendingWithdrawalsPage />} />
+                <Route path="/admin/transactions" element={<AdminTransactionsPage />} />
               </>
             }
             <Route path="*" element={<NotFound />} />
