@@ -64,11 +64,10 @@ const AppContent = () => {
     }
   }, [currentUser?.isAdmin, setIsAdmin]);
 
-  // Handle start parameter from Telegram direct link (only once, after router is ready)
+  // Handle referral code from start parameter (must run BEFORE initial sync for new users)
   useEffect(() => {
-    const handleStartParam = async () => {
+    const handleReferralCode = async () => {
       if (initialSyncDone.current || !tgUser) return;
-      initialSyncDone.current = true;
 
       try {
         // Check for start parameter from Telegram direct link mini app
@@ -77,31 +76,34 @@ const AppContent = () => {
         const startParam = getReferralCodeFromStartParam();
 
         if (startParam) {
-          // Handle referral code (payment and wallet redirects will be handled by URL params)
-          // Only handle referral codes here, payment redirects are handled via URL
+          // Only handle referral codes here (payment and wallet redirects handled by StartParamNavigator)
           if (!startParam.startsWith('payment_tx_') && startParam !== 'wallet') {
-            console.log('[REFERRAL] Referral code from start param:', startParam);
+            console.log('[REFERRAL] Referral code detected from start param:', startParam);
             try {
-              await syncUser({
+              // Sync user with referral code - backend will only process for new users
+              const result = await syncUser({
                 ...tgUser,
                 referral_code: startParam,
               }).unwrap();
-            } catch (syncError) {
-              console.error("Error syncing user with referral code:", syncError);
+              
+              if (result.success) {
+                console.log('[REFERRAL] User synced successfully with referral code:', startParam);
+                // Redux state is automatically updated via extraReducers in userSlice
+              }
+            } catch (syncError: any) {
+              console.error("[REFERRAL] Error syncing user with referral code:", syncError);
+              // Don't block app initialization if referral sync fails
             }
           }
         }
       } catch (error) {
-        console.error("Error in start param handler:", error);
+        console.error("Error in referral code handler:", error);
       }
     };
     
-    // Delay to ensure app is fully initialized
-    const timer = setTimeout(() => {
-      handleStartParam();
-    }, 500);
-    
-    return () => clearTimeout(timer);
+    // Process referral code immediately (before getCurrentUser query runs)
+    // This ensures new users get their referral processed during initial registration
+    handleReferralCode();
   }, [tgUser, syncUser]);
 
   return (
@@ -136,17 +138,64 @@ const AppContent = () => {
   );
 };
 
-// Simple component to handle payment/wallet redirects from start param
+// Component to handle navigation from Telegram Direct Links and ?start= parameters
 const StartParamNavigator = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const navigatedRef = useRef(false);
+  const referralProcessedRef = useRef(false);
+  const [syncUser] = useSyncUserMutation();
 
   useEffect(() => {
     const handleNavigation = async () => {
       if (navigatedRef.current) return;
       
       try {
+        // Check URL query parameters (from BotFather Direct Links)
+        const params = new URLSearchParams(location.search);
+        
+        // Handle payment callback from Direct Link: ?payment=callback&tx=ORDERID
+        if (params.get('payment') === 'callback') {
+          const txId = params.get('tx');
+          const status = params.get('status');
+          if (txId) {
+            console.log('[PAYMENT] Payment callback from Direct Link, transaction ID:', txId);
+            navigatedRef.current = true;
+            setTimeout(() => {
+              navigate(`/wallet?payment=${status === 'failed' ? 'failed' : 'pending'}&tx=${txId}`, { replace: true });
+            }, 100);
+            return;
+          }
+        }
+        
+        // Handle referral code from Direct Link: ?ref=CODE
+        const refCode = params.get('ref');
+        if (refCode && !referralProcessedRef.current) {
+          console.log('[REFERRAL] Referral code detected from Direct Link query param:', refCode);
+          referralProcessedRef.current = true;
+          const { getTelegramUser } = await import('@/lib/telegram');
+          const tgUser = getTelegramUser();
+          if (tgUser) {
+            try {
+              // Sync user with referral code - backend will only process for new users
+              const result = await syncUser({
+                ...tgUser,
+                referral_code: refCode,
+              }).unwrap();
+              
+              if (result.success) {
+                console.log('[REFERRAL] User synced successfully with referral code:', refCode);
+                // Redux state is automatically updated via extraReducers in userSlice
+              }
+            } catch (error: any) {
+              console.error("[REFERRAL] Error syncing user with referral code:", error);
+              // Don't block navigation if referral sync fails
+            }
+          }
+          // Don't return here - allow navigation to continue
+        }
+        
+        // Handle start_param (fallback for ?start= links)
         const { getReferralCodeFromStartParam } = await import('@/lib/telegram');
         const startParam = getReferralCodeFromStartParam();
 
@@ -157,7 +206,7 @@ const StartParamNavigator = () => {
           // Handle payment redirect: payment_tx_ORDERID
           if (startParam.startsWith('payment_tx_')) {
             const orderId = startParam.replace('payment_tx_', '');
-            console.log('[PAYMENT] Payment redirect from Telegram direct link, transaction ID:', orderId);
+            console.log('[PAYMENT] Payment redirect from Telegram ?start= link, transaction ID:', orderId);
             navigatedRef.current = true;
             navigate(`/wallet?payment=pending&tx=${orderId}`, { replace: true });
             return;
@@ -165,7 +214,7 @@ const StartParamNavigator = () => {
           
           // Handle wallet redirect: wallet
           if (startParam === 'wallet') {
-            console.log('[NAVIGATION] Wallet redirect from Telegram direct link');
+            console.log('[NAVIGATION] Wallet redirect from Telegram ?start= link');
             navigatedRef.current = true;
             navigate('/wallet', { replace: true });
             return;
@@ -177,7 +226,7 @@ const StartParamNavigator = () => {
     };
     
     handleNavigation();
-  }, [navigate, location.pathname]);
+  }, [navigate, location.pathname, location.search, syncUser]);
 
   return null;
 };

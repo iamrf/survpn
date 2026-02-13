@@ -202,10 +202,17 @@ const WalletPage = () => {
       setReferralLink("");
       return;
     }
-    // Use Telegram bot deep link format: https://t.me/botname?start=code
+    // Use BotFather Direct Link format: t.me/bot/refer?ref=CODE
+    // Falls back to standard ?start= format if Direct Link not configured
     import('@/lib/telegram').then(({ getTelegramBotUsername }) => {
       const botUsername = getTelegramBotUsername();
-      setReferralLink(`https://t.me/${botUsername}?start=${referralCode}`);
+      // Option 1: BotFather Direct Link (recommended for branding)
+      // Format: t.me/bot_username/refer?ref=CODE
+      setReferralLink(`https://t.me/${botUsername}/refer?ref=${referralCode}`);
+      
+      // Option 2: Standard ?start= link (fallback, works automatically)
+      // Uncomment below and comment above if you prefer standard links:
+      // setReferralLink(`https://t.me/${botUsername}?start=${referralCode}`);
     });
   }, [referralCode]);
 

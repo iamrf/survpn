@@ -288,6 +288,13 @@ app.post('/api/sync-user', async (req, res) => {
             // Continue with empty Marzban data - user can still use the app
         }
 
+        // Log referral information if applicable
+        if (isNewUser && referredBy) {
+            console.log(`[REFERRAL] Registration complete: User ${id} was referred by ${referredBy}, registration bonus $${registrationBonus} paid`);
+        } else if (isNewUser && referral_code && !referredBy) {
+            console.log(`[REFERRAL] Registration complete: User ${id} provided invalid referral code: ${referral_code}`);
+        }
+
         console.log(`User ${id} synced. Role: ${role}, Bonus: ${user.has_welcome_bonus}, Link: ${subscriptionUrl}`);
             const response = {
             success: true,
@@ -306,7 +313,10 @@ app.post('/api/sync-user', async (req, res) => {
             username: marzbanUsername,
             languageCode: user?.language_code,
             walletAddress: user?.wallet_address,
-            hasPasskey: !!user?.withdrawal_passkey
+            hasPasskey: !!user?.withdrawal_passkey,
+            // Referral information (for frontend feedback)
+            referralProcessed: isNewUser && referral_code ? (referredBy ? true : false) : undefined,
+            referredBy: referredBy || undefined
             };
             return response;
     } catch (error) {
@@ -1034,29 +1044,37 @@ app.post('/api/payment/create', async (req, res) => {
         }
 
         // Telegram Direct Link Mini App URLs for user redirects
-        // Using Telegram direct link format: https://t.me/botusername?start=param
-        // This opens the Mini App directly in Telegram with the start parameter
+        // Option 1: BotFather Direct Links (recommended): t.me/bot/payment?tx=ORDERID
+        // Option 2: Standard ?start= links (fallback): t.me/bot?start=payment_tx_ORDERID
         // Reference: https://core.telegram.org/bots/webapps#direct-link-mini-apps
         const botUsername = (process.env.BOT_USERNAME || '').trim();
         const frontendUrl = process.env.FRONTEND_URL || 'https://app.survpn.xyz';
         
-        // Success URL: Direct link to Mini App with payment transaction ID
-        // Format: https://t.me/botusername?start=payment_tx_ORDERID
-        // The start_param will be available in window.Telegram.WebApp.initDataUnsafe.start_param
+        // Success URL: BotFather Direct Link with query parameter
+        // Format: https://t.me/botusername/payment?tx=ORDERID
+        // The query parameter will be available in location.search
         const successInvoiceUrl = botUsername 
-            ? `https://t.me/${botUsername}?start=payment_tx_${orderId}`
+            ? `https://t.me/${botUsername}/payment?tx=${orderId}`
             : `${frontendUrl}/wallet?payment=pending&tx=${orderId}`;
         
-        // Fail URL: Direct link to Mini App wallet page
+        // Fail URL: BotFather Direct Link with failed status
         const failInvoiceUrl = botUsername
-            ? `https://t.me/${botUsername}?start=wallet`
+            ? `https://t.me/${botUsername}/payment?tx=${orderId}&status=failed`
             : `${frontendUrl}/wallet`;
+        
+        // Alternative: Use standard ?start= links (uncomment to use instead)
+        // const successInvoiceUrl = botUsername 
+        //     ? `https://t.me/${botUsername}?start=payment_tx_${orderId}`
+        //     : `${frontendUrl}/wallet?payment=pending&tx=${orderId}`;
+        // const failInvoiceUrl = botUsername
+        //     ? `https://t.me/${botUsername}?start=wallet`
+        //     : `${frontendUrl}/wallet`;
         
         if (!botUsername) {
             console.warn('WARNING: BOT_USERNAME not set. Using fallback frontend URL for Plisio redirects.');
             console.warn('Set BOT_USERNAME environment variable to enable Telegram direct link mini app redirects.');
         } else {
-            console.log('Using Telegram direct link mini app for Plisio redirects:', { successInvoiceUrl, failInvoiceUrl });
+            console.log('Using Telegram Direct Link mini app for Plisio redirects:', { successInvoiceUrl, failInvoiceUrl });
         }
 
         const params = {
