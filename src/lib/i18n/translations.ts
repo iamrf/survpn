@@ -242,6 +242,7 @@ export interface Translations {
     vpnServers: string;
     other: string;
     noSubscription: string;
+    used: string;
   };
 
   // Admin Pages
@@ -492,6 +493,7 @@ export const translations: Record<LanguageCode, Translations> = {
       subscriptionDescription: 'لینک اشتراک و سرورهای VPN',
       vpnServers: 'سرورهای VPN',
       other: 'سایر',
+      used: 'استفاده شده',
     },
     admin: {
       title: 'مدیریت',
@@ -704,6 +706,7 @@ export const translations: Record<LanguageCode, Translations> = {
       subscriptionDescription: 'Subscription link and VPN servers',
       vpnServers: 'VPN Servers',
       other: 'Other',
+      used: 'Used',
     },
     admin: {
       title: 'Admin',
@@ -910,6 +913,7 @@ export const translations: Record<LanguageCode, Translations> = {
       subscriptionDescription: 'رابط الاشتراك وخوادم VPN',
       vpnServers: 'خوادم VPN',
       other: 'أخرى',
+      used: 'مستخدم',
     },
     admin: {
       title: 'الإدارة',

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { getTelegramUser, hapticSelection } from "@/lib/telegram";
+import { getTelegramUser, hapticSelection, hapticNotification } from "@/lib/telegram";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger, DrawerClose } from "@/components/ui/drawer";
 import { useUpdateUserLanguageMutation } from "@/store/api";
@@ -24,33 +24,56 @@ const LanguageSwitcher = () => {
   const currentLanguage = supportedLanguages.find(lang => lang.code === language) || supportedLanguages[0];
 
   const handleLanguageChange = async (langCode: LanguageCode) => {
-    if (!tgUser) return;
+    if (!tgUser) {
+      hapticNotification('error');
+      toast({
+        title: t.common.error,
+        description: t.wallet.userNotFound,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Don't do anything if selecting the same language
+    if (langCode === language) {
+      setIsLanguageDrawerOpen(false);
+      return;
+    }
+    
     hapticSelection();
+    
     try {
       const result = await updateUserLanguage({
         userId: tgUser.id,
         languageCode: langCode
       }).unwrap();
 
-      if (result.success) {
+      if (result?.success) {
         setLanguage(langCode);
         setIsLanguageDrawerOpen(false);
+        hapticNotification('success');
         toast({
           title: t.common.success,
           description: t.settings.languageChanged,
         });
       } else {
+        hapticNotification('error');
         toast({
           title: t.common.error,
-          description: result.error || t.common.error,
+          description: (result as any)?.error || result?.message || t.common.error,
           variant: "destructive",
         });
       }
     } catch (error: any) {
       console.error('Error updating language:', error);
+      hapticNotification('error');
+      const errorMessage = error?.data?.error || 
+                          error?.data?.message || 
+                          error?.message || 
+                          t.common.error;
       toast({
         title: t.common.error,
-        description: error?.data?.error || t.common.error,
+        description: errorMessage,
         variant: "destructive",
       });
     }

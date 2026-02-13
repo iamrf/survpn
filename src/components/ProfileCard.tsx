@@ -90,11 +90,11 @@ const ProfileCard = () => {
   // Get status badge
   const getStatusBadge = (s: string) => {
     switch (s) {
-      case 'active': return { label: 'فعال', color: 'bg-green-500/10 text-green-500 border-green-500/20' };
-      case 'limited': return { label: 'محدود شده', color: 'bg-orange-500/10 text-orange-500 border-orange-500/20' };
-      case 'expired': return { label: 'منقضی شده', color: 'bg-red-500/10 text-red-500 border-red-500/20' };
-      case 'disabled': return { label: 'غیرفعال', color: 'bg-gray-500/10 text-gray-500 border-gray-500/20' };
-      default: return { label: 'غیرفعال', color: 'bg-gray-500/10 text-gray-500 border-gray-500/20' };
+      case 'active': return { label: t.subscription.active, color: 'bg-green-500/10 text-green-500 border-green-500/20' };
+      case 'limited': return { label: t.subscription.limited, color: 'bg-orange-500/10 text-orange-500 border-orange-500/20' };
+      case 'expired': return { label: t.subscription.expired, color: 'bg-red-500/10 text-red-500 border-red-500/20' };
+      case 'disabled': return { label: t.subscription.disabled, color: 'bg-gray-500/10 text-gray-500 border-gray-500/20' };
+      default: return { label: t.subscription.inactive, color: 'bg-gray-500/10 text-gray-500 border-gray-500/20' };
     }
   };
   
@@ -288,9 +288,9 @@ const ProfileCard = () => {
                 {/* Usage Bar */}
                 {dataLimit > 0 && (
                   <div className="space-y-1.5" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center justify-between text-xs font-vazir">
-                      <span className="text-muted-foreground">
-                        {Math.round(usagePercent)}% استفاده شده
+                    <div className={`flex items-center justify-between text-xs font-vazir ${isRTL ? 'flex-row-reverse' : ''}`}>
+                      <span className={`text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>
+                        {Math.round(usagePercent)}% {t.subscription.used}
                       </span>
                       <span dir="ltr" className="text-muted-foreground text-left">
                         {formatBytes(dataUsed)} / {formatBytes(dataLimit)}

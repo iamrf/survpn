@@ -3,34 +3,67 @@ import { config } from '../lib/config';
 
 const API_URL = config.apiUrl || '';
 
-// Define base query with error handling and retry logic
+/**
+ * Base query with error handling and retry logic
+ * Implements exponential backoff for retries and proper error handling
+ */
 const baseQueryWithRetry: BaseQueryFn = async (args, api, extraOptions) => {
     const baseQueryFn = fetchBaseQuery({
-    baseUrl: API_URL,
-    prepareHeaders: (headers) => {
-        headers.set('Content-Type', 'application/json');
-        return headers;
-    },
-    timeout: 30000,
-});
+        baseUrl: API_URL,
+        prepareHeaders: (headers) => {
+            headers.set('Content-Type', 'application/json');
+            return headers;
+        },
+        timeout: 30000,
+        // Add credentials if needed
+        credentials: 'same-origin',
+    });
 
     let result = await baseQueryFn(args, api, extraOptions);
 
-    // Retry logic for network errors
+    // Retry logic for network errors and server errors
     if (result.error && 'status' in result.error) {
         const status = result.error.status;
-        // Retry on network errors (status 0 or 500-599)
-        if (status === 'FETCH_ERROR' || (typeof status === 'number' && status >= 500 && status < 600)) {
-            // Retry once after 1 second
-            await new Promise(resolve => setTimeout(resolve, 1000));
+        const maxRetries = 2;
+        let retryCount = 0;
+
+        // Retry on network errors (status 0 or FETCH_ERROR) or server errors (500-599)
+        while (
+            retryCount < maxRetries &&
+            (status === 'FETCH_ERROR' || 
+             status === 'TIMEOUT_ERROR' ||
+             (typeof status === 'number' && status >= 500 && status < 600))
+        ) {
+            // Exponential backoff: 1s, 2s
+            const delay = Math.pow(2, retryCount) * 1000;
+            await new Promise(resolve => setTimeout(resolve, delay));
+            
             result = await baseQueryFn(args, api, extraOptions);
+            
+            // If retry succeeded or error is not retryable, break
+            if (!result.error || 
+                (result.error && 'status' in result.error && 
+                 result.error.status !== 'FETCH_ERROR' && 
+                 result.error.status !== 'TIMEOUT_ERROR' &&
+                 (typeof result.error.status !== 'number' || result.error.status < 500 || result.error.status >= 600))) {
+                break;
+            }
+            
+            retryCount++;
         }
+    }
+
+    // Log errors in development
+    if (result.error && process.env.NODE_ENV !== 'production') {
+        console.error('[RTK Query Error]', {
+            endpoint: typeof args === 'string' ? args : args.url,
+            error: result.error,
+        });
     }
 
     return result;
 };
 
-const baseQuery = baseQueryWithRetry;
 
 /**
  * RTK Query API - Tag Strategy:
@@ -66,7 +99,7 @@ const baseQuery = baseQueryWithRetry;
 
 export const api = createApi({
     reducerPath: 'api',
-    baseQuery,
+    baseQuery: baseQueryWithRetry,
     tagTypes: [
         'User',
         'Plans',

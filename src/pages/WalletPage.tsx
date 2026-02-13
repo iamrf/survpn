@@ -19,7 +19,7 @@ import { WalletBalanceSkeleton, TransactionSkeleton } from "@/components/skeleto
 import { motion } from "framer-motion";
 import { getTelegramUser } from "@/lib/telegram";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
-import { store } from "@/store";
+import { selectPendingPlisioTransactions } from "@/store/selectors";
 import { 
   useCreatePaymentMutation, 
   useSyncUserMutation,
@@ -453,23 +453,17 @@ const WalletPage = () => {
     }
   };
 
+  // Get pending transactions from Redux store using memoized selector
+  const allPendingTransactions = useAppSelector(selectPendingPlisioTransactions);
+
   const handleCheckPendingTransactions = async () => {
     if (!tgUser?.id || isCheckingPending) return; // Prevent concurrent calls
     
     hapticImpact('light');
     setIsCheckingPending(true);
     
-    // Get pending transactions from Redux store
-    const state = store.getState();
-    const pendingTransactions = state.transactions.pendingTransactions.filter(
-      (tx: any) => 
-        tx.status === 'pending' && 
-        tx.type === 'deposit' && 
-        (tx.payment_method === 'plisio' || tx.plisio_invoice_id)
-    );
-    
     // Limit to 3 transactions at a time
-    const transactionsToCheck = pendingTransactions.slice(0, 3);
+    const transactionsToCheck = allPendingTransactions.slice(0, 3);
 
     if (transactionsToCheck.length === 0) {
       toast({
