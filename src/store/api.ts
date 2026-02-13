@@ -113,6 +113,8 @@ export const api = createApi({
         'Stats',
         'FinanceSummary',
         'ReferralStats',
+        'AdminMessages',
+        'UserMessages',
     ],
     keepUnusedDataFor: 60,
     endpoints: (builder) => ({
@@ -479,6 +481,8 @@ export const api = createApi({
             traffic: number;
             duration: number;
             price: number;
+            original_price?: number;
+            offer_price?: number;
             description?: string;
             is_active?: boolean;
             display_order?: number;
@@ -498,6 +502,8 @@ export const api = createApi({
                 traffic?: number;
                 duration?: number;
                 price?: number;
+                original_price?: number;
+                offer_price?: number;
                 description?: string;
                 is_active?: boolean;
                 display_order?: number;
@@ -569,6 +575,78 @@ export const api = createApi({
             ],
         }),
 
+        // ──────────────────────────────────────────────────────────────
+        // Admin Messages endpoints
+        // ──────────────────────────────────────────────────────────────
+        getAdminMessages: builder.query<{ success: boolean; messages?: any[] }, void>({
+            query: () => '/api/admin/messages',
+            providesTags: ['AdminMessages'],
+        }),
+
+        getAdminMessage: builder.query<{ success: boolean; message?: any }, string>({
+            query: (messageId) => `/api/admin/messages/${messageId}`,
+            providesTags: (result, error, messageId) => [{ type: 'AdminMessages', id: messageId }],
+        }),
+
+        createMessage: builder.mutation<{ success: boolean; message?: string; error?: string }, {
+            id: string;
+            title: string;
+            message: string;
+            type: 'info' | 'warning' | 'danger' | 'success' | 'status';
+            target_audience: 'all' | 'subscribed' | 'role' | 'expiring_soon';
+            target_role?: string;
+            target_days_before_expiry?: number;
+            is_active?: boolean;
+            display_order?: number;
+            expires_at?: string;
+        }>({
+            query: (message) => ({
+                url: '/api/admin/messages',
+                method: 'POST',
+                body: message,
+            }),
+            invalidatesTags: ['AdminMessages'],
+        }),
+
+        updateMessage: builder.mutation<{ success: boolean; message?: string; error?: string }, {
+            messageId: string;
+            message: {
+                title?: string;
+                message?: string;
+                type?: 'info' | 'warning' | 'danger' | 'success' | 'status';
+                target_audience?: 'all' | 'subscribed' | 'role' | 'expiring_soon';
+                target_role?: string;
+                target_days_before_expiry?: number;
+                is_active?: boolean;
+                display_order?: number;
+                expires_at?: string;
+            };
+        }>({
+            query: ({ messageId, message }) => ({
+                url: `/api/admin/messages/${messageId}`,
+                method: 'PUT',
+                body: message,
+            }),
+            invalidatesTags: (result, error, { messageId }) => [
+                { type: 'AdminMessages', id: messageId },
+                'AdminMessages',
+            ],
+        }),
+
+        deleteMessage: builder.mutation<{ success: boolean; message?: string; error?: string }, string>({
+            query: (messageId) => ({
+                url: `/api/admin/messages/${messageId}`,
+                method: 'DELETE',
+            }),
+            invalidatesTags: ['AdminMessages'],
+        }),
+
+        // Get messages for current user
+        getUserMessages: builder.query<{ success: boolean; messages?: any[] }, number>({
+            query: (userId) => `/api/messages?userId=${userId}`,
+            providesTags: ['UserMessages'],
+        }),
+
         // Health check
         checkBackendHealth: builder.query<boolean, void>({
             query: () => '/health',
@@ -636,6 +714,19 @@ export const {
     useGetReferralStatsQuery,
     useLazyGetReferralStatsQuery,
     useAdminUpdateUserReferralMutation,
+    
+    // Admin Messages hooks
+    useGetAdminMessagesQuery,
+    useLazyGetAdminMessagesQuery,
+    useGetAdminMessageQuery,
+    useLazyGetAdminMessageQuery,
+    useCreateMessageMutation,
+    useUpdateMessageMutation,
+    useDeleteMessageMutation,
+    
+    // User Messages hooks
+    useGetUserMessagesQuery,
+    useLazyGetUserMessagesQuery,
     
     // Health check
     useCheckBackendHealthQuery,

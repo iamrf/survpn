@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ShieldCheck, Users, Settings, Database, Activity, Search, RefreshCcw, ChevronRight, ArrowUpRight, Copy, Check, X as Close, Wallet, Banknote, User, TrendingUp, TrendingDown, Clock, ExternalLink, Package, Plus, Edit, Trash2, Gift, Percent, Star } from "lucide-react";
+import { ShieldCheck, Users, Settings, Database, Activity, Search, RefreshCcw, ChevronRight, ArrowUpRight, Copy, Check, X as Close, Wallet, Banknote, User, TrendingUp, TrendingDown, Clock, ExternalLink, Package, Plus, Edit, Trash2, Gift, Percent, Star, MessageSquare, AlertCircle, Info, AlertTriangle, CheckCircle } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
@@ -17,6 +17,10 @@ import {
     useCreatePlanMutation,
     useUpdatePlanMutation,
     useDeletePlanMutation,
+    useGetAdminMessagesQuery,
+    useCreateMessageMutation,
+    useUpdateMessageMutation,
+    useDeleteMessageMutation,
 } from "@/store/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,7 +44,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const AdminPage = () => {
-    const [activeTab, setActiveTab] = useState<"overview" | "transactions" | "withdrawals" | "plans">("overview");
+    const [activeTab, setActiveTab] = useState<"overview" | "transactions" | "withdrawals" | "plans" | "messages">("overview");
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 
     // Withdrawal Detail Drawer State
@@ -77,9 +81,30 @@ const AdminPage = () => {
         traffic: '',
         duration: '',
         price: '',
+        original_price: '',
+        offer_price: '',
         description: '',
         is_active: true,
         display_order: 0
+    });
+
+    // Messages State
+    const [isMessageDrawerOpen, setIsMessageDrawerOpen] = useState(false);
+    const [selectedMessage, setSelectedMessage] = useState<any>(null);
+    const [isMessageDeleteConfirmOpen, setIsMessageDeleteConfirmOpen] = useState(false);
+    const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
+    const [saveMessageLoading, setSaveMessageLoading] = useState(false);
+    const [messageForm, setMessageForm] = useState({
+        id: '',
+        title: '',
+        message: '',
+        type: 'info' as 'info' | 'warning' | 'danger' | 'success' | 'status',
+        target_audience: 'all' as 'all' | 'subscribed' | 'role' | 'expiring_soon',
+        target_role: '',
+        target_days_before_expiry: '',
+        is_active: true,
+        display_order: 0,
+        expires_at: ''
     });
 
     const navigate = useNavigate();
@@ -106,12 +131,20 @@ const AdminPage = () => {
     });
     const plansList = plansData?.plans || [];
     
+    const { data: messagesData, isLoading: messagesLoading, refetch: refetchMessages } = useGetAdminMessagesQuery(undefined, {
+        skip: activeTab !== 'messages',
+    });
+    const messagesList = messagesData?.messages || [];
+    
     // Mutations
     const [updateWithdrawalStatus] = useUpdateWithdrawalStatusMutation();
     const [updateConfig] = useUpdateConfigMutation();
     const [createPlan] = useCreatePlanMutation();
     const [updatePlan] = useUpdatePlanMutation();
     const [deletePlan] = useDeletePlanMutation();
+    const [createMessage] = useCreateMessageMutation();
+    const [updateMessage] = useUpdateMessageMutation();
+    const [deleteMessage] = useDeleteMessageMutation();
     const { data: userFinanceData, isLoading: financeLoading } = useGetUserFinanceSummaryQuery(
         selectedWithdrawal?.user_id,
         { skip: !selectedWithdrawal?.user_id }
@@ -151,6 +184,8 @@ const AdminPage = () => {
                 traffic: plan.traffic.toString(),
                 duration: plan.duration.toString(),
                 price: plan.price.toString(),
+                original_price: plan.original_price ? plan.original_price.toString() : plan.price.toString(),
+                offer_price: plan.offer_price ? plan.offer_price.toString() : plan.price.toString(),
                 description: plan.description || '',
                 is_active: plan.is_active === 1,
                 display_order: plan.display_order || 0
@@ -163,6 +198,8 @@ const AdminPage = () => {
                 traffic: '',
                 duration: '',
                 price: '',
+                original_price: '',
+                offer_price: '',
                 description: '',
                 is_active: true,
                 display_order: 0
@@ -178,7 +215,7 @@ const AdminPage = () => {
         }
 
         setSavePlanLoading(true);
-        const planData = {
+        const planData: any = {
             id: planForm.id,
             name: planForm.name,
             traffic: parseInt(planForm.traffic),
@@ -188,6 +225,14 @@ const AdminPage = () => {
             is_active: planForm.is_active,
             display_order: planForm.display_order
         };
+        
+        // Add offer fields if provided
+        if (planForm.original_price) {
+            planData.original_price = parseFloat(planForm.original_price);
+        }
+        if (planForm.offer_price) {
+            planData.offer_price = parseFloat(planForm.offer_price);
+        }
 
         try {
             const result = selectedPlan
@@ -222,6 +267,125 @@ const AdminPage = () => {
             }
         } catch (err: any) {
             toast({ title: "خطا", description: err?.data?.error || "خطا در حذف پلن", variant: "destructive" });
+        }
+    };
+
+    // Message Handlers
+    const handleOpenMessageDrawer = (message?: any) => {
+        if (message) {
+            setSelectedMessage(message);
+            setMessageForm({
+                id: message.id,
+                title: message.title,
+                message: message.message,
+                type: message.type,
+                target_audience: message.target_audience,
+                target_role: message.target_role || '',
+                target_days_before_expiry: message.target_days_before_expiry ? message.target_days_before_expiry.toString() : '',
+                is_active: message.is_active === 1,
+                display_order: message.display_order || 0,
+                expires_at: message.expires_at || ''
+            });
+        } else {
+            setSelectedMessage(null);
+            setMessageForm({
+                id: `msg_${Date.now()}`,
+                title: '',
+                message: '',
+                type: 'info',
+                target_audience: 'all',
+                target_role: '',
+                target_days_before_expiry: '',
+                is_active: true,
+                display_order: 0,
+                expires_at: ''
+            });
+        }
+        setIsMessageDrawerOpen(true);
+    };
+
+    const handleSaveMessage = async () => {
+        if (!messageForm.id || !messageForm.title || !messageForm.message) {
+            toast({ title: "خطا", description: "لطفا تمام فیلدهای الزامی را پر کنید", variant: "destructive" });
+            return;
+        }
+
+        setSaveMessageLoading(true);
+        const messageData: any = {
+            id: messageForm.id,
+            title: messageForm.title,
+            message: messageForm.message,
+            type: messageForm.type,
+            target_audience: messageForm.target_audience,
+            is_active: messageForm.is_active,
+            display_order: messageForm.display_order
+        };
+
+        if (messageForm.target_audience === 'role' && messageForm.target_role) {
+            messageData.target_role = messageForm.target_role;
+        }
+        if (messageForm.target_audience === 'expiring_soon' && messageForm.target_days_before_expiry) {
+            messageData.target_days_before_expiry = parseInt(messageForm.target_days_before_expiry);
+        }
+        if (messageForm.expires_at) {
+            messageData.expires_at = messageForm.expires_at;
+        }
+
+        try {
+            const result = selectedMessage
+                ? await updateMessage({ messageId: selectedMessage.id, message: messageData }).unwrap()
+                : await createMessage(messageData).unwrap();
+
+            if (result.success) {
+                toast({ title: "موفقیت", description: result.message || "پیام با موفقیت ذخیره شد" });
+                setIsMessageDrawerOpen(false);
+                refetchMessages();
+            } else {
+                toast({ title: "خطا", description: result.error || "خطا در ذخیره پیام", variant: "destructive" });
+            }
+        } catch (err: any) {
+            toast({ title: "خطا", description: err?.data?.error || "خطا در ذخیره پیام", variant: "destructive" });
+        } finally {
+            setSaveMessageLoading(false);
+        }
+    };
+
+    const handleDeleteMessage = async () => {
+        if (!messageToDelete) return;
+        try {
+            const result = await deleteMessage(messageToDelete).unwrap();
+            if (result.success) {
+                toast({ title: "موفقیت", description: result.message || "پیام با موفقیت حذف شد" });
+                setIsMessageDeleteConfirmOpen(false);
+                setMessageToDelete(null);
+                refetchMessages();
+            } else {
+                toast({ title: "خطا", description: result.error || "خطا در حذف پیام", variant: "destructive" });
+            }
+        } catch (err: any) {
+            toast({ title: "خطا", description: err?.data?.error || "خطا در حذف پیام", variant: "destructive" });
+        }
+    };
+
+    const getMessageTypeIcon = (type: string) => {
+        switch (type) {
+            case 'info': return <Info className="w-4 h-4" />;
+            case 'warning': return <AlertTriangle className="w-4 h-4" />;
+            case 'danger': return <AlertCircle className="w-4 h-4" />;
+            case 'success': return <CheckCircle className="w-4 h-4" />;
+            case 'status': return <Activity className="w-4 h-4" />;
+            default: return <Info className="w-4 h-4" />;
+        }
+    };
+
+    const getMessageTypeColor = (type: string) => {
+        switch (type) {
+            case 'info': return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+            case 'warning': return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20';
+            case 'danger': return 'bg-red-500/10 text-red-400 border-red-500/20';
+            case 'success': return 'bg-green-500/10 text-green-400 border-green-500/20';
+            case 'status': return 'bg-purple-500/10 text-purple-400 border-purple-500/20';
+            default: return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
         }
     };
 
@@ -310,6 +474,13 @@ const AdminPage = () => {
                     >
                         <Package size={16} />
                         پلن‌ها
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("messages")}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-medium transition-all duration-300 ${activeTab === "messages" ? "bg-primary text-primary-foreground shadow-lg" : "text-muted-foreground hover:text-white"}`}
+                    >
+                        <MessageSquare size={16} />
+                        پیام‌ها
                     </button>
                 </div>
 
@@ -596,7 +767,21 @@ const AdminPage = () => {
                                                     </div>
                                                 </div>
                                                 <div className="text-left space-y-1">
-                                                    <p className="text-lg font-bold font-mono text-primary">${plan.price}</p>
+                                                    {plan.original_price && plan.original_price > plan.price ? (
+                                                        <>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-sm text-muted-foreground line-through font-mono opacity-70">
+                                                                    ${plan.original_price.toFixed(2)}
+                                                                </span>
+                                                                <Badge variant="outline" className="text-xs bg-red-500/20 text-red-400 border-red-500/30 font-vazir px-2 py-0.5">
+                                                                    -{Math.round(((plan.original_price - plan.price) / plan.original_price) * 100)}%
+                                                                </Badge>
+                                                            </div>
+                                                            <p className="text-lg font-bold font-mono text-green-400">${plan.price.toFixed(2)}</p>
+                                                        </>
+                                                    ) : (
+                                                        <p className="text-lg font-bold font-mono text-primary">${plan.price.toFixed(2)}</p>
+                                                    )}
                                                     <p className="text-[10px] text-muted-foreground font-vazir">ID: {plan.id}</p>
                                                 </div>
                                             </div>
@@ -640,6 +825,108 @@ const AdminPage = () => {
                                     ))
                                 ) : (
                                     <div className="py-12 text-center text-muted-foreground text-sm font-vazir">پلنی یافت نشد.</div>
+                                )}
+                            </div>
+                        </motion.div>
+                    ) : activeTab === "messages" ? (
+                        <motion.div
+                            key="messages"
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            className="space-y-4"
+                        >
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-bold font-vazir">مدیریت پیام‌ها</h3>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => refetchMessages()}
+                                        className={`p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors ${messagesLoading ? "animate-spin" : ""}`}
+                                    >
+                                        <RefreshCcw size={16} />
+                                    </button>
+                                    <Button
+                                        size="sm"
+                                        onClick={() => handleOpenMessageDrawer()}
+                                        className="h-9 rounded-xl gap-2 font-vazir"
+                                    >
+                                        <Plus size={16} />
+                                        افزودن پیام
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                {messagesLoading ? (
+                                    <div className="py-12 text-center text-muted-foreground text-sm font-vazir">در حال بارگذاری...</div>
+                                ) : messagesList.length > 0 ? (
+                                    messagesList.map((msg) => (
+                                        <motion.div
+                                            key={msg.id}
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className="glass p-5 rounded-3xl border border-white/5 space-y-4 shadow-lg"
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3 flex-1">
+                                                    <div className={`p-3 rounded-2xl ${getMessageTypeColor(msg.type)}`}>
+                                                        {getMessageTypeIcon(msg.type)}
+                                                    </div>
+                                                    <div className="text-right flex-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <h4 className="font-bold text-base font-vazir">{msg.title}</h4>
+                                                            <Badge variant="outline" className={`${getMessageTypeColor(msg.type)} text-xs`}>
+                                                                {msg.type}
+                                                            </Badge>
+                                                            {msg.is_active === 0 && (
+                                                                <Badge variant="secondary" className="bg-red-500/10 text-red-500 border-red-500/20 text-[10px]">غیرفعال</Badge>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-xs text-muted-foreground font-vazir mt-1 line-clamp-2">{msg.message}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="bg-white/5 p-3 rounded-xl border border-white/5 text-center">
+                                                    <p className="text-[10px] text-muted-foreground font-vazir mb-1">مخاطب</p>
+                                                    <p className="text-xs font-bold font-vazir">
+                                                        {msg.target_audience === 'all' ? 'همه کاربران' :
+                                                         msg.target_audience === 'subscribed' ? 'کاربران دارای اشتراک' :
+                                                         msg.target_audience === 'role' ? `نقش: ${msg.target_role}` :
+                                                         `منقضی در ${msg.target_days_before_expiry} روز`}
+                                                    </p>
+                                                </div>
+                                                <div className="bg-white/5 p-3 rounded-xl border border-white/5 text-center">
+                                                    <p className="text-[10px] text-muted-foreground font-vazir mb-1">ترتیب</p>
+                                                    <p className="text-sm font-bold font-mono">{msg.display_order || 0}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2 pt-2 border-t border-white/5">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="flex-1 rounded-xl gap-2 font-vazir border-white/10 hover:bg-white/5"
+                                                    onClick={() => handleOpenMessageDrawer(msg)}
+                                                >
+                                                    <Edit size={14} />
+                                                    ویرایش
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="rounded-xl gap-2 font-vazir text-red-500 hover:bg-red-500/10 hover:text-red-500"
+                                                    onClick={() => {
+                                                        setMessageToDelete(msg.id);
+                                                        setIsMessageDeleteConfirmOpen(true);
+                                                    }}
+                                                >
+                                                    <Trash2 size={14} />
+                                                </Button>
+                                            </div>
+                                        </motion.div>
+                                    ))
+                                ) : (
+                                    <div className="py-12 text-center text-muted-foreground text-sm font-vazir">پیامی یافت نشد.</div>
                                 )}
                             </div>
                         </motion.div>
@@ -1162,7 +1449,7 @@ const AdminPage = () => {
 
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-2 text-right">
-                                        <Label htmlFor="plan-price">قیمت ($)</Label>
+                                        <Label htmlFor="plan-price">قیمت فعلی ($)</Label>
                                         <Input
                                             id="plan-price"
                                             type="number"
@@ -1183,6 +1470,35 @@ const AdminPage = () => {
                                             onChange={(e) => setPlanForm({ ...planForm, display_order: parseInt(e.target.value) || 0 })}
                                             placeholder="0"
                                         />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-2 text-right">
+                                        <Label htmlFor="plan-original-price">قیمت اصلی قبل از تخفیف ($)</Label>
+                                        <Input
+                                            id="plan-original-price"
+                                            type="number"
+                                            step="0.01"
+                                            className="bg-white/5 border-white/10 rounded-xl font-mono text-left"
+                                            value={planForm.original_price}
+                                            onChange={(e) => setPlanForm({ ...planForm, original_price: e.target.value })}
+                                            placeholder="قبل از تخفیف"
+                                        />
+                                        <p className="text-xs text-muted-foreground">قیمت قبل از تخفیف (اختیاری)</p>
+                                    </div>
+                                    <div className="space-y-2 text-right">
+                                        <Label htmlFor="plan-offer-price">قیمت با تخفیف ($)</Label>
+                                        <Input
+                                            id="plan-offer-price"
+                                            type="number"
+                                            step="0.01"
+                                            className="bg-white/5 border-white/10 rounded-xl font-mono text-left"
+                                            value={planForm.offer_price}
+                                            onChange={(e) => setPlanForm({ ...planForm, offer_price: e.target.value })}
+                                            placeholder="قیمت با تخفیف"
+                                        />
+                                        <p className="text-xs text-muted-foreground">قیمت بعد از تخفیف (اختیاری)</p>
                                     </div>
                                 </div>
 
@@ -1238,6 +1554,192 @@ const AdminPage = () => {
                         <AlertDialogCancel className="rounded-xl font-vazir">انصراف</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={handleDeletePlan}
+                            className="rounded-xl font-vazir bg-red-600 hover:bg-red-700"
+                        >
+                            بله، حذف کن
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Message Edit/Create Drawer */}
+            <Drawer open={isMessageDrawerOpen} onOpenChange={setIsMessageDrawerOpen}>
+                <DrawerContent className={`max-w-md mx-auto bg-card/95 backdrop-blur-xl border-white/10 font-vazir ${isRTL ? 'text-right' : 'text-left'}`} dir={dir}>
+                    <div className="mx-auto mt-4 h-1.5 w-12 rounded-full bg-white/10" />
+                    <ScrollArea className="max-h-[85vh] overflow-y-auto">
+                        <div className="p-6 space-y-6">
+                            <DrawerHeader className="p-0 text-right">
+                                <DrawerTitle className="text-xl font-black">
+                                    {selectedMessage ? 'ویرایش پیام' : 'افزودن پیام جدید'}
+                                </DrawerTitle>
+                                <DrawerDescription className="font-vazir text-muted-foreground">
+                                    {selectedMessage ? 'ویرایش پیام و تنظیمات نمایش' : 'ایجاد پیام جدید برای کاربران'}
+                                </DrawerDescription>
+                            </DrawerHeader>
+
+                            <div className="space-y-4">
+                                <div className="space-y-2 text-right">
+                                    <Label htmlFor="message-id">شناسه پیام (ID)</Label>
+                                    <Input
+                                        id="message-id"
+                                        className="bg-white/5 border-white/10 rounded-xl font-mono"
+                                        value={messageForm.id}
+                                        onChange={(e) => setMessageForm({ ...messageForm, id: e.target.value })}
+                                        disabled={!!selectedMessage}
+                                        placeholder="مثال: msg_123456"
+                                    />
+                                    <p className="text-[10px] text-muted-foreground">شناسه یکتا برای پیام</p>
+                                </div>
+
+                                <div className="space-y-2 text-right">
+                                    <Label htmlFor="message-title">عنوان پیام</Label>
+                                    <Input
+                                        id="message-title"
+                                        className="bg-white/5 border-white/10 rounded-xl font-vazir"
+                                        value={messageForm.title}
+                                        onChange={(e) => setMessageForm({ ...messageForm, title: e.target.value })}
+                                        placeholder="عنوان پیام"
+                                    />
+                                </div>
+
+                                <div className="space-y-2 text-right">
+                                    <Label htmlFor="message-content">متن پیام</Label>
+                                    <Textarea
+                                        id="message-content"
+                                        className="bg-white/5 border-white/10 rounded-xl font-vazir resize-none"
+                                        rows={4}
+                                        value={messageForm.message}
+                                        onChange={(e) => setMessageForm({ ...messageForm, message: e.target.value })}
+                                        placeholder="متن پیام..."
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-2 text-right">
+                                        <Label htmlFor="message-type">نوع پیام</Label>
+                                        <select
+                                            id="message-type"
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 font-vazir text-sm"
+                                            value={messageForm.type}
+                                            onChange={(e) => setMessageForm({ ...messageForm, type: e.target.value as any })}
+                                        >
+                                            <option value="info">اطلاعات</option>
+                                            <option value="warning">هشدار</option>
+                                            <option value="danger">خطر</option>
+                                            <option value="success">موفقیت</option>
+                                            <option value="status">وضعیت</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2 text-right">
+                                        <Label htmlFor="message-order">ترتیب نمایش</Label>
+                                        <Input
+                                            id="message-order"
+                                            type="number"
+                                            className="bg-white/5 border-white/10 rounded-xl font-mono text-left"
+                                            value={messageForm.display_order}
+                                            onChange={(e) => setMessageForm({ ...messageForm, display_order: parseInt(e.target.value) || 0 })}
+                                            placeholder="0"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2 text-right">
+                                    <Label htmlFor="message-audience">مخاطب</Label>
+                                    <select
+                                        id="message-audience"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 font-vazir text-sm"
+                                        value={messageForm.target_audience}
+                                        onChange={(e) => setMessageForm({ ...messageForm, target_audience: e.target.value as any })}
+                                    >
+                                        <option value="all">همه کاربران</option>
+                                        <option value="subscribed">کاربران دارای اشتراک</option>
+                                        <option value="role">نقش خاص</option>
+                                        <option value="expiring_soon">اشتراک در حال انقضا</option>
+                                    </select>
+                                </div>
+
+                                {messageForm.target_audience === 'role' && (
+                                    <div className="space-y-2 text-right">
+                                        <Label htmlFor="message-role">نقش کاربر</Label>
+                                        <select
+                                            id="message-role"
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 font-vazir text-sm"
+                                            value={messageForm.target_role}
+                                            onChange={(e) => setMessageForm({ ...messageForm, target_role: e.target.value })}
+                                        >
+                                            <option value="user">کاربر عادی</option>
+                                            <option value="admin">مدیر</option>
+                                        </select>
+                                    </div>
+                                )}
+
+                                {messageForm.target_audience === 'expiring_soon' && (
+                                    <div className="space-y-2 text-right">
+                                        <Label htmlFor="message-days">روز قبل از انقضا</Label>
+                                        <Input
+                                            id="message-days"
+                                            type="number"
+                                            className="bg-white/5 border-white/10 rounded-xl font-mono text-left"
+                                            value={messageForm.target_days_before_expiry}
+                                            onChange={(e) => setMessageForm({ ...messageForm, target_days_before_expiry: e.target.value })}
+                                            placeholder="مثال: 7"
+                                        />
+                                        <p className="text-[10px] text-muted-foreground">پیام برای کاربرانی که اشتراکشان در X روز آینده منقضی می‌شود نمایش داده می‌شود</p>
+                                    </div>
+                                )}
+
+                                <div className="space-y-2 text-right">
+                                    <Label htmlFor="message-expires">تاریخ انقضا (اختیاری)</Label>
+                                    <Input
+                                        id="message-expires"
+                                        type="datetime-local"
+                                        className="bg-white/5 border-white/10 rounded-xl font-mono text-left"
+                                        value={messageForm.expires_at}
+                                        onChange={(e) => setMessageForm({ ...messageForm, expires_at: e.target.value })}
+                                    />
+                                    <p className="text-[10px] text-muted-foreground">پیام پس از این تاریخ نمایش داده نمی‌شود</p>
+                                </div>
+
+                                <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
+                                    <Label htmlFor="message-active" className="cursor-pointer font-vazir">فعال بودن پیام</Label>
+                                    <Switch
+                                        id="message-active"
+                                        checked={messageForm.is_active}
+                                        onCheckedChange={(checked) => setMessageForm({ ...messageForm, is_active: checked })}
+                                    />
+                                </div>
+                            </div>
+
+                            <DrawerFooter className="p-0 gap-3">
+                                <Button
+                                    className="w-full rounded-xl font-bold h-12"
+                                    onClick={handleSaveMessage}
+                                    disabled={saveMessageLoading}
+                                >
+                                    {saveMessageLoading ? 'در حال ذخیره...' : selectedMessage ? 'ذخیره تغییرات' : 'ایجاد پیام'}
+                                </Button>
+                                <DrawerClose asChild>
+                                    <Button variant="ghost" className="rounded-xl h-12">انصراف</Button>
+                                </DrawerClose>
+                            </DrawerFooter>
+                        </div>
+                    </ScrollArea>
+                </DrawerContent>
+            </Drawer>
+
+            {/* Delete Message Confirmation */}
+            <AlertDialog open={isMessageDeleteConfirmOpen} onOpenChange={setIsMessageDeleteConfirmOpen}>
+                <AlertDialogContent className="font-vazir text-right" dir="rtl">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>حذف پیام</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            آیا از حذف این پیام اطمینان دارید؟ این عمل غیرقابل بازگشت است.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="gap-3 sm:gap-0">
+                        <AlertDialogCancel className="rounded-xl font-vazir">انصراف</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDeleteMessage}
                             className="rounded-xl font-vazir bg-red-600 hover:bg-red-700"
                         >
                             بله، حذف کن

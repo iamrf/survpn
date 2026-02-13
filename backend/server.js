@@ -838,22 +838,29 @@ app.get('/api/admin/plans/:id', (req, res) => {
 
 // Admin: Create Plan
 app.post('/api/admin/plans', (req, res) => {
-    const { id, name, traffic, duration, price, description, is_active, display_order } = req.body;
+    const { id, name, traffic, duration, price, original_price, offer_price, description, is_active, display_order } = req.body;
 
     if (!id || !name || traffic === undefined || duration === undefined || price === undefined) {
         return res.status(400).json({ error: 'ID, name, traffic, duration, and price are required' });
     }
 
     try {
+        // Use offer_price if provided, otherwise use price
+        const finalPrice = offer_price !== undefined ? offer_price : price;
+        // Use original_price if provided, otherwise use price
+        const finalOriginalPrice = original_price !== undefined ? original_price : price;
+        
         db.prepare(`
-            INSERT INTO plans (id, name, traffic, duration, price, description, is_active, display_order, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            INSERT INTO plans (id, name, traffic, duration, price, original_price, offer_price, description, is_active, display_order, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         `).run(
             id,
             name,
             traffic,
             duration,
-            price,
+            finalPrice, // Current price (offer_price if set, otherwise price)
+            finalOriginalPrice, // Original price before offer
+            finalPrice, // Offer price (same as current price if no offer)
             description || null,
             is_active !== undefined ? (is_active ? 1 : 0) : 1,
             display_order || 0
@@ -871,7 +878,7 @@ app.post('/api/admin/plans', (req, res) => {
 // Admin: Update Plan
 app.put('/api/admin/plans/:id', (req, res) => {
     const { id } = req.params;
-    const { name, traffic, duration, price, description, is_active, display_order } = req.body;
+    const { name, traffic, duration, price, original_price, offer_price, description, is_active, display_order } = req.body;
 
     try {
         const existingPlan = db.prepare('SELECT * FROM plans WHERE id = ?').get(id);
@@ -896,8 +903,24 @@ app.put('/api/admin/plans/:id', (req, res) => {
             values.push(duration);
         }
         if (price !== undefined) {
+            // If price is updated, update offer_price to match (unless offer_price is explicitly set)
+            if (offer_price === undefined) {
+                updates.push('offer_price = ?');
+                values.push(price);
+            }
             updates.push('price = ?');
             values.push(price);
+        }
+        if (original_price !== undefined) {
+            updates.push('original_price = ?');
+            values.push(original_price);
+        }
+        if (offer_price !== undefined) {
+            updates.push('offer_price = ?');
+            values.push(offer_price);
+            // Also update price to match offer_price
+            updates.push('price = ?');
+            values.push(offer_price);
         }
         if (description !== undefined) {
             updates.push('description = ?');
@@ -1835,7 +1858,7 @@ app.post('/api/telegram/webhook', (req, res) => {
 app.get('/api/plans', (req, res) => {
     try {
         const plans = db.prepare(`
-            SELECT id, name, traffic, duration, price, description 
+            SELECT id, name, traffic, duration, price, original_price, offer_price, description 
             FROM plans 
             WHERE is_active = 1 
             ORDER BY display_order ASC
@@ -2038,6 +2061,238 @@ app.post('/api/create-custom-subscription', async (req, res) => {
         });
     } catch (error) {
         console.error('Error creating custom subscription:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ──────────────────────────────────────────────────────────────
+// Admin Messages API
+// ──────────────────────────────────────────────────────────────
+
+// Get all admin messages (for admin panel)
+app.get('/api/admin/messages', (req, res) => {
+    try {
+        const messages = db.prepare('SELECT * FROM admin_messages ORDER BY display_order ASC, created_at DESC').all();
+        res.json({ success: true, messages });
+    } catch (error) {
+        console.error('Error fetching admin messages:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get single admin message
+app.get('/api/admin/messages/:id', (req, res) => {
+    const { id } = req.params;
+    try {
+        const message = db.prepare('SELECT * FROM admin_messages WHERE id = ?').get(id);
+        if (!message) {
+            return res.status(404).json({ error: 'Message not found' });
+        }
+        res.json({ success: true, message });
+    } catch (error) {
+        console.error('Error fetching admin message:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Create admin message
+app.post('/api/admin/messages', (req, res) => {
+    const { id, title, message, type, target_audience, target_role, target_days_before_expiry, is_active, display_order, expires_at } = req.body;
+
+    if (!id || !title || !message || !type || !target_audience) {
+        return res.status(400).json({ error: 'ID, title, message, type, and target_audience are required' });
+    }
+
+    try {
+        db.prepare(`
+            INSERT INTO admin_messages (id, title, message, type, target_audience, target_role, target_days_before_expiry, is_active, display_order, expires_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `).run(
+            id,
+            title,
+            message,
+            type,
+            target_audience,
+            target_role || null,
+            target_days_before_expiry || null,
+            is_active !== undefined ? (is_active ? 1 : 0) : 1,
+            display_order || 0,
+            expires_at || null
+        );
+        res.json({ success: true, message: 'Admin message created successfully' });
+    } catch (error) {
+        if (error.message.includes('UNIQUE constraint')) {
+            return res.status(400).json({ error: 'Message ID already exists' });
+        }
+        console.error('Error creating admin message:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Update admin message
+app.put('/api/admin/messages/:id', (req, res) => {
+    const { id } = req.params;
+    const { title, message, type, target_audience, target_role, target_days_before_expiry, is_active, display_order, expires_at } = req.body;
+
+    try {
+        const existingMessage = db.prepare('SELECT * FROM admin_messages WHERE id = ?').get(id);
+        if (!existingMessage) {
+            return res.status(404).json({ error: 'Message not found' });
+        }
+
+        const updates = [];
+        const values = [];
+
+        if (title !== undefined) {
+            updates.push('title = ?');
+            values.push(title);
+        }
+        if (message !== undefined) {
+            updates.push('message = ?');
+            values.push(message);
+        }
+        if (type !== undefined) {
+            updates.push('type = ?');
+            values.push(type);
+        }
+        if (target_audience !== undefined) {
+            updates.push('target_audience = ?');
+            values.push(target_audience);
+        }
+        if (target_role !== undefined) {
+            updates.push('target_role = ?');
+            values.push(target_role);
+        }
+        if (target_days_before_expiry !== undefined) {
+            updates.push('target_days_before_expiry = ?');
+            values.push(target_days_before_expiry);
+        }
+        if (is_active !== undefined) {
+            updates.push('is_active = ?');
+            values.push(is_active ? 1 : 0);
+        }
+        if (display_order !== undefined) {
+            updates.push('display_order = ?');
+            values.push(display_order);
+        }
+        if (expires_at !== undefined) {
+            updates.push('expires_at = ?');
+            values.push(expires_at);
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({ error: 'No fields to update' });
+        }
+
+        updates.push('updated_at = CURRENT_TIMESTAMP');
+        values.push(id);
+
+        db.prepare(`
+            UPDATE admin_messages 
+            SET ${updates.join(', ')}
+            WHERE id = ?
+        `).run(...values);
+
+        res.json({ success: true, message: 'Admin message updated successfully' });
+    } catch (error) {
+        console.error('Error updating admin message:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Delete admin message
+app.delete('/api/admin/messages/:id', (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = db.prepare('DELETE FROM admin_messages WHERE id = ?').run(id);
+        if (result.changes === 0) {
+            return res.status(404).json({ error: 'Message not found' });
+        }
+        res.json({ success: true, message: 'Admin message deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting admin message:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get messages for user (based on targeting rules)
+app.get('/api/messages', async (req, res) => {
+    const { userId } = req.query;
+    
+    if (!userId) {
+        return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    try {
+        // Get user data
+        const user = db.prepare('SELECT id, role, balance FROM users WHERE id = ?').get(userId);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Get user subscription data from Marzban
+        const username = db.prepare('SELECT username FROM users WHERE id = ?').get(userId)?.username || `user_${userId}`;
+        const marzbanUsername = username || `user_${userId}`;
+        let userExpire = null;
+        let hasActiveSubscription = false;
+        
+        try {
+            const mUser = await marzban.getUser(marzbanUsername);
+            if (mUser && mUser.expire) {
+                userExpire = mUser.expire;
+                const now = Math.floor(Date.now() / 1000);
+                hasActiveSubscription = mUser.status === 'active' && userExpire > now;
+            }
+        } catch (mErr) {
+            // Marzban user might not exist, that's okay
+            console.log(`Could not fetch Marzban user for message targeting: ${marzbanUsername}`);
+        }
+        
+        const now = Math.floor(Date.now() / 1000);
+        let daysUntilExpiry = null;
+        if (userExpire) {
+            daysUntilExpiry = Math.ceil((userExpire - now) / 86400);
+        }
+        
+        const messages = [];
+        const allMessages = db.prepare(`
+            SELECT * FROM admin_messages 
+            WHERE is_active = 1 
+            AND (expires_at IS NULL OR expires_at > datetime('now'))
+            ORDER BY display_order ASC, created_at DESC
+        `).all();
+
+        for (const msg of allMessages) {
+            let shouldShow = false;
+
+            switch (msg.target_audience) {
+                case 'all':
+                    shouldShow = true;
+                    break;
+                case 'subscribed':
+                    // User has active subscription
+                    shouldShow = hasActiveSubscription;
+                    break;
+                case 'role':
+                    if (msg.target_role) {
+                        shouldShow = user.role === msg.target_role;
+                    }
+                    break;
+                case 'expiring_soon':
+                    if (msg.target_days_before_expiry && userExpire) {
+                        shouldShow = daysUntilExpiry !== null && daysUntilExpiry <= msg.target_days_before_expiry && daysUntilExpiry > 0;
+                    }
+                    break;
+            }
+
+            if (shouldShow) {
+                messages.push(msg);
+            }
+        }
+
+        res.json({ success: true, messages });
+    } catch (error) {
+        console.error('Error fetching messages for user:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

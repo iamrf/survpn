@@ -134,6 +134,67 @@ function runMigrations() {
             // Config might already exist
         }
         
+        // Check if plan offers migration is needed
+        const plansTableInfo = db.prepare("PRAGMA table_info(plans)").all();
+        const hasOriginalPrice = plansTableInfo.some(col => col.name === 'original_price');
+        const hasOfferPrice = plansTableInfo.some(col => col.name === 'offer_price');
+        
+        if (!hasOriginalPrice || !hasOfferPrice) {
+            console.log('Running plan offers migration...');
+            
+            if (!hasOriginalPrice) {
+                try {
+                    db.exec('ALTER TABLE plans ADD COLUMN original_price DECIMAL(18, 8)');
+                    console.log('Added original_price column');
+                } catch (e) {
+                    console.log('original_price column may already exist');
+                }
+            }
+            
+            if (!hasOfferPrice) {
+                try {
+                    db.exec('ALTER TABLE plans ADD COLUMN offer_price DECIMAL(18, 8)');
+                    console.log('Added offer_price column');
+                } catch (e) {
+                    console.log('offer_price column may already exist');
+                }
+            }
+            
+            // Set default values: use current price as both original and offer if not set
+            try {
+                db.exec('UPDATE plans SET original_price = price WHERE original_price IS NULL');
+                db.exec('UPDATE plans SET offer_price = price WHERE offer_price IS NULL');
+            } catch (e) {
+                // May fail if columns don't exist yet
+            }
+        }
+        
+        // Check if admin_messages table exists
+        const adminMessagesTable = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='admin_messages'").get();
+        if (!adminMessagesTable) {
+            console.log('Creating admin_messages table...');
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS admin_messages (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    type TEXT NOT NULL DEFAULT 'info',
+                    target_audience TEXT NOT NULL DEFAULT 'all',
+                    target_role TEXT,
+                    target_days_before_expiry INTEGER,
+                    is_active BOOLEAN DEFAULT 1,
+                    display_order INTEGER DEFAULT 0,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    expires_at DATETIME
+                );
+                CREATE INDEX IF NOT EXISTS idx_admin_messages_active ON admin_messages (is_active);
+                CREATE INDEX IF NOT EXISTS idx_admin_messages_target ON admin_messages (target_audience, is_active);
+                CREATE INDEX IF NOT EXISTS idx_admin_messages_order ON admin_messages (display_order);
+            `);
+            console.log('admin_messages table created');
+        }
+        
         console.log('Migrations completed');
     } catch (error) {
         console.error('Error running migrations:', error);

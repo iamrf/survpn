@@ -23,6 +23,8 @@ interface Plan {
     traffic: number;
     duration: number;
     price: number;
+    original_price?: number;
+    offer_price?: number;
     description?: string;
 }
 
@@ -81,9 +83,28 @@ const SubscriptionPlan: React.FC<SubscriptionPlanProps> = ({ plan, onPurchase, i
                         >
                             {getIcon()}
                         </motion.div>
-                        <Badge variant="outline" className={`font-mono text-lg py-1 px-3 border-white/10 bg-white/5 backdrop-blur-md ${isGold ? 'text-yellow-400' : 'text-foreground'}`}>
-                            ${plan.price}
-                        </Badge>
+                        <div className="flex flex-col items-end gap-1.5">
+                            {plan.original_price && plan.original_price > plan.price && (
+                                <>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm text-muted-foreground line-through font-mono opacity-70">
+                                            ${plan.original_price.toFixed(2)}
+                                        </span>
+                                        <Badge variant="outline" className="text-xs bg-red-500/20 text-red-400 border-red-500/30 font-vazir px-2 py-0.5">
+                                            -{Math.round(((plan.original_price - plan.price) / plan.original_price) * 100)}%
+                                        </Badge>
+                                    </div>
+                                    <Badge variant="outline" className={`font-mono text-lg py-1 px-3 border-green-500/30 bg-green-500/10 text-green-400 backdrop-blur-md ${isGold ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-400' : ''}`}>
+                                        ${plan.price.toFixed(2)}
+                                    </Badge>
+                                </>
+                            )}
+                            {(!plan.original_price || plan.original_price <= plan.price) && (
+                                <Badge variant="outline" className={`font-mono text-lg py-1 px-3 border-white/10 bg-white/5 backdrop-blur-md ${isGold ? 'text-yellow-400' : 'text-foreground'}`}>
+                                    ${plan.price.toFixed(2)}
+                                </Badge>
+                            )}
+                        </div>
                     </div>
                     <CardTitle className="text-2xl text-center font-black font-vazir pt-4 bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
                         {plan.name}
@@ -132,7 +153,7 @@ const SubscriptionPlan: React.FC<SubscriptionPlanProps> = ({ plan, onPurchase, i
                                 {isLoading ? (
                                     <span className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                                         <RefreshCw className="w-5 h-5 animate-spin" />
-                                        {t.common.processing}
+                                        {t.wallet.processing || t.common.loading}
                                     </span>
                                 ) : (
                                     <span className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
