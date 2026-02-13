@@ -22,6 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AnimatePresence } from 'framer-motion';
 import { useToast } from '@/components/ui/use-toast';
 import { useI18n } from '@/lib/i18n';
+import { useFormatDate } from '@/lib/dateUtils';
 
 interface SubscriptionInfoCardProps {
   subscriptionData: {
@@ -45,6 +46,7 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
 }) => {
   const { toast } = useToast();
   const { t, dir, isRTL } = useI18n();
+  const { formatDateOnly, formatDateTime } = useFormatDate();
   const [copiedLink, setCopiedLink] = React.useState(false);
 
   const formatBytes = (bytes: number) => {
@@ -69,6 +71,19 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
   const daysRemaining = secondsRemaining !== null ? Math.ceil(secondsRemaining / 86400) : null;
   const hoursRemaining = secondsRemaining !== null ? Math.ceil((secondsRemaining % 86400) / 3600) : null;
   const isExpired = secondsRemaining !== null && secondsRemaining < 0;
+
+  // Calculate time-based data for first chart
+  // Total subscription duration (estimate: if expired, use daysRemaining; otherwise estimate from expire)
+  // Since we don't have start date, we'll estimate total duration from expire timestamp
+  // For active subscriptions, estimate total duration as remaining + some buffer, or use a default
+  const totalDaysEstimate = daysRemaining !== null && daysRemaining > 0 
+    ? Math.max(daysRemaining, 30) // At least 30 days or remaining days, whichever is larger
+    : 30; // Default 30 days if expired or unknown
+  const timeRemainingPercent = daysRemaining !== null && daysRemaining > 0
+    ? Math.min((daysRemaining / totalDaysEstimate) * 100, 100)
+    : 0;
+  const timeRemainingDays = daysRemaining !== null && daysRemaining > 0 ? daysRemaining : 0;
+  const timeUsedDays = totalDaysEstimate - timeRemainingDays;
 
   // Get status badge (check expiration time if status is active)
   const getStatusBadge = (status: string) => {
@@ -107,7 +122,16 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
         { name: t.subscription.remaining || 'Remaining', value: 1, fill: '#1f2937' } // Show empty chart
       ];
 
-  // Chart data for radial progress
+  // Chart data for time-based radial progress (first chart)
+  const timeChartData = [
+    {
+      name: t.subscription.remainingTimeLabel || t.subscription.remainingTime,
+      value: timeRemainingPercent,
+      fill: isExpired ? '#ef4444' : getUsageBarColor(timeRemainingPercent)
+    }
+  ];
+
+  // Chart data for usage radial progress (legacy - can be removed if not needed)
   const radialData = [
     {
       name: 'Usage',
@@ -158,9 +182,9 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
               <div>
                 <CardTitle className="text-xl font-black font-vazir">{getTitle()}</CardTitle>
                 <p className="text-xs text-muted-foreground font-vazir mt-1">
-                  {subscriptionData.username || 'نام کاربری'}
+                  {subscriptionData.username || t.subscription.username}
                   {isExpired && (
-                    <span className="text-red-500 mr-2">(منقضی شده)</span>
+                    <span className="text-red-500 mr-2">({t.subscription.expired})</span>
                   )}
                 </p>
               </div>
@@ -187,23 +211,23 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
         <CardContent className="space-y-6">
           {/* Usage Charts Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Circular Progress Chart */}
+            {/* Time-based Progress Chart (Total Time vs Remaining Time) */}
             <div className="space-y-3">
               <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
                 <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <Activity className="w-4 h-4 text-primary" />
-                  <span className={`text-sm font-bold font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.subscription.usageRate}</span>
+                  <Clock className="w-4 h-4 text-primary" />
+                  <span className={`text-sm font-bold font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.subscription.remainingTimeLabel || t.subscription.remainingTime}</span>
                 </div>
-                <span className="text-2xl font-black font-mono" style={{ color: getUsageBarColor(usagePercent) }}>
-                  {Math.round(usagePercent)}%
+                <span className="text-2xl font-black font-mono" style={{ color: isExpired ? '#ef4444' : getUsageBarColor(timeRemainingPercent) }}>
+                  {Math.round(timeRemainingPercent)}%
                 </span>
               </div>
               <div className="h-48 flex items-center justify-center">
                 <ChartContainer
                   config={{
-                    usage: {
-                      label: "Usage",
-                      color: getUsageBarColor(usagePercent),
+                    timeRemaining: {
+                      label: t.subscription.remainingTimeLabel || t.subscription.remainingTime,
+                      color: isExpired ? '#ef4444' : getUsageBarColor(timeRemainingPercent),
                     },
                   }}
                   className="h-full w-full"
@@ -212,14 +236,14 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
                     <RadialBarChart
                       innerRadius="60%"
                       outerRadius="90%"
-                      data={radialData}
+                      data={timeChartData}
                       startAngle={90}
                       endAngle={-270}
                     >
                       <RadialBar
                         dataKey="value"
                         cornerRadius={10}
-                        fill="var(--color-usage)"
+                        fill="var(--color-timeRemaining)"
                       />
                       <ChartTooltip
                         content={({ active, payload }) => {
@@ -228,7 +252,7 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
                               <div className="rounded-lg border bg-background p-2 shadow-sm">
                                 <div className="grid gap-2">
                                   <div className={`flex items-center justify-between gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                                    <span className={`text-sm font-medium font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.subscription.used}</span>
+                                    <span className={`text-sm font-medium font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.subscription.remainingTimeLabel || t.subscription.remainingTime}</span>
                                     <span className="text-sm font-bold font-mono">
                                       {payload[0].value?.toFixed(1)}%
                                     </span>
@@ -245,9 +269,14 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
                 </ChartContainer>
               </div>
               <div className={`space-y-1 ${isRTL ? 'text-right' : 'text-left'}`}>
-                <p className={`text-xs text-muted-foreground font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.subscription.ofTotalVolume}</p>
-                <p className="text-lg font-bold font-mono" dir="ltr">
-                  {formatBytes(subscriptionData.used)} / {formatBytes(subscriptionData.limit)}
+                <p className={`text-xs text-muted-foreground font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.subscription.totalTime}</p>
+                <p className="text-lg font-bold font-vazir" dir={dir}>
+                  {timeRemainingDays > 0 
+                    ? `${timeRemainingDays} ${t.subscription.days} ${t.subscription.remainingTimeLabel || t.subscription.remainingTime}`
+                    : isExpired 
+                      ? t.subscription.expired
+                      : t.subscription.unknown
+                  }
                 </p>
               </div>
             </div>
@@ -328,45 +357,45 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
           {/* Statistics Grid */}
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-white/5 rounded-xl p-4 border border-white/5">
-              <div className="flex items-center gap-2 mb-2">
+              <div className={`flex items-center gap-2 mb-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                 <HardDrive className="w-4 h-4 text-primary" />
-                <span className="text-xs text-muted-foreground font-vazir">حجم باقیمانده</span>
+                <span className={`text-xs text-muted-foreground font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.subscription.remainingVolume || t.subscription.remainingData}</span>
               </div>
               <p className="text-lg font-black font-mono" dir="ltr">
                 {formatBytes(remainingData)}
               </p>
             </div>
             <div className="bg-white/5 rounded-xl p-4 border border-white/5">
-              <div className="flex items-center gap-2 mb-2">
+              <div className={`flex items-center gap-2 mb-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                 <TrendingUp className="w-4 h-4 text-primary" />
-                <span className="text-xs text-muted-foreground font-vazir">حجم کل</span>
+                <span className={`text-xs text-muted-foreground font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.subscription.totalVolume || t.subscription.totalData}</span>
               </div>
               <p className="text-lg font-black font-mono" dir="ltr">
                 {formatBytes(subscriptionData.limit)}
               </p>
             </div>
             <div className="bg-white/5 rounded-xl p-4 border border-white/5">
-              <div className="flex items-center gap-2 mb-2">
+              <div className={`flex items-center gap-2 mb-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                 <Calendar className="w-4 h-4 text-primary" />
-                <span className="text-xs text-muted-foreground font-vazir">
-                  {isExpired ? 'زمان انقضا' : 'زمان باقیمانده'}
+                <span className={`text-xs text-muted-foreground font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>
+                  {isExpired ? t.subscription.expiredTime : t.subscription.remainingTime}
                 </span>
               </div>
               <p className={`text-lg font-black font-vazir ${isExpired ? 'text-red-500' : ''}`}>
                 {daysRemaining !== null && daysRemaining > 0 
-                  ? `${daysRemaining} روز ${hoursRemaining && hoursRemaining > 0 ? `و ${hoursRemaining} ساعت` : ''}`
+                  ? `${daysRemaining} ${t.subscription.days}${hoursRemaining && hoursRemaining > 0 ? ` ${hoursRemaining} ${t.subscription.hours}` : ''}`
                   : daysRemaining === 0 
-                    ? 'امروز منقضی می‌شود'
+                    ? t.subscription.expiresToday
                     : isExpired && daysRemaining !== null
-                      ? `${Math.abs(daysRemaining)} روز پیش منقضی شد`
-                      : 'نامشخص'
+                      ? `${Math.abs(daysRemaining)} ${t.subscription.days} ${t.subscription.expiredDaysAgo.replace('{days}', '')}`
+                      : t.subscription.unknown
                 }
               </p>
             </div>
             <div className="bg-white/5 rounded-xl p-4 border border-white/5">
-              <div className="flex items-center gap-2 mb-2">
+              <div className={`flex items-center gap-2 mb-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                 <Clock className="w-4 h-4 text-primary" />
-                <span className="text-xs text-muted-foreground font-vazir">وضعیت</span>
+                <span className={`text-xs text-muted-foreground font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.subscription.status}</span>
               </div>
               <Badge variant="outline" className={`${statusBadge.color} font-vazir border text-xs`}>
                 {statusBadge.label}
@@ -376,10 +405,10 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
 
           {/* Usage Progress Bar */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-vazir">
-              <span className="text-muted-foreground">نمودار استفاده</span>
+            <div className={`flex items-center justify-between text-xs font-vazir ${isRTL ? 'flex-row-reverse' : ''}`}>
+              <span className={`text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{t.subscription.usageChart}</span>
               <span className="font-bold" style={{ color: getUsageBarColor(usagePercent) }}>
-                {Math.round(usagePercent)}% استفاده شده
+                {Math.round(usagePercent)}% {t.subscription.used}
               </span>
             </div>
             <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden border border-white/5 p-[1px]">
@@ -391,29 +420,29 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
                 style={{ backgroundColor: getUsageBarColor(usagePercent) }}
               />
             </div>
-            <div className="flex items-center justify-between text-xs font-vazir text-muted-foreground">
-              <span dir="ltr" className="text-left">{formatBytes(subscriptionData.used)} استفاده شده</span>
-              <span dir="ltr" className="text-left">{formatBytes(remainingData)} باقیمانده</span>
+            <div className={`flex items-center justify-between text-xs font-vazir text-muted-foreground ${isRTL ? 'flex-row-reverse' : ''}`}>
+              <span dir="ltr" className={isRTL ? 'text-right' : 'text-left'}>{formatBytes(subscriptionData.used)} {t.subscription.used}</span>
+              <span dir="ltr" className={isRTL ? 'text-right' : 'text-left'}>{formatBytes(remainingData)} {t.subscription.remaining}</span>
             </div>
           </div>
 
           {/* Expired Notice */}
           {isExpired && (
             <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20">
-              <p className="text-sm text-red-500 font-vazir text-center">
-                ⚠️ این اشتراک منقضی شده است. برای استفاده مجدد، لطفاً یک اشتراک جدید خریداری کنید.
+              <p className={`text-sm text-red-500 font-vazir text-center ${isRTL ? 'text-right' : 'text-left'}`}>
+                ⚠️ {t.subscription.expiredNotice}
               </p>
             </div>
           )}
 
           {/* Subscription Link Section */}
           <div className="pt-4 border-t border-white/5 space-y-3">
-            <div className="flex items-center gap-2">
+            <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
               <Link2 className="w-4 h-4 text-primary" />
-              <span className="text-sm font-bold text-foreground font-vazir">لینک اشتراک</span>
+              <span className={`text-sm font-bold text-foreground font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.subscription.subscriptionLink}</span>
               {isExpired && (
                 <Badge variant="outline" className="text-xs bg-red-500/10 text-red-500 border-red-500/20">
-                  غیرفعال
+                  {t.subscription.disabled}
                 </Badge>
               )}
             </div>
@@ -458,9 +487,9 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
                       <QrCode className="w-4 h-4" />
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-xl border-white/10 rounded-[2.5rem] font-vazir">
+                  <DialogContent className={`sm:max-w-md bg-card/95 backdrop-blur-xl border-white/10 rounded-[2.5rem] font-vazir ${isRTL ? 'text-right' : 'text-left'}`} dir={dir}>
                     <DialogHeader>
-                      <DialogTitle className="text-center text-xl font-black">اسکن کد QR</DialogTitle>
+                      <DialogTitle className={`text-center text-xl font-black ${isRTL ? 'text-right' : 'text-left'}`}>{t.subscription.scanQRCode}</DialogTitle>
                     </DialogHeader>
                     <div className="flex flex-col items-center justify-center space-y-6 py-4">
                       <div className="p-6 bg-white rounded-[2rem] shadow-2xl">
@@ -470,12 +499,12 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
                           className="w-48 h-48"
                         />
                       </div>
-                      <p className="text-sm text-center text-muted-foreground px-6">
-                        این کد را در اپلیکیشن v2ray (مانند v2rayNG یا Shadowrocket) اسکن کنید تا تنظیمات به صورت خودکار اعمال شود.
+                      <p className={`text-sm text-center text-muted-foreground px-6 ${isRTL ? 'text-right' : 'text-left'}`}>
+                        {t.subscription.qrCodeDescription}
                       </p>
-                      <Button onClick={handleCopyLink} variant="outline" className="rounded-xl gap-2 font-bold">
+                      <Button onClick={handleCopyLink} variant="outline" className={`rounded-xl gap-2 font-bold ${isRTL ? 'flex-row-reverse' : ''}`}>
                         {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                        کپی لینک اشتراک
+                        {t.subscription.copySubscriptionLink}
                       </Button>
                     </div>
                   </DialogContent>
