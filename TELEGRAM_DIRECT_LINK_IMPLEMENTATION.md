@@ -34,7 +34,7 @@ The `start` parameter is passed to the Mini App in:
 - Redirects to: `https://t.me/{BOT_USERNAME}?start=payment_tx_{ORDER_ID}`
 
 **Environment Variables:**
-- `BOT_USERNAME`: Your Telegram bot username (without @)
+- `BOT_USERNAME`: Your Telegram bot username (without @) 
 - `BACKEND_URL`: Public backend URL for webhooks
 - `FRONTEND_URL`: Fallback frontend URL (used if BOT_USERNAME not set)
 
