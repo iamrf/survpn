@@ -1033,12 +1033,31 @@ app.post('/api/payment/create', async (req, res) => {
             console.log('Plisio callback URL:', callbackUrl);
         }
 
-        // Frontend URL for user redirects (NOT the callback)
+        // Telegram Direct Link Mini App URLs for user redirects
+        // Using Telegram direct link format: https://t.me/botusername?start=param
+        // This opens the Mini App directly in Telegram with the start parameter
+        // Reference: https://core.telegram.org/bots/webapps#direct-link-mini-apps
+        const botUsername = (process.env.BOT_USERNAME || '').trim();
         const frontendUrl = process.env.FRONTEND_URL || 'https://app.survpn.xyz';
-        // success_invoice_url: "To the site" button link when invoice has been paid
-        const successInvoiceUrl = `${frontendUrl}/wallet?payment=pending&tx=${orderId}`;
-        // fail_invoice_url: "To the site" button link when invoice has NOT been paid
-        const failInvoiceUrl = `${frontendUrl}/wallet`;
+        
+        // Success URL: Direct link to Mini App with payment transaction ID
+        // Format: https://t.me/botusername?start=payment_tx_ORDERID
+        // The start_param will be available in window.Telegram.WebApp.initDataUnsafe.start_param
+        const successInvoiceUrl = botUsername 
+            ? `https://t.me/${botUsername}?start=payment_tx_${orderId}`
+            : `${frontendUrl}/wallet?payment=pending&tx=${orderId}`;
+        
+        // Fail URL: Direct link to Mini App wallet page
+        const failInvoiceUrl = botUsername
+            ? `https://t.me/${botUsername}?start=wallet`
+            : `${frontendUrl}/wallet`;
+        
+        if (!botUsername) {
+            console.warn('WARNING: BOT_USERNAME not set. Using fallback frontend URL for Plisio redirects.');
+            console.warn('Set BOT_USERNAME environment variable to enable Telegram direct link mini app redirects.');
+        } else {
+            console.log('Using Telegram direct link mini app for Plisio redirects:', { successInvoiceUrl, failInvoiceUrl });
+        }
 
         const params = {
             api_key: plisioApiKey,
@@ -1182,12 +1201,15 @@ app.get('/api/payment/callback', (req, res) => {
     // Handle GET request - user redirected from Plisio after payment ("go to site" button)
     // This is just a redirect - NOT a payment confirmation
     // The actual payment confirmation happens via the POST callback (webhook)
+    // Using Telegram Direct Link Mini App format for better UX
+    // Reference: https://core.telegram.org/bots/webapps#direct-link-mini-apps
     const { order_number, order_id, status, txn_id } = req.query;
     
     console.log('=== Plisio GET Callback (User Redirect) ===');
     console.log('Query params:', req.query);
     
     const orderId = order_number || order_id;
+    const botUsername = (process.env.BOT_USERNAME || '').trim();
     const frontendUrl = process.env.FRONTEND_URL || 'https://app.survpn.xyz';
     
     if (orderId) {
@@ -1195,16 +1217,28 @@ app.get('/api/payment/callback', (req, res) => {
             const transaction = db.prepare('SELECT * FROM transactions WHERE id = ? OR plisio_invoice_id = ?').get(orderId, orderId);
             if (transaction) {
                 console.log(`Redirecting user ${transaction.user_id} after payment for transaction ${orderId}, db status: ${transaction.status}`);
-                // Redirect to wallet - use "pending" status to trigger a manual check
-                // Don't say "success" because we haven't verified the payment yet
-                return res.redirect(`${frontendUrl}/wallet?payment=pending&tx=${orderId}`);
+                
+                // Use Telegram Direct Link Mini App format if bot username is configured
+                // Format: https://t.me/botusername?start=payment_tx_ORDERID
+                if (botUsername) {
+                    const directLink = `https://t.me/${botUsername}?start=payment_tx_${orderId}`;
+                    console.log('Redirecting to Telegram direct link mini app:', directLink);
+                    return res.redirect(directLink);
+                } else {
+                    // Fallback to frontend URL if bot username not configured
+                    console.warn('BOT_USERNAME not set, using fallback frontend URL');
+                    return res.redirect(`${frontendUrl}/wallet?payment=pending&tx=${orderId}`);
+                }
             }
         } catch (error) {
             console.error('Error finding transaction for redirect:', error);
         }
     }
     
-    // Fallback redirect
+    // Fallback redirect - use Telegram direct link if available
+    if (botUsername) {
+        return res.redirect(`https://t.me/${botUsername}?start=wallet`);
+    }
     res.redirect(`${frontendUrl}/wallet`);
 });
 

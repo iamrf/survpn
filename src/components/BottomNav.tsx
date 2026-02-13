@@ -13,7 +13,7 @@ interface NavItem {
 }
 
 const BottomNav = () => {
-  const { t, isRTL } = useI18n();
+  const { t, isRTL, dir } = useI18n();
   
   const navItems: NavItem[] = [
     { icon: Home, path: "/" },

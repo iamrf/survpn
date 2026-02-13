@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Wallet, Plus, CreditCard, ArrowUpRight, History, ArrowDownLeft, X, CheckCircle2, Clock, Share2, Users, TrendingUp, Copy, Gift, Star, Coins, RefreshCw } from "lucide-react";
+import { Wallet, Plus, CreditCard, ArrowUpRight, History, ArrowDownLeft, X, CheckCircle2, Clock, Share2, Users, TrendingUp, Copy, Gift, Star, Coins, RefreshCw, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TelegramButton } from "@/components/TelegramButton";
 // Temporarily disabled to debug crash
@@ -852,48 +852,76 @@ const WalletPage = () => {
                   </div>
                 </div>
 
-                {/* Referral Link */}
-                <div className="space-y-3">
-                  <label className={`text-sm font-vazir block ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.referralLink}</label>
-                  <div className="relative">
-                    <Input
-                      value={referralLink}
-                      readOnly
-                      className="text-xs font-mono pl-12 bg-background cursor-pointer hover:bg-muted transition-colors"
-                      dir="ltr"
-                      onClick={copyReferralLink}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        copyReferralLink();
-                      }}
-                    >
-                      <Copy className="w-4 h-4" />
-                    </Button>
+                {/* Referral Link - Enhanced Design */}
+                <div className="space-y-4">
+                  <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                    <div className="p-2 rounded-lg bg-purple-500/20 text-purple-500">
+                      <Link2 className="w-4 h-4" />
+                    </div>
+                    <div className={`flex-1 ${isRTL ? 'text-right' : 'text-left'}`}>
+                      <label className={`text-sm font-bold font-vazir block ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.referralLink}</label>
+                      <p className={`text-xs text-muted-foreground font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>
+                        {t.wallet.useThisLinkToRegister}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
+                  
+                  {/* Link Display Card */}
+                  <div className="relative group">
+                    <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-purple-500/10 border border-purple-500/20 backdrop-blur-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-mono text-foreground break-all select-all" dir="ltr">
+                            {referralLink || t.wallet.loading}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-9 w-9 p-0 rounded-xl bg-white/10 hover:bg-white/20 flex-shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyReferralLink();
+                          }}
+                          title={t.wallet.copyLink}
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="grid grid-cols-2 gap-3">
                     <Button
                       variant="outline"
-                      size="sm"
-                      className={`flex-1 gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}
+                      size="lg"
+                      className={`h-12 gap-2 rounded-xl border-purple-500/20 hover:bg-purple-500/10 hover:border-purple-500/40 transition-all ${isRTL ? 'flex-row-reverse' : ''}`}
                       onClick={copyReferralLink}
                     >
                       <Copy className="w-4 h-4" />
-                      {t.wallet.copyLink}
+                      <span className="font-vazir font-semibold">{t.wallet.copyLink}</span>
                     </Button>
                     <Button
                       variant="outline"
-                      size="sm"
-                      className={`flex-1 gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}
+                      size="lg"
+                      className={`h-12 gap-2 rounded-xl border-purple-500/20 hover:bg-purple-500/10 hover:border-purple-500/40 transition-all ${isRTL ? 'flex-row-reverse' : ''}`}
                       onClick={shareReferralLink}
                     >
                       <Share2 className="w-4 h-4" />
-                      {t.wallet.shareLink}
+                      <span className="font-vazir font-semibold">{t.wallet.shareLink}</span>
                     </Button>
+                  </div>
+
+                  {/* Info Badge */}
+                  <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                    <p className={`text-xs text-muted-foreground font-vazir leading-relaxed ${isRTL ? 'text-right' : 'text-left'}`}>
+                      💡 {t.wallet.inviteFriends} {t.wallet.commissionFromTransactions}
+                      <span className="px-1.5 py-0.5 mx-1 rounded-md bg-primary/20 text-primary font-bold">
+                        {userCommissionRate.toFixed(0)}%
+                      </span>
+                      {t.wallet.commissionReceived}
+                    </p>
                   </div>
                 </div>
 
@@ -991,14 +1019,6 @@ const WalletPage = () => {
                   </div>
                 )}
 
-                <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
-                  <p className={`text-xs text-muted-foreground font-vazir leading-relaxed ${isRTL ? 'text-right' : 'text-left'}`}>
-                    💡 {t.wallet.inviteFriends} {t.wallet.commissionFromTransactions} 
-                     <span className="px-2 font-bold text-foreground">{userCommissionRate.toFixed(0)}%</span>
-                      {t.wallet.commissionReceived}
-                    {t.wallet.shareReferralLink}!
-                  </p>
-                </div>
               </div>
               <DrawerClose asChild>
                 <Button variant="outline" className="w-full mt-4">{t.common.close}</Button>
