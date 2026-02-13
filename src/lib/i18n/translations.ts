@@ -76,6 +76,90 @@ export interface Translations {
     referralLink: string;
     copyReferralCode: string;
     shareReferralLink: string;
+    invalidAmount: string;
+    userNotFound: string;
+    paymentLinkError: string;
+    telegramStarsNotAvailable: string;
+    checkingPaymentStatus: string;
+    paymentConfirmed: string;
+    transactionAlreadyCompleted: string;
+    waitingForConfirmation: string;
+    checkingTransactions: string;
+    withdrawAmount: string;
+    withdrawPasskey: string;
+    insufficientBalance: string;
+    withdrawSuccess: string;
+    withdrawError: string;
+    cancelWithdraw: string;
+    withdrawCancelled: string;
+    referralStats: string;
+    totalReferrals: string;
+    totalCommissions: string;
+    recentCommissions: string;
+    referredUsers: string;
+    registrationBonus: string;
+    commissionRate: string;
+    noTransactions: string;
+    autoChecking: string;
+    lastChecked: string;
+    checkingNow: string;
+    plisioPaymentLoading: string;
+    cancelPayment: string;
+    referralSystem: string;
+    referralAndAffiliate: string;
+    view: string;
+    inviteFriends: string;
+    commissionFromTransactions: string;
+    commissionReceived: string;
+    yourReferralCode: string;
+    referralLink: string;
+    copyLink: string;
+    shareLink: string;
+    referralStats: string;
+    totalReferrals: string;
+    totalCommissions: string;
+    recentCommissions: string;
+    referredUsers: string;
+    registrationDate: string;
+    transaction: string;
+    registration: string;
+    paid: string;
+    pending: string;
+    useThisLinkToRegister: string;
+    withdrawableBalance: string;
+    walletAddressNotSet: string;
+    pleaseSetWalletAddress: string;
+    withdrawWillBeProcessed: string;
+    confirmAndSubmit: string;
+    sending: string;
+    recentTransactions: string;
+    transactionsPending: string;
+    autoCheckActive: string;
+      lastCheck: string;
+      referralSystem: string;
+      referralAndAffiliate: string;
+      view: string;
+      inviteFriends: string;
+      commissionFromTransactions: string;
+      commissionReceived: string;
+      yourReferralCode: string;
+      copyLink: string;
+      shareLink: string;
+      registrationDate: string;
+      transaction: string;
+      registration: string;
+      paid: string;
+      pending: string;
+      useThisLinkToRegister: string;
+      withdrawableBalance: string;
+      pleaseSetWalletAddress: string;
+      withdrawWillBeProcessed: string;
+      confirmAndSubmit: string;
+      sending: string;
+      recentTransactions: string;
+      transactionsPending: string;
+      autoCheckActive: string;
+      lastCheckTime: string;
   };
 
   // Settings Page
@@ -145,6 +229,18 @@ export interface Translations {
     noServers: string;
     retry: string;
     configCopied: string;
+    subscriptionUpdated: string;
+    updateError: string;
+    serversUpdated: string;
+    loadingServers: string;
+    serverCount: string;
+    update: string;
+    copy: string;
+    copied: string;
+    serverTip: string;
+    subscriptionDescription: string;
+    vpnServers: string;
+    other: string;
   };
 
   // Admin Pages
@@ -164,6 +260,51 @@ export interface Translations {
     balance: string;
     updateBalance: string;
     transactionHistory: string;
+  };
+  
+  // Subscription Plan Component
+  plan: {
+    renew: string;
+    purchaseAndActivate: string;
+    instantActivation: string;
+    traffic: string;
+    validityPeriod: string;
+    days: string;
+    confirmPurchase: string;
+    confirmPurchaseDescription: string;
+    amountWillBeDeducted: string;
+    yesConfirm: string;
+    instantActivationNote: string;
+    gb: string;
+  };
+  
+  // Custom Subscription Drawer
+  customSubscription: {
+    title: string;
+    createCustom: string;
+    monthlyTraffic: string;
+    validityPeriod: string;
+    gb: string;
+    days: string;
+    cost: string;
+    totalCost: string;
+    currentBalance: string;
+    balanceAfterPurchase: string;
+    insufficientBalance: string;
+    purchaseAndActivate: string;
+    finalConfirmation: string;
+    confirmDescription: string;
+    trafficLabel: string;
+    durationLabel: string;
+    priceLabel: string;
+    userNotFound: string;
+    success: string;
+    customSubscriptionCreated: string;
+    error: string;
+    subscriptionError: string;
+    somethingWentWrong: string;
+    min: string;
+    max: string;
   };
 
   // Errors
@@ -244,6 +385,35 @@ export const translations: Record<LanguageCode, Translations> = {
       referralLink: 'لینک معرفی',
       copyReferralCode: 'کپی کد معرف',
       shareReferralLink: 'اشتراک‌گذاری لینک معرفی',
+      invalidAmount: 'لطفاً مبلغ معتبری وارد کنید',
+      userNotFound: 'اطلاعات کاربر یافت نشد',
+      paymentLinkError: 'خطا در ایجاد لینک پرداخت. لطفاً دوباره تلاش کنید.',
+      telegramStarsNotAvailable: 'پرداخت با ستاره‌های تلگرام در این نسخه در دسترس نیست',
+      checkingPaymentStatus: 'در حال بررسی وضعیت پرداخت شما...',
+      paymentConfirmed: 'تراکنش {txId} تایید و به حساب شما اضافه شد',
+      transactionAlreadyCompleted: 'این تراکنش قبلاً تایید شده است',
+      waitingForConfirmation: 'پرداخت شما هنوز تایید نشده. لطفاً چند دقیقه صبر کنید و دوباره بررسی کنید.',
+      checkingTransactions: 'پرداخت شما در حال بررسی است. لطفاً از دکمه بررسی تراکنش‌ها استفاده کنید.',
+      withdrawAmount: 'مبلغ برداشت',
+      withdrawPasskey: 'رمز عبور برداشت',
+      insufficientBalance: 'موجودی ناکافی',
+      withdrawSuccess: 'درخواست برداشت با موفقیت ثبت شد',
+      withdrawError: 'خطا در ثبت درخواست برداشت',
+      cancelWithdraw: 'لغو برداشت',
+      withdrawCancelled: 'برداشت لغو شد',
+      referralStats: 'آمار معرفی',
+      totalReferrals: 'کل معرفی‌ها',
+      totalCommissions: 'کل کمیسیون',
+      recentCommissions: 'کمیسیون‌های اخیر',
+      referredUsers: 'کاربران معرفی شده',
+      registrationBonus: 'پاداش ثبت‌نام',
+      commissionRate: 'نرخ کمیسیون',
+      noTransactions: 'تراکنشی یافت نشد',
+      autoChecking: 'بررسی خودکار',
+      lastChecked: 'آخرین بررسی',
+      checkingNow: 'در حال بررسی...',
+      plisioPaymentLoading: 'در حال انتقال به صفحه پرداخت...',
+      cancelPayment: 'لغو پرداخت',
     },
     settings: {
       title: 'تنظیمات',
@@ -309,6 +479,18 @@ export const translations: Record<LanguageCode, Translations> = {
       noServers: 'سروری یافت نشد',
       retry: 'تلاش مجدد',
       configCopied: 'کانفیگ {name} در حافظه کپی شد',
+      subscriptionUpdated: 'اطلاعات اشتراک به‌روزرسانی شد',
+      updateError: 'خطا در به‌روزرسانی اطلاعات',
+      serversUpdated: 'لیست سرورها به‌روزرسانی شد',
+      loadingServers: 'در حال بارگذاری سرورها...',
+      serverCount: 'سرور',
+      update: 'به‌روزرسانی',
+      copy: 'کپی',
+      copied: 'کپی شد',
+      serverTip: '💡 هر سرور را می‌توانید به صورت جداگانه کپی کرده و در اپلیکیشن VPN خود وارد کنید. برای به‌روزرسانی لیست سرورها، دکمه به‌روزرسانی را بزنید.',
+      subscriptionDescription: 'لینک اشتراک و سرورهای VPN',
+      vpnServers: 'سرورهای VPN',
+      other: 'سایر',
     },
     admin: {
       title: 'مدیریت',
@@ -326,6 +508,47 @@ export const translations: Record<LanguageCode, Translations> = {
       balance: 'موجودی',
       updateBalance: 'بروزرسانی موجودی',
       transactionHistory: 'تاریخچه تراکنش‌ها',
+    },
+    plan: {
+      renew: 'تمدید',
+      purchaseAndActivate: 'خرید و فعالسازی با یک کلیک',
+      instantActivation: 'فعال‌سازی آنی',
+      traffic: 'ترافیک / حجم',
+      validityPeriod: 'مدت اعتبار',
+      days: 'روز',
+      confirmPurchase: 'تایید نهایی خرید',
+      confirmPurchaseDescription: 'آیا از خرید اشتراک {planName} به مبلغ {price} دلار اطمینان دارید؟',
+      amountWillBeDeducted: 'مبلغ مورد نظر از کیف پول شما کسر خواهد شد.',
+      yesConfirm: 'بله، تایید و خرید',
+      instantActivationNote: 'با یک کلیک به صورت آنی فعال می شود',
+      gb: 'GB',
+    },
+    customSubscription: {
+      title: 'اشتراک سفارشی',
+      createCustom: 'ساخت اشتراک سفارشی',
+      monthlyTraffic: 'ترافیک ماهانه',
+      validityPeriod: 'مدت اعتبار',
+      gb: 'گیگابایت',
+      days: 'روز',
+      cost: 'هزینه:',
+      totalCost: 'مجموع هزینه',
+      currentBalance: 'موجودی فعلی',
+      balanceAfterPurchase: 'موجودی پس از خرید',
+      insufficientBalance: 'موجودی ناکافی',
+      purchaseAndActivate: 'خرید و فعال‌سازی',
+      finalConfirmation: 'تایید نهایی',
+      confirmDescription: 'آیا از خرید اشتراک سفارشی با مشخصات زیر اطمینان دارید؟',
+      trafficLabel: 'ترافیک:',
+      durationLabel: 'مدت:',
+      priceLabel: 'هزینه:',
+      userNotFound: 'کاربر یافت نشد',
+      success: 'موفقیت',
+      customSubscriptionCreated: 'اشتراک سفارشی با موفقیت ایجاد شد',
+      error: 'خطا',
+      subscriptionError: 'خطا در ایجاد اشتراک',
+      somethingWentWrong: 'خطایی رخ داد',
+      min: 'حداقل',
+      max: 'حداکثر',
     },
     errors: {
       notFound: 'صفحه یافت نشد',
@@ -468,6 +691,18 @@ export const translations: Record<LanguageCode, Translations> = {
       noServers: 'No servers found',
       retry: 'Retry',
       configCopied: 'Config {name} copied to clipboard',
+      subscriptionUpdated: 'Subscription information updated',
+      updateError: 'Error updating information',
+      serversUpdated: 'Server list updated',
+      loadingServers: 'Loading servers...',
+      serverCount: 'servers',
+      update: 'Update',
+      copy: 'Copy',
+      copied: 'Copied',
+      serverTip: '💡 You can copy each server separately and import it into your VPN app. To update the server list, click the update button.',
+      subscriptionDescription: 'Subscription link and VPN servers',
+      vpnServers: 'VPN Servers',
+      other: 'Other',
     },
     admin: {
       title: 'Admin',
@@ -485,6 +720,47 @@ export const translations: Record<LanguageCode, Translations> = {
       balance: 'Balance',
       updateBalance: 'Update Balance',
       transactionHistory: 'Transaction History',
+    },
+    plan: {
+      renew: 'Renew',
+      purchaseAndActivate: 'Purchase and Activate with One Click',
+      instantActivation: 'Instant Activation',
+      traffic: 'Traffic / Volume',
+      validityPeriod: 'Validity Period',
+      days: 'days',
+      confirmPurchase: 'Final Purchase Confirmation',
+      confirmPurchaseDescription: 'Are you sure you want to purchase the {planName} subscription for ${price}?',
+      amountWillBeDeducted: 'The amount will be deducted from your wallet.',
+      yesConfirm: 'Yes, Confirm and Purchase',
+      instantActivationNote: 'Activates instantly with one click',
+      gb: 'GB',
+    },
+    customSubscription: {
+      title: 'Custom Subscription',
+      createCustom: 'Create Custom Subscription',
+      monthlyTraffic: 'Monthly Traffic',
+      validityPeriod: 'Validity Period',
+      gb: 'GB',
+      days: 'days',
+      cost: 'Cost:',
+      totalCost: 'Total Cost',
+      currentBalance: 'Current Balance',
+      balanceAfterPurchase: 'Balance After Purchase',
+      insufficientBalance: 'Insufficient Balance',
+      purchaseAndActivate: 'Purchase and Activate',
+      finalConfirmation: 'Final Confirmation',
+      confirmDescription: 'Are you sure you want to purchase a custom subscription with the following specifications?',
+      trafficLabel: 'Traffic:',
+      durationLabel: 'Duration:',
+      priceLabel: 'Price:',
+      userNotFound: 'User not found',
+      success: 'Success',
+      customSubscriptionCreated: 'Custom subscription created successfully',
+      error: 'Error',
+      subscriptionError: 'Error creating subscription',
+      somethingWentWrong: 'Something went wrong',
+      min: 'Min',
+      max: 'Max',
     },
     errors: {
       notFound: 'Page Not Found',
@@ -621,6 +897,18 @@ export const translations: Record<LanguageCode, Translations> = {
       noServers: 'لم يتم العثور على خوادم',
       retry: 'إعادة المحاولة',
       configCopied: 'تم نسخ الإعداد {name} إلى الحافظة',
+      subscriptionUpdated: 'تم تحديث معلومات الاشتراك',
+      updateError: 'خطأ في تحديث المعلومات',
+      serversUpdated: 'تم تحديث قائمة الخوادم',
+      loadingServers: 'جارٍ تحميل الخوادم...',
+      serverCount: 'خوادم',
+      update: 'تحديث',
+      copy: 'نسخ',
+      copied: 'تم النسخ',
+      serverTip: '💡 يمكنك نسخ كل خادم بشكل منفصل واستيراده إلى تطبيق VPN الخاص بك. لتحديث قائمة الخوادم، انقر فوق زر التحديث.',
+      subscriptionDescription: 'رابط الاشتراك وخوادم VPN',
+      vpnServers: 'خوادم VPN',
+      other: 'أخرى',
     },
     admin: {
       title: 'الإدارة',
@@ -638,6 +926,47 @@ export const translations: Record<LanguageCode, Translations> = {
       balance: 'الرصيد',
       updateBalance: 'تحديث الرصيد',
       transactionHistory: 'سجل المعاملات',
+    },
+    plan: {
+      renew: 'تجديد',
+      purchaseAndActivate: 'شراء وتفعيل بنقرة واحدة',
+      instantActivation: 'تفعيل فوري',
+      traffic: 'الحركة / الحجم',
+      validityPeriod: 'مدة الصلاحية',
+      days: 'أيام',
+      confirmPurchase: 'تأكيد الشراء النهائي',
+      confirmPurchaseDescription: 'هل أنت متأكد من شراء اشتراك {planName} بمبلغ ${price}؟',
+      amountWillBeDeducted: 'سيتم خصم المبلغ من محفظتك.',
+      yesConfirm: 'نعم، تأكيد والشراء',
+      instantActivationNote: 'يتم التفعيل فوراً بنقرة واحدة',
+      gb: 'GB',
+    },
+    customSubscription: {
+      title: 'اشتراك مخصص',
+      createCustom: 'إنشاء اشتراك مخصص',
+      monthlyTraffic: 'الحركة الشهرية',
+      validityPeriod: 'مدة الصلاحية',
+      gb: 'GB',
+      days: 'أيام',
+      cost: 'التكلفة:',
+      totalCost: 'التكلفة الإجمالية',
+      currentBalance: 'الرصيد الحالي',
+      balanceAfterPurchase: 'الرصيد بعد الشراء',
+      insufficientBalance: 'رصيد غير كافٍ',
+      purchaseAndActivate: 'شراء وتفعيل',
+      finalConfirmation: 'التأكيد النهائي',
+      confirmDescription: 'هل أنت متأكد من شراء اشتراك مخصص بالمواصفات التالية؟',
+      trafficLabel: 'الحركة:',
+      durationLabel: 'المدة:',
+      priceLabel: 'السعر:',
+      userNotFound: 'لم يتم العثور على المستخدم',
+      success: 'نجاح',
+      customSubscriptionCreated: 'تم إنشاء الاشتراك المخصص بنجاح',
+      error: 'خطأ',
+      subscriptionError: 'خطأ في إنشاء الاشتراك',
+      somethingWentWrong: 'حدث خطأ ما',
+      min: 'الحد الأدنى',
+      max: 'الحد الأقصى',
     },
     errors: {
       notFound: 'الصفحة غير موجودة',

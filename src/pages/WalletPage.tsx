@@ -37,8 +37,10 @@ import {
   syncTransactionsFromHistory,
 } from "@/store/slices/transactionsSlice";
 import { useTransactionPolling } from "@/hooks/useTransactionPolling";
+import { useI18n } from "@/lib/i18n";
 
 const WalletPage = () => {
+  const { t, dir, isRTL } = useI18n();
   const tgUser = getTelegramUser();
   const dispatch = useAppDispatch();
   const currentUser = useAppSelector((state) => state.user.currentUser);
@@ -121,8 +123,8 @@ const WalletPage = () => {
     if (paymentStatus === 'pending' && txId) {
       // User was redirected from Plisio - try to verify this specific transaction
       toast({
-        title: "بررسی پرداخت",
-        description: "در حال بررسی وضعیت پرداخت شما...",
+        title: t.wallet.checkingPayment,
+        description: t.wallet.checkingPaymentStatus,
       });
       
       // Verify the specific transaction
@@ -132,26 +134,26 @@ const WalletPage = () => {
       }).unwrap().then((result: any) => {
         if (result.updated) {
           toast({
-            title: "پرداخت موفق",
-            description: `تراکنش ${txId} تایید و به حساب شما اضافه شد`,
+            title: t.wallet.paymentSuccess,
+            description: t.wallet.paymentConfirmed.replace('{txId}', txId),
           });
         } else if (result.already_completed) {
           toast({
-            title: "تراکنش تکمیل شده",
-            description: "این تراکنش قبلاً تایید شده است",
+            title: t.wallet.transactionCompleted,
+            description: t.wallet.transactionAlreadyCompleted,
           });
         } else {
           toast({
-            title: "در انتظار تایید",
-            description: "پرداخت شما هنوز تایید نشده. لطفاً چند دقیقه صبر کنید و دوباره بررسی کنید.",
+            title: t.wallet.paymentPending,
+            description: t.wallet.waitingForConfirmation,
             variant: "destructive",
           });
         }
       }).catch((err: any) => {
         console.error('Error verifying payment:', err);
         toast({
-          title: "در انتظار تایید",
-          description: "پرداخت شما در حال بررسی است. لطفاً از دکمه بررسی تراکنش‌ها استفاده کنید.",
+          title: t.wallet.paymentPending,
+          description: t.wallet.checkingTransactions,
         });
       });
       
@@ -162,8 +164,8 @@ const WalletPage = () => {
     } else if (paymentStatus === 'success') {
       // Legacy success redirect - just refresh data
       toast({
-        title: "بررسی پرداخت",
-        description: "در حال بررسی وضعیت پرداخت شما...",
+        title: t.wallet.checkingPayment,
+        description: t.wallet.checkingPaymentStatus,
       });
       
       // Refresh history
@@ -217,8 +219,8 @@ const WalletPage = () => {
     if (isNaN(numAmount) || numAmount <= 0) {
       hapticNotification('error');
       toast({
-        title: "خطا",
-        description: "لطفاً مبلغ معتبری وارد کنید",
+        title: t.common.error,
+        description: t.wallet.invalidAmount,
         variant: "destructive",
       });
       return;
@@ -226,8 +228,8 @@ const WalletPage = () => {
 
       if (!tgUser) {
         toast({
-          title: "خطا",
-          description: "اطلاعات کاربر یافت نشد",
+          title: t.common.error,
+          description: t.wallet.userNotFound,
           variant: "destructive",
         });
         return;
@@ -264,8 +266,8 @@ const WalletPage = () => {
                   clearInterval(checkInterval);
                   hapticNotification('success');
                   toast({
-                    title: "موفقیت",
-                    description: "پرداخت با موفقیت انجام شد",
+                    title: t.common.success,
+                    description: t.wallet.paymentSuccess,
                   });
                   setAmount("");
                 } else if (checkCount >= maxChecks) {
@@ -281,14 +283,14 @@ const WalletPage = () => {
           } else if (result.invoice_data) {
             // Fallback: if invoice_url is not available, show error
             toast({
-              title: "خطا",
-              description: "خطا در ایجاد لینک پرداخت. لطفاً دوباره تلاش کنید.",
+              title: t.common.error,
+              description: t.wallet.paymentLinkError,
               variant: "destructive",
             });
           } else {
             toast({
-              title: "خطا",
-              description: "پرداخت با ستاره‌های تلگرام در این نسخه در دسترس نیست",
+              title: t.common.error,
+              description: t.wallet.telegramStarsNotAvailable,
               variant: "destructive",
             });
           }
@@ -310,21 +312,21 @@ const WalletPage = () => {
         window.location.href = result.invoice_url;
         } else {
           toast({
-            title: "خطا",
-            description: result.error || "خطا در ایجاد تراکنش",
+            title: t.common.error,
+            description: result.error || t.common.error,
             variant: "destructive",
           });
         }
       } else {
         toast({
-          title: "خطا",
-          description: result.error || "خطا در ایجاد تراکنش",
+          title: t.common.error,
+          description: result.error || t.common.error,
           variant: "destructive",
         });
       }
     } catch (error: any) {
       toast({
-        title: "خطا",
+        title: t.common.error,
         description: error?.data?.error || "مشکلی در اتصال به سرور پیش آمد",
         variant: "destructive",
       });
@@ -365,14 +367,14 @@ const WalletPage = () => {
     const numAmount = parseFloat(withdrawAmount);
     if (isNaN(numAmount) || numAmount <= 0) {
       hapticNotification('error');
-      toast({ title: "خطا", description: "لطفاً مبلغ معتبری وارد کنید", variant: "destructive" });
+      toast({ title: t.common.error, description: t.wallet.invalidAmount, variant: "destructive" });
       return;
     }
 
     if (!walletAddress) {
       toast({
-        title: "خطا",
-        description: "لطفاً ابتدا آدرس ولت خود را در بخش تنظیمات وارد کنید",
+        title: t.common.error,
+        description: t.settings.walletAddressNotSet,
         variant: "destructive"
       });
       return;
@@ -380,15 +382,15 @@ const WalletPage = () => {
 
     if (!hasPasskey) {
       toast({
-        title: "خطا",
-        description: "لطفاً ابتدا رمز عبور خود را در بخش تنظیمات تنظیم کنید",
+        title: t.common.error,
+        description: t.settings.passkeyNotSet,
         variant: "destructive"
       });
       return;
     }
 
     if (withdrawPasskey.length !== 4) {
-      toast({ title: "خطا", description: "رمز عبور باید ۴ رقم باشد", variant: "destructive" });
+      toast({ title: t.common.error, description: t.settings.passkeyLength, variant: "destructive" });
       return;
     }
 
@@ -404,26 +406,26 @@ const WalletPage = () => {
       
       if (result.success) {
         hapticNotification('success');
-        toast({ title: "موفقیت", description: "درخواست برداشت ثبت شد و در حال بررسی است" });
+        toast({ title: t.common.success, description: t.wallet.withdrawSuccess });
         setWithdrawAmount("");
         setWithdrawPasskey("");
         // User data and history are auto-refreshed via RTK Query tag invalidation
         setIsWithdrawOpen(false);
       } else {
         hapticNotification('error');
-        toast({ title: "خطا", description: result.error || "خطا در ثبت درخواست", variant: "destructive" });
+        toast({ title: t.common.error, description: result.error || t.wallet.withdrawError, variant: "destructive" });
       }
     } catch (error: any) {
       toast({ 
-        title: "خطا", 
-        description: error?.data?.error || "خطا در ارتباط با سرور", 
+        title: t.common.error, 
+        description: error?.data?.error || t.errors.networkError, 
         variant: "destructive" 
       });
     }
   };
 
   const handleCancelWithdrawal = async (withdrawalId: string) => {
-    if (!confirm("آیا از لغو این درخواست اطمینان دارید؟")) return;
+    if (!confirm(t.wallet.cancelWithdraw + "?")) return;
 
     if (!tgUser) return;
 
@@ -435,15 +437,15 @@ const WalletPage = () => {
       }).unwrap();
       
       if (result.success) {
-        toast({ title: "موفقیت", description: "درخواست با موفقیت لغو شد و مبلغ به موجودی شما بازگشت" });
+        toast({ title: t.common.success, description: t.wallet.withdrawCancelled });
         // User data and history are auto-refreshed via RTK Query tag invalidation
       } else {
-        toast({ title: "خطا", description: result.error || "خطا در لغو درخواست", variant: "destructive" });
+        toast({ title: t.common.error, description: result.error || t.wallet.withdrawError, variant: "destructive" });
       }
     } catch (error: any) {
       toast({ 
-        title: "خطا", 
-        description: error?.data?.error || "خطا در ارتباط با سرور", 
+        title: t.common.error, 
+        description: error?.data?.error || t.errors.networkError, 
         variant: "destructive" 
       });
     } finally {
@@ -471,8 +473,8 @@ const WalletPage = () => {
 
     if (transactionsToCheck.length === 0) {
       toast({
-        title: "اطلاع",
-        description: "تراکنش در انتظاری برای بررسی یافت نشد",
+        title: t.common.success,
+        description: t.wallet.noTransactions,
       });
       setIsCheckingPending(false);
       return;
@@ -520,18 +522,18 @@ const WalletPage = () => {
     // Show summary toast
     const messages = [];
     if (verifiedCount > 0) {
-      messages.push(`${verifiedCount} تراکنش تایید و به‌روزرسانی شد`);
+      messages.push(`${verifiedCount} ${t.wallet.transactionCompleted}`);
     }
     if (alreadyCompletedCount > 0) {
-      messages.push(`${alreadyCompletedCount} تراکنش قبلاً تکمیل شده بود`);
+      messages.push(`${alreadyCompletedCount} ${t.wallet.transactionAlreadyCompleted}`);
     }
     if (failedCount > 0) {
-      messages.push(`${failedCount} تراکنش هنوز در انتظار است`);
+      messages.push(`${failedCount} ${t.wallet.transactionPending}`);
     }
 
     toast({
-      title: verifiedCount > 0 ? "موفقیت" : "بررسی انجام شد",
-      description: messages.length > 0 ? messages.join('، ') : "بررسی انجام شد",
+      title: verifiedCount > 0 ? t.common.success : t.wallet.checkTransactions,
+      description: messages.length > 0 ? messages.join(', ') : t.wallet.checkTransactions,
       variant: verifiedCount > 0 ? "default" : "default",
     });
 
@@ -543,12 +545,12 @@ const WalletPage = () => {
       case 'completed':
       case 'paid':      // legacy DB entries
       case 'mismatch':  // Plisio: paid but wrong amount
-        return <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100">تکمیل شده</Badge>;
+        return <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100">{t.wallet.transactionCompleted}</Badge>;
       case 'pending':
       case 'new':
-        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">در انتظار</Badge>;
-      case 'expired': return <Badge variant="secondary" className="bg-orange-100 text-orange-700 hover:bg-orange-100">منقضی شده</Badge>;
-      case 'cancelled': return <Badge variant="secondary" className="bg-gray-100 text-gray-700 hover:bg-gray-100">لغو شده</Badge>;
+        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">{t.wallet.transactionPending}</Badge>;
+      case 'expired': return <Badge variant="secondary" className="bg-orange-100 text-orange-700 hover:bg-orange-100">{t.subscription.expired}</Badge>;
+      case 'cancelled': return <Badge variant="secondary" className="bg-gray-100 text-gray-700 hover:bg-gray-100">{t.settings.cancelled}</Badge>;
       case 'failed':
       case 'error':
         return <Badge variant="destructive">ناموفق</Badge>;
@@ -637,8 +639,8 @@ const WalletPage = () => {
     const link = getReferralLink();
     if (link && navigator.share) {
       navigator.share({
-        title: "اشتراک‌گذاری لینک معرفی",
-        text: "با استفاده از این لینک ثبت‌نام کنید و پاداش دریافت کنید!",
+        title: t.wallet.shareReferralLink,
+        text: t.wallet.useThisLinkToRegister,
         url: link,
       }).catch(console.error);
     } else {
@@ -648,7 +650,7 @@ const WalletPage = () => {
 
   return (
     <ErrorBoundary>
-    <div className="min-h-screen bg-background pb-24 text-right" dir="rtl">
+    <div className={`min-h-screen bg-background pb-24 ${isRTL ? 'text-right' : 'text-left'}`} dir={dir}>
       <div className="p-6 pt-12 space-y-4 max-w-lg mx-auto w-full">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -659,9 +661,9 @@ const WalletPage = () => {
           <div className="p-3 rounded-2xl bg-primary/10 text-primary">
             <Wallet className="h-8 w-8" />
           </div>
-          <div className="text-right">
-            <h1 className="text-2xl font-bold font-vazir">کیف پول</h1>
-            <p className="text-muted-foreground text-sm font-vazir">امور مالی، واریز و برداشت</p>
+          <div className={isRTL ? 'text-right' : 'text-left'}>
+            <h1 className={`text-2xl font-bold font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.title}</h1>
+            <p className={`text-muted-foreground text-sm font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.title}</p>
           </div>
           </div>
           <div className="flex items-center gap-2">
@@ -669,8 +671,8 @@ const WalletPage = () => {
             {autoCheckEnabled && pollingPendingTxs.length > 0 && (
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-primary/10 border border-primary/20">
                 <div className={`w-2 h-2 rounded-full ${isChecking ? 'bg-green-500 animate-pulse' : 'bg-green-500/50'}`} />
-                <span className="text-[10px] text-muted-foreground font-vazir">
-                  {pollingPendingTxs.length} در انتظار
+                <span className={`text-[10px] text-muted-foreground font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>
+                  {pollingPendingTxs.length} {t.wallet.transactionPending}
                 </span>
               </div>
             )}
@@ -680,7 +682,7 @@ const WalletPage = () => {
               className="h-10 w-10 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10"
               onClick={handleCheckPendingTransactions}
               disabled={isCheckingPending || isChecking}
-              title={isChecking ? "در حال بررسی خودکار..." : "بررسی دستی تراکنش‌ها"}
+              title={isChecking ? t.wallet.checkingNow : t.wallet.checkTransactions}
             >
               <RefreshCw size={18} className={isCheckingPending || isChecking ? "animate-spin" : ""} />
             </Button>
@@ -693,7 +695,7 @@ const WalletPage = () => {
         ) : (
         <Card className="bg-gradient-to-br from-primary/90 to-primary text-primary-foreground border-none">
           <CardHeader className="pb-4">
-            <CardDescription className="text-primary-foreground/80 font-vazir">موجودی حساب</CardDescription>
+            <CardDescription className={`text-primary-foreground/80 font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.balance}</CardDescription>
             <CardTitle className="text-3xl font-bold font-vazir text-left">
               $ {balance.toLocaleString()}
             </CardTitle>
@@ -705,13 +707,13 @@ const WalletPage = () => {
         {/* Top Up Form */}
         <Card className="border-muted">
           <CardHeader>
-            <CardTitle className="text-lg font-vazir">شارژ حساب</CardTitle>
-            <CardDescription className="font-vazir">مبلغ مورد نظر را وارد کنید (به دلار)</CardDescription>
+            <CardTitle className={`text-lg font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.topUp}</CardTitle>
+            <CardDescription className={`font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.enterAmount}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Payment Method Selection */}
             <div className="space-y-2">
-              <label className="text-sm font-vazir text-right block">روش پرداخت</label>
+              <label className={`text-sm font-vazir block ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.paymentMethod}</label>
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   type="button"
@@ -719,8 +721,8 @@ const WalletPage = () => {
                   className={`font-vazir h-12 ${paymentMethod === 'telegram_stars' ? 'bg-primary' : ''}`}
                   onClick={() => setPaymentMethod('telegram_stars')}
                 >
-                  <Star className="w-4 h-4 ml-2" />
-                  ستاره‌ تلگرام
+                  <Star className={`w-4 h-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
+                  {t.wallet.telegramStars}
                 </Button>
                 <Button
                   type="button"
@@ -728,8 +730,8 @@ const WalletPage = () => {
                   className={`font-vazir h-12 ${paymentMethod === 'plisio' ? 'bg-primary' : ''}`}
                   onClick={() => setPaymentMethod('plisio')}
                 >
-                  <Coins className="w-4 h-4 ml-2" />
-                  کریپتو ( رمز ارز )
+                  <Coins className={`w-4 h-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
+                  {t.wallet.crypto}
                 </Button>
               </div>
             </div>
@@ -737,7 +739,7 @@ const WalletPage = () => {
             <div className="relative">
               <Input
                 type="number"
-                placeholder="مبلغ (USD)"
+                placeholder={t.wallet.amount + " (USD)"}
                 className="pl-10 text-left font-mono"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
@@ -762,23 +764,23 @@ const WalletPage = () => {
             </div>
 
             <TelegramButton
-              className="w-full h-12 gap-2 mt-4 font-vazir"
+              className={`w-full h-12 gap-2 mt-4 font-vazir ${isRTL ? '' : ''}`}
               onClick={handleTopUp}
               disabled={paymentLoading}
             >
               {paymentLoading ? (
-                "در حال اتصال..."
+                t.common.processing
               ) : (
                 <>
                   <Plus className="w-5 h-5" />
-                  {paymentMethod === 'telegram_stars' ? 'شارژ با ستاره‌های تلگرام' : 'شارژ حساب با رمزارز'}
+                  {paymentMethod === 'telegram_stars' ? t.wallet.telegramStars : t.wallet.crypto}
                 </>
               )}
             </TelegramButton>
-            <p className="text-[10px] text-center text-muted-foreground mt-2 font-vazir">
+            <p className={`text-[10px] text-center text-muted-foreground mt-2 font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>
               {paymentMethod === 'telegram_stars' 
-                ? 'پرداخت سریع و امن با ستاره‌های تلگرام' 
-                : 'پرداخت امن از طریق درگاه کریپتو'}
+                ? t.wallet.telegramStars 
+                : t.wallet.crypto}
             </p>
           </CardContent>
         </Card>
@@ -793,25 +795,25 @@ const WalletPage = () => {
                     <div className="p-2 rounded-lg bg-purple-500/20 text-purple-500">
                       <Gift className="w-5 h-5" />
                     </div>
-                    <CardTitle className="text-lg font-vazir">سیستم معرفی و همکاری</CardTitle>
+                    <CardTitle className={`text-lg font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.referralAndAffiliate}</CardTitle>
                   </div>
-                  <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs" onClick={(e) => {
+                  <Button variant="ghost" size="sm" className={`h-8 gap-1 text-xs ${isRTL ? 'flex-row-reverse' : ''}`} onClick={(e) => {
                     e.stopPropagation();
                     setIsReferralOpen(true);
                   }}>
                     <Share2 className="w-3 h-3" />
-                    مشاهده
+                    {t.wallet.view}
                   </Button>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="text-center p-3 rounded-lg bg-background/50">
-                    <p className="text-xs text-muted-foreground font-vazir mb-1">تعداد معرفی‌ها</p>
+                    <p className={`text-xs text-muted-foreground font-vazir mb-1 ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.totalReferrals}</p>
                     <p className="text-xl font-bold font-vazir">{referralStats.referralCount}</p>
                   </div>
                   <div className="text-center p-3 rounded-lg bg-background/50">
-                    <p className="text-xs text-muted-foreground font-vazir mb-1">کل کمیسیون</p>
+                    <p className={`text-xs text-muted-foreground font-vazir mb-1 ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.totalCommissions}</p>
                     <p className="text-xl font-bold font-vazir text-green-500">
                       ${(referralStats.totalCommissions || 0).toFixed(2)}
                     </p>
@@ -820,21 +822,20 @@ const WalletPage = () => {
               </CardContent>
             </Card>
           </DrawerTrigger>
-          <DrawerContent className="max-w-lg mx-auto" dir="rtl">
+          <DrawerContent className={`max-w-lg mx-auto ${isRTL ? 'text-right' : 'text-left'}`} dir={dir}>
             <div className="p-6 pb-12">
               <DrawerHeader className="p-0 mb-6">
-                <DrawerTitle className="text-right font-vazir text-xl">سیستم معرفی</DrawerTitle>
-                <DrawerDescription className="text-right font-vazir">
-                  دوستان خود را دعوت کنید و 
-                     از هر تراکنش آن‌ها 
+                <DrawerTitle className={`font-vazir text-xl ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.referralSystem}</DrawerTitle>
+                <DrawerDescription className={`font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>
+                  {t.wallet.inviteFriends} {t.wallet.commissionFromTransactions} 
                      <span className="px-2 font-bold text-foreground">{userCommissionRate.toFixed(0)}%</span>
-                      کمیسیون دریافت کنید. 
+                      {t.wallet.commissionReceived}
                 </DrawerDescription>
               </DrawerHeader>
               <div className="space-y-6">
                 {/* Referral Code */}
                 <div className="space-y-3">
-                  <label className="text-sm font-vazir text-right block">کد معرف شما</label>
+                  <label className={`text-sm font-vazir block ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.yourReferralCode}</label>
                   <div className="relative">
                     <Input
                       value={referralCode || "---"}
@@ -859,7 +860,7 @@ const WalletPage = () => {
 
                 {/* Referral Link */}
                 <div className="space-y-3">
-                  <label className="text-sm font-vazir text-right block">لینک معرفی</label>
+                  <label className={`text-sm font-vazir block ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.referralLink}</label>
                   <div className="relative">
                     <Input
                       value={referralLink}
@@ -884,40 +885,40 @@ const WalletPage = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1 gap-2"
+                      className={`flex-1 gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}
                       onClick={copyReferralLink}
                     >
                       <Copy className="w-4 h-4" />
-                      کپی لینک
+                      {t.wallet.copyLink}
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1 gap-2"
+                      className={`flex-1 gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}
                       onClick={shareReferralLink}
                     >
                       <Share2 className="w-4 h-4" />
-                      اشتراک‌گذاری
+                      {t.wallet.shareLink}
                     </Button>
                   </div>
                 </div>
 
                 {/* Referral Stats */}
                 {referralStatsLoading ? (
-                  <div className="text-center py-4 text-muted-foreground text-sm">در حال بارگذاری...</div>
+                  <div className={`text-center py-4 text-muted-foreground text-sm ${isRTL ? 'text-right' : 'text-left'}`}>{t.common.loading}</div>
                 ) : (
                   <div className="grid grid-cols-2 gap-3">
                     <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20">
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className={`flex items-center gap-2 mb-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                         <Users className="w-4 h-4 text-purple-500" />
-                        <p className="text-xs text-muted-foreground font-vazir">تعداد معرفی‌ها</p>
+                        <p className={`text-xs text-muted-foreground font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.totalReferrals}</p>
                       </div>
                       <p className="text-2xl font-bold font-vazir">{referralStats.referralCount}</p>
                     </div>
                     <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20">
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className={`flex items-center gap-2 mb-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                         <TrendingUp className="w-4 h-4 text-green-500" />
-                        <p className="text-xs text-muted-foreground font-vazir">کل کمیسیون</p>
+                        <p className={`text-xs text-muted-foreground font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.totalCommissions}</p>
                       </div>
                       <p className="text-2xl font-bold font-vazir text-green-500">
                         ${(referralStats.totalCommissions || 0).toFixed(2)}
@@ -929,25 +930,25 @@ const WalletPage = () => {
                 {/* Referred Users List */}
                 {referralStatsData?.stats?.referredUsers && referralStatsData.stats.referredUsers.length > 0 && (
                   <div className="space-y-3">
-                    <h4 className="text-sm font-bold font-vazir text-right">کاربران معرفی شده ({referralStatsData.stats.referredUsers.length})</h4>
+                    <h4 className={`text-sm font-bold font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.referredUsers} ({referralStatsData.stats.referredUsers.length})</h4>
                     <ScrollArea className="h-48">
                       <div className="space-y-2">
                         {referralStatsData.stats.referredUsers.map((referredUser) => (
-                          <div key={referredUser.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
-                            <div className="text-right flex-1">
+                          <div key={referredUser.id} className={`flex items-center justify-between p-3 rounded-lg bg-muted/50 border ${isRTL ? 'flex-row-reverse' : ''}`}>
+                            <div className={`flex-1 ${isRTL ? 'text-right' : 'text-left'}`}>
                               <p className="text-sm font-bold font-vazir">
                                 {referredUser.first_name} {referredUser.last_name || ''}
                               </p>
                               <p className="text-xs text-muted-foreground font-vazir">
                                 @{referredUser.username || `user_${referredUser.id}`}
                               </p>
-                              <p className="text-[10px] text-muted-foreground font-vazir mt-1">
-                                ثبت‌نام: {new Date(referredUser.created_at).toLocaleDateString('fa-IR')}
+                              <p className={`text-[10px] text-muted-foreground font-vazir mt-1 ${isRTL ? 'text-right' : 'text-left'}`}>
+                                {t.wallet.registrationDate} {new Date(referredUser.created_at).toLocaleDateString(isRTL ? 'fa-IR' : 'en-US')}
                               </p>
                             </div>
-                            <div className="text-left ml-3">
+                            <div className={isRTL ? 'text-right mr-3' : 'text-left ml-3'}>
                               <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-[10px] mb-1">
-                                {referredUser.transactionCount} تراکنش
+                                {referredUser.transactionCount} {t.wallet.transaction}
                               </Badge>
                               <p className="text-xs font-bold font-vazir text-green-500">
                                 ${referredUser.totalEarned.toFixed(2)}
@@ -963,30 +964,30 @@ const WalletPage = () => {
                 {/* Recent Commissions */}
                 {referralStats.recentCommissions && referralStats.recentCommissions.length > 0 && (
                   <div className="space-y-3">
-                    <h4 className="text-sm font-bold font-vazir text-right">کمیسیون‌های اخیر</h4>
+                    <h4 className={`text-sm font-bold font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.recentCommissions}</h4>
                     <ScrollArea className="h-40">
                       <div className="space-y-2">
                         {referralStats.recentCommissions.map((comm: any) => (
-                          <div key={comm.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
-                            <div className="text-right">
+                          <div key={comm.id} className={`flex items-center justify-between p-3 rounded-lg bg-muted/50 border ${isRTL ? 'flex-row-reverse' : ''}`}>
+                            <div className={isRTL ? 'text-right' : 'text-left'}>
                               <p className="text-sm font-bold font-vazir text-green-500">
                                 +${(comm.commission_amount || 0).toFixed(2)}
                               </p>
-                              <p className="text-xs text-muted-foreground font-vazir">
-                                {comm.type === 'registration' ? 'ثبت‌نام' : 'تراکنش'}
+                              <p className={`text-xs text-muted-foreground font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>
+                                {comm.type === 'registration' ? t.wallet.registration : t.wallet.transaction}
                               </p>
                               {comm.referred_user_id && (
-                                <p className="text-[10px] text-muted-foreground font-vazir">
-                                  کاربر: {comm.referred_user_id}
+                                <p className={`text-[10px] text-muted-foreground font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>
+                                  {t.settings.user}: {comm.referred_user_id}
                                 </p>
                               )}
                             </div>
-                            <div className="text-left">
-                              <p className="text-[10px] text-muted-foreground font-vazir">
-                                {new Date(comm.created_at).toLocaleDateString('fa-IR')}
+                            <div className={isRTL ? 'text-right' : 'text-left'}>
+                              <p className={`text-[10px] text-muted-foreground font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>
+                                {new Date(comm.created_at).toLocaleDateString(isRTL ? 'fa-IR' : 'en-US')}
                               </p>
                               <Badge variant="secondary" className="bg-green-100 text-green-700 text-[10px]">
-                                {comm.status === 'paid' ? 'پرداخت شده' : 'در انتظار'}
+                                {comm.status === 'paid' ? t.wallet.paid : t.wallet.pending}
                               </Badge>
                             </div>
                           </div>
@@ -997,20 +998,16 @@ const WalletPage = () => {
                 )}
 
                 <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
-                  <p className="text-xs text-muted-foreground font-vazir text-right leading-relaxed">
-                    💡 با دعوت دوستان خود،
-                     {/* از هر ثبت‌نام 
-                    <span className="font-bold text-foreground">${userRegistrationBonus?.toFixed(0)}</span>
-                     و  */}
-                     از هر تراکنش آن‌ها 
+                  <p className={`text-xs text-muted-foreground font-vazir leading-relaxed ${isRTL ? 'text-right' : 'text-left'}`}>
+                    💡 {t.wallet.inviteFriends} {t.wallet.commissionFromTransactions} 
                      <span className="px-2 font-bold text-foreground">{userCommissionRate.toFixed(0)}%</span>
-                      کمیسیون دریافت کنید. 
-                    لینک معرفی خود را به اشتراک بگذارید و درآمد کسب کنید!
+                      {t.wallet.commissionReceived}
+                    {t.wallet.shareReferralLink}!
                   </p>
                 </div>
               </div>
               <DrawerClose asChild>
-                <Button variant="outline" className="w-full mt-4">بستن</Button>
+                <Button variant="outline" className="w-full mt-4">{t.common.close}</Button>
               </DrawerClose>
             </div>
           </DrawerContent>
@@ -1022,41 +1019,41 @@ const WalletPage = () => {
             <DrawerTrigger asChild>
               <Button variant="outline" className="flex flex-col h-20 gap-2 border-dashed">
                 <CreditCard className="w-5 h-5" />
-                <span className="text-xs font-vazir">برداشت</span>
+                <span className={`text-xs font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.withdraw}</span>
               </Button>
             </DrawerTrigger>
-            <DrawerContent className="max-w-lg mx-auto" dir="rtl">
+            <DrawerContent className={`max-w-lg mx-auto ${isRTL ? 'text-right' : 'text-left'}`} dir={dir}>
               <div className="p-6 pb-12">
                 <DrawerHeader className="p-0 mb-6">
-                  <DrawerTitle className="text-right font-vazir text-xl">برداشت وجه</DrawerTitle>
-                  <DrawerDescription className="text-right font-vazir">وجه مورد نظر تا حداکثر ۷۲ ساعت دیگر به ولت شما واریز خواهد شد</DrawerDescription>
+                  <DrawerTitle className={`font-vazir text-xl ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.withdraw}</DrawerTitle>
+                  <DrawerDescription className={`font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.withdrawWillBeProcessed}</DrawerDescription>
                 </DrawerHeader>
                 <div className="space-y-6 py-4">
                   <div className="p-4 rounded-xl bg-muted/50 border border-muted space-y-2">
-                    <p className="text-xs text-muted-foreground font-vazir text-right">آدرس ولت شما:</p>
+                    <p className={`text-xs text-muted-foreground font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.settings.walletAddress}:</p>
                     <p className="text-sm font-mono text-left break-all bg-background p-2 rounded border">
-                      {walletAddress || "آدرس ولت ثبت نشده است"}
+                      {walletAddress || t.settings.walletAddressNotSet}
                     </p>
                     {!walletAddress && (
-                      <p className="text-[10px] text-red-500 font-vazir text-right">⚠️ لطفاً ابتدا در تنظیمات آدرس ولت خود را وارد کنید.</p>
+                      <p className={`text-[10px] text-red-500 font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>⚠️ {t.settings.walletAddressNotSet}</p>
                     )}
                   </div>
 
                   <div className="space-y-4">
-                    <div className="space-y-2 text-right">
-                      <label className="text-sm font-vazir block">مبلغ برداشت (دلار)</label>
+                    <div className={`space-y-2 ${isRTL ? 'text-right' : 'text-left'}`}>
+                      <label className={`text-sm font-vazir block ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.withdrawAmount} (USD)</label>
                       <Input
                         type="number"
-                        placeholder="مبلغ (USD)"
+                        placeholder={t.wallet.amount + " (USD)"}
                         className="text-left font-mono h-12"
                         value={withdrawAmount}
                         onChange={(e) => setWithdrawAmount(e.target.value)}
                       />
-                      <p className="text-xs text-muted-foreground font-vazir">موجودی قابل برداشت: ${balance}</p>
+                      <p className={`text-xs text-muted-foreground font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.withdrawableBalance}: ${balance}</p>
                     </div>
 
-                    <div className="space-y-2 text-right">
-                      <label className="text-sm font-vazir block">رمز عبور برداشت (۴ رقم)</label>
+                    <div className={`space-y-2 ${isRTL ? 'text-right' : 'text-left'}`}>
+                      <label className={`text-sm font-vazir block ${isRTL ? 'text-right' : 'text-left'}`}>{t.settings.passkeyLength}</label>
                       <Input
                         type="password"
                         inputMode="numeric"
@@ -1075,7 +1072,7 @@ const WalletPage = () => {
                     onClick={handleWithdraw}
                     disabled={withdrawLoading || !walletAddress || !hasPasskey}
                   >
-                    {withdrawLoading ? "در حال ارسال..." : "تایید و ثبت درخواست"}
+                    {withdrawLoading ? t.common.processing : t.common.confirm}
                   </TelegramButton>
                 </div>
               </div>
@@ -1086,40 +1083,40 @@ const WalletPage = () => {
             <DrawerTrigger asChild>
               <Button variant="outline" className="flex flex-col h-20 gap-2 border-dashed" onClick={() => refetchHistory()}>
                 <History className="w-5 h-5" />
-                <span className="text-xs font-vazir">تاریخچه</span>
+                <span className={`text-xs font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.history}</span>
               </Button>
             </DrawerTrigger>
-            <DrawerContent className="max-w-lg mx-auto" dir="rtl">
+            <DrawerContent className={`max-w-lg mx-auto ${isRTL ? 'text-right' : 'text-left'}`} dir={dir}>
               <div className="p-6 pb-12">
                 <DrawerHeader className="p-0 mb-6">
-                  <div className="flex items-center justify-between mb-2">
-                  <DrawerTitle className="text-right font-vazir text-xl">تاریخچه تراکنش‌ها</DrawerTitle>
+                  <div className={`flex items-center justify-between mb-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <DrawerTitle className={`font-vazir text-xl ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.transactions}</DrawerTitle>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={handleCheckPendingTransactions}
                       disabled={isCheckingPending || isChecking}
-                      className="h-8 px-3 text-xs font-vazir gap-2"
+                      className={`h-8 px-3 text-xs font-vazir gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}
                     >
                       <RefreshCw size={14} className={(isCheckingPending || isChecking) ? "animate-spin" : ""} />
-                      {(isCheckingPending || isChecking) ? "در حال بررسی..." : "بررسی تراکنش‌های در انتظار"}
+                      {(isCheckingPending || isChecking) ? t.wallet.checkingNow : t.wallet.checkTransactions}
                     </Button>
                   </div>
-                  <DrawerDescription className="text-right font-vazir text-muted-foreground">
-                    تراکنش‌های اخیر حساب شما
+                  <DrawerDescription className={`font-vazir text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>
+                    {t.wallet.recentTransactions}
                     {history.filter((tx: any) => tx.status === 'pending' && tx.type === 'deposit').length > 0 && (
                       <span className="block mt-1 text-xs">
-                        {history.filter((tx: any) => tx.status === 'pending' && tx.type === 'deposit').length} تراکنش در انتظار
+                        {history.filter((tx: any) => tx.status === 'pending' && tx.type === 'deposit').length} {t.wallet.transactionPending}
                       </span>
                     )}
                     {autoCheckEnabled && pollingPendingTxs.length > 0 && (
-                      <div className="flex items-center gap-2 mt-2 text-[10px]">
+                      <div className={`flex items-center gap-2 mt-2 text-[10px] ${isRTL ? 'flex-row-reverse' : ''}`}>
                         <div className={`w-1.5 h-1.5 rounded-full ${isChecking ? 'bg-green-500 animate-pulse' : 'bg-green-500/50'}`} />
                         <span>
-                          بررسی خودکار فعال
+                          {t.wallet.autoChecking}
                           {lastCheckedAt && (
-                            <span className="mr-1">
-                              • آخرین بررسی: {new Date(lastCheckedAt).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}
+                            <span className={isRTL ? 'mr-1' : 'ml-1'}>
+                              • {t.wallet.lastChecked}: {new Date(lastCheckedAt).toLocaleTimeString(isRTL ? 'fa-IR' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           )}
                         </span>
@@ -1132,7 +1129,7 @@ const WalletPage = () => {
                     {historyLoading ? (
                       Array(3).fill(0).map((_, i) => <TransactionSkeleton key={i} />)
                     ) : history.length === 0 ? (
-                      <div className="text-center py-10 text-muted-foreground font-vazir">تراکنشی یافت نشد</div>
+                      <div className={`text-center py-10 text-muted-foreground font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.wallet.noTransactions}</div>
                     ) : (
                       history.map((tx) => {
                         const isDeposit = tx.type === 'deposit';
@@ -1144,9 +1141,9 @@ const WalletPage = () => {
                         const isBeingChecked = checkingTransactions.includes(tx.id);
                         return (
                         <div key={tx.id} className={`flex flex-col p-3 rounded-lg border bg-card gap-3 ${isBeingChecked ? 'ring-2 ring-primary/50 bg-primary/5' : ''}`}>
-                          <div className="flex items-center justify-between">
-                            <div className="text-left space-y-1">
-                              <div className="flex items-center gap-2">
+                          <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+                            <div className={`space-y-1 ${isRTL ? 'text-right' : 'text-left'}`}>
+                              <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                                 <p className={`text-sm font-bold font-vazir ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
                                   {isPositive ? '+' : '-'}${tx.amount}
                               </p>
@@ -1156,12 +1153,12 @@ const WalletPage = () => {
                               </div>
                               {getStatusBadge(tx.status)}
                             </div>
-                            <div className="flex items-center gap-3">
-                              <div className="text-right">
-                                <p className="text-sm font-semibold font-vazir">
-                                  {isDeposit ? 'شارژ حساب' : isWithdrawal ? 'برداشت وجه' : isSubscription ? 'خرید اشتراک' : 'تراکنش'}
+                            <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                              <div className={isRTL ? 'text-right' : 'text-left'}>
+                                <p className={`text-sm font-semibold font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>
+                                  {isDeposit ? t.wallet.topUp : isWithdrawal ? t.wallet.withdraw : isSubscription ? t.home.selectPlan : t.wallet.transaction}
                                 </p>
-                                <p className="text-[10px] text-muted-foreground font-vazir">{new Date(tx.created_at).toLocaleString('fa-IR')}</p>
+                                <p className={`text-[10px] text-muted-foreground font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{new Date(tx.created_at).toLocaleString(isRTL ? 'fa-IR' : 'en-US')}</p>
                               </div>
                               <div className={`p-2 rounded-full ${isPositive ? 'bg-green-100' : 'bg-red-100'}`}>
                                 {isPositive ? <ArrowDownLeft className="w-4 h-4 text-green-600" /> : <ArrowUpRight className="w-4 h-4 text-red-600" />}
@@ -1172,44 +1169,44 @@ const WalletPage = () => {
                           {/* Transaction IDs */}
                           <div className="flex flex-col gap-2 pt-2 border-t border-border">
                             <div
-                              className="flex items-center justify-between text-[10px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors active:scale-[0.98]"
+                              className={`flex items-center justify-between text-[10px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors active:scale-[0.98] ${isRTL ? 'flex-row-reverse' : ''}`}
                               onClick={() => {
                                 copyToClipboard(tx.id);
-                                toast({ title: "کپی شد", description: "شناسه تراکنش کپی شد" });
+                                toast({ title: t.common.copied, description: t.common.copied });
                               }}
                             >
-                              <span className="font-mono font-vazir flex items-center gap-1">
+                              <span className={`font-mono font-vazir flex items-center gap-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
                                 <Copy size={10} />
-                                شناسه تراکنش:
+                                ID:
                               </span>
                               <span className="font-mono" dir="ltr">{tx.id}</span>
                             </div>
                             {tx.plisio_invoice_id && (
                               <div
-                                className="flex items-center justify-between text-[10px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors active:scale-[0.98]"
+                                className={`flex items-center justify-between text-[10px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors active:scale-[0.98] ${isRTL ? 'flex-row-reverse' : ''}`}
                                 onClick={() => {
                                   copyToClipboard(tx.plisio_invoice_id);
-                                  toast({ title: "کپی شد", description: "شناسه فاکتور Plisio کپی شد" });
+                                  toast({ title: t.common.copied, description: t.common.copied });
                                 }}
                               >
-                                <span className="font-mono font-vazir flex items-center gap-1">
+                                <span className={`font-mono font-vazir flex items-center gap-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
                                   <Copy size={10} />
-                                  شناسه فاکتور Plisio:
+                                  Plisio:
                                 </span>
                                 <span className="font-mono" dir="ltr">{tx.plisio_invoice_id}</span>
                               </div>
                             )}
                             {tx.telegram_stars_order_id && (
                               <div
-                                className="flex items-center justify-between text-[10px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors active:scale-[0.98]"
+                                className={`flex items-center justify-between text-[10px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors active:scale-[0.98] ${isRTL ? 'flex-row-reverse' : ''}`}
                                 onClick={() => {
                                   copyToClipboard(tx.telegram_stars_order_id);
-                                  toast({ title: "کپی شد", description: "شناسه سفارش Telegram Stars کپی شد" });
+                                  toast({ title: t.common.copied, description: t.common.copied });
                                 }}
                               >
-                                <span className="font-mono font-vazir flex items-center gap-1">
+                                <span className={`font-mono font-vazir flex items-center gap-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
                                   <Copy size={10} />
-                                  شناسه سفارش Telegram Stars:
+                                  Stars:
                                 </span>
                                 <span className="font-mono" dir="ltr">{tx.telegram_stars_order_id}</span>
                               </div>
@@ -1224,7 +1221,7 @@ const WalletPage = () => {
                               onClick={() => handleCancelWithdrawal(tx.id)}
                               disabled={cancelLoading === tx.id}
                             >
-                              {cancelLoading === tx.id ? "در حال لغو..." : "لغو درخواست و بازپرداخت"}
+                              {cancelLoading === tx.id ? t.common.processing : t.wallet.cancelWithdraw}
                             </Button>
                           )}
                         </div>

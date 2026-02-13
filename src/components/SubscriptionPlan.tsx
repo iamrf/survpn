@@ -15,6 +15,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useI18n } from '@/lib/i18n';
 
 interface Plan {
     id: string;
@@ -33,6 +34,7 @@ interface SubscriptionPlanProps {
 }
 
 const SubscriptionPlan: React.FC<SubscriptionPlanProps> = ({ plan, onPurchase, isLoading, currentUserDataLimit }) => {
+    const { t, dir, isRTL } = useI18n();
     const isGold = plan.id === 'Business';
     const isSilver = plan.id === 'Free';
     const isBronze = plan.id === 'Standard';
@@ -44,7 +46,7 @@ const SubscriptionPlan: React.FC<SubscriptionPlanProps> = ({ plan, onPurchase, i
         return Math.abs(plan.traffic - userLimitGB) < 1;
     })() : false;
     
-    const buttonLabel = isCurrentPlan ? 'تمدید' : 'خرید و فعالسازی با یک کلیک';
+    const buttonLabel = isCurrentPlan ? t.plan.renew : t.plan.purchaseAndActivate;
 
     const getTierColor = () => {
         if (isGold) return 'from-yellow-400 via-amber-500 to-yellow-600';
@@ -87,36 +89,36 @@ const SubscriptionPlan: React.FC<SubscriptionPlanProps> = ({ plan, onPurchase, i
                         {plan.name}
                     </CardTitle>
                     <p className="text-sm text-center text-muted-foreground font-vazir">
-                        {plan.description || 'با یک کلیک به صورت آنی فعال می شود'}
+                        {plan.description || t.plan.instantActivationNote}
                     </p>
                 </CardHeader>
 
                 <CardContent className="relative space-y-6 pb-6">
                     <div className="space-y-3">
-                        <div className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5 group/item hover:bg-white/10 transition-colors">
-                            <div className="flex items-center gap-3">
+                        <div className={`flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5 group/item hover:bg-white/10 transition-colors ${isRTL ? 'flex-row-reverse' : ''}`}>
+                            <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
                                 <div className="p-2 rounded-xl bg-primary/10 text-primary">
                                     <HardDrive className="w-4 h-4" />
                                 </div>
-                                <span className="text-sm font-vazir text-muted-foreground">ترافیک / حجم</span>
+                                <span className={`text-sm font-vazir text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{t.plan.traffic}</span>
                             </div>
-                            <span className="font-black font-mono text-lg">{plan.traffic} GB</span>
+                            <span className="font-black font-mono text-lg">{plan.traffic} {t.plan.gb}</span>
                         </div>
 
-                        <div className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5 group/item hover:bg-white/10 transition-colors">
-                            <div className="flex items-center gap-3">
+                        <div className={`flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5 group/item hover:bg-white/10 transition-colors ${isRTL ? 'flex-row-reverse' : ''}`}>
+                            <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
                                 <div className="p-2 rounded-xl bg-primary/10 text-primary">
                                     <Clock className="w-4 h-4" />
                                 </div>
-                                <span className="text-sm font-vazir text-muted-foreground">مدت اعتبار</span>
+                                <span className={`text-sm font-vazir text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{t.plan.validityPeriod}</span>
                             </div>
-                            <span className="font-black font-mono text-lg">{plan.duration} روز</span>
+                            <span className="font-black font-mono text-lg">{plan.duration} {t.plan.days}</span>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 p-2 rounded-xl bg-yellow-500/5 border border-yellow-500/10">
+                    <div className={`flex items-center gap-2 p-2 rounded-xl bg-yellow-500/5 border border-yellow-500/10 ${isRTL ? 'flex-row-reverse' : ''}`}>
                         <Zap className="w-3 h-3 text-yellow-500 animate-pulse" />
-                        <span className="text-[10px] text-yellow-500/80 font-vazir">فعال‌سازی آنی</span>
+                        <span className={`text-[10px] text-yellow-500/80 font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.plan.instantActivation}</span>
                     </div>
                 </CardContent>
 
@@ -128,39 +130,39 @@ const SubscriptionPlan: React.FC<SubscriptionPlanProps> = ({ plan, onPurchase, i
                                 disabled={isLoading}
                             >
                                 {isLoading ? (
-                                    <span className="flex items-center gap-2">
+                                    <span className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                                         <RefreshCw className="w-5 h-5 animate-spin" />
-                                        در حال پردازش...
+                                        {t.common.processing}
                                     </span>
                                 ) : (
-                                    <span className="flex items-center gap-2">
+                                    <span className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                                         {buttonLabel}
                                         <Zap className="w-4 h-4" />
                                     </span>
                                 )}
                             </Button>
                         </AlertDialogTrigger>
-                        <AlertDialogContent className="font-vazir text-right rounded-3xl border-white/10 bg-card/95 backdrop-blur-xl" dir="rtl">
+                        <AlertDialogContent className={`font-vazir rounded-3xl border-white/10 bg-card/95 backdrop-blur-xl ${isRTL ? 'text-right' : 'text-left'}`} dir={dir}>
                             <AlertDialogHeader>
                                 <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary">
                                     <AlertCircle size={32} />
                                 </div>
-                                <AlertDialogTitle className="text-2xl font-bold text-center">تایید نهایی خرید</AlertDialogTitle>
-                                <AlertDialogDescription className="text-center text-muted-foreground pt-2">
-                                    آیا از خرید اشتراک <span className="text-foreground font-bold">{plan.name}</span> به مبلغ <span className="text-primary font-bold">{plan.price} دلار</span> اطمینان دارید؟
+                                <AlertDialogTitle className={`text-2xl font-bold text-center ${isRTL ? 'text-right' : 'text-left'}`}>{t.plan.confirmPurchase}</AlertDialogTitle>
+                                <AlertDialogDescription className={`text-center text-muted-foreground pt-2 ${isRTL ? 'text-right' : 'text-left'}`}>
+                                    {t.plan.confirmPurchaseDescription.replace('{planName}', plan.name).replace('{price}', plan.price.toString())}
                                     <br />
-                                    مبلغ مورد نظر از کیف پول شما کسر خواهد شد.
+                                    {t.plan.amountWillBeDeducted}
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
-                            <AlertDialogFooter className="flex-row gap-3 pt-4">
+                            <AlertDialogFooter className={`flex-row gap-3 pt-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
                                 <AlertDialogAction
                                     onClick={() => onPurchase(plan)}
                                     className={`flex-1 h-12 rounded-2xl font-bold text-white bg-gradient-to-r ${getTierColor()}`}
                                 >
-                                    بله، تایید و خرید
+                                    {t.plan.yesConfirm}
                                 </AlertDialogAction>
-                                <AlertDialogCancel className="flex-1 h-12 rounded-2xl font-bold border-white/10 bg-white/5 hover:bg-white/10 mt-0">
-                                    انصراف
+                                <AlertDialogCancel className={`flex-1 h-12 rounded-2xl font-bold border-white/10 bg-white/5 hover:bg-white/10 mt-0 ${isRTL ? 'text-right' : 'text-left'}`}>
+                                    {t.common.cancel}
                                 </AlertDialogCancel>
                             </AlertDialogFooter>
                         </AlertDialogContent>

@@ -13,6 +13,7 @@ import { getPlanInfo } from "@/lib/planUtils";
 import { useGetPlansQuery } from "@/store/api";
 import { setSubscriptionData } from "@/store/slices/index";
 import SubscriptionInfoCard from "@/components/SubscriptionInfoCard";
+import { useI18n } from "@/lib/i18n";
 
 interface ServerConfig {
   id: string;
@@ -23,6 +24,7 @@ interface ServerConfig {
 }
 
 const ConfigsPage = () => {
+  const { t, dir, isRTL } = useI18n();
   const { toast } = useToast();
   const dispatch = useAppDispatch();
   const tgUser = getTelegramUser();
@@ -69,7 +71,7 @@ const ConfigsPage = () => {
       const parsedServers: ServerConfig[] = configLines.map((line, index) => {
         const trimmed = line.trim();
         let type = 'unknown';
-        let name = `سرور ${index + 1}`;
+        let name = `${t.subscription.servers} ${index + 1}`;
         let server = '';
         
         // Determine config type
@@ -124,8 +126,8 @@ const ConfigsPage = () => {
     } catch (error) {
       console.error('Error loading servers:', error);
       toast({
-        title: "خطا",
-        description: "خطا در بارگذاری سرورها",
+        title: t.common.error,
+        description: t.subscription.updateError,
         variant: "destructive",
       });
     } finally {
@@ -146,13 +148,13 @@ const ConfigsPage = () => {
     try {
       await syncUser(tgUser).unwrap();
       toast({
-        title: "موفقیت",
-        description: "اطلاعات اشتراک به‌روزرسانی شد",
+        title: t.common.success,
+        description: t.subscription.subscriptionUpdated,
       });
     } catch (error) {
       toast({
-        title: "خطا",
-        description: "خطا در به‌روزرسانی اطلاعات",
+        title: t.common.error,
+        description: t.subscription.updateError,
         variant: "destructive",
       });
     } finally {
@@ -171,14 +173,14 @@ const ConfigsPage = () => {
       setTimeout(() => setCopiedConfig(null), 2000);
       
       toast({
-        title: "کپی شد",
-        description: `کانفیگ ${server.name} در حافظه کپی شد`,
+        title: t.common.copied,
+        description: t.subscription.configCopied.replace('{name}', server.name),
       });
     } catch (error) {
       console.error('Error copying config:', error);
       toast({
-        title: "خطا",
-        description: "خطا در کپی کردن کانفیگ",
+        title: t.common.error,
+        description: t.common.error,
         variant: "destructive",
       });
     } finally {
@@ -189,8 +191,8 @@ const ConfigsPage = () => {
   const handleRefreshServers = async () => {
     await loadServers();
     toast({
-      title: "موفقیت",
-      description: "لیست سرورها به‌روزرسانی شد",
+      title: t.common.success,
+      description: t.subscription.serversUpdated,
     });
   };
 
@@ -201,7 +203,7 @@ const ConfigsPage = () => {
       'trojan': 'Trojan',
       'shadowsocks': 'Shadowsocks',
       'clash': 'Clash',
-      'other': 'سایر'
+      'other': t.subscription.other
     };
     return labels[type] || type;
   };
@@ -223,19 +225,19 @@ const ConfigsPage = () => {
   const hasSubscriptionData = !!subscriptionData?.url;
 
   return (
-    <div className="min-h-screen flex flex-col pb-24 bg-background" dir="rtl">
+    <div className={`min-h-screen flex flex-col pb-24 bg-background ${isRTL ? '' : ''}`} dir={dir}>
       <div className="p-6 pt-12 space-y-6 max-w-lg mx-auto w-full">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-3 mb-8"
+          className={`flex items-center gap-3 mb-8 ${isRTL ? 'flex-row-reverse' : ''}`}
         >
           <div className="p-3 rounded-2xl bg-primary/10 text-primary">
             <Server className="h-8 w-8" />
           </div>
-          <div className="text-right">
-            <h1 className="text-2xl font-bold font-vazir">اشتراک من</h1>
-            <p className="text-muted-foreground text-sm font-vazir">لینک اشتراک و سرورهای VPN</p>
+          <div className={isRTL ? 'text-right' : 'text-left'}>
+            <h1 className={`text-2xl font-bold font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.subscription.mySubscription}</h1>
+            <p className={`text-muted-foreground text-sm font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.subscription.subscriptionDescription}</p>
           </div>
         </motion.div>
 
@@ -256,41 +258,41 @@ const ConfigsPage = () => {
             transition={{ delay: 0.2 }}
             className="space-y-4"
           >
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold font-vazir">سرورهای موجود</h2>
-              <div className="flex items-center gap-2">
+            <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+              <h2 className={`text-lg font-bold font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.subscription.servers}</h2>
+              <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                 <Badge variant="outline" className="text-xs">
-                  {servers.length} سرور
+                  {servers.length} {t.subscription.serverCount}
                 </Badge>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 gap-1 text-xs"
+                  className={`h-8 gap-1 text-xs ${isRTL ? 'flex-row-reverse' : ''}`}
                   onClick={handleRefreshServers}
                   disabled={loadingServers}
                 >
                   <RefreshCw className={`w-3 h-3 ${loadingServers ? 'animate-spin' : ''}`} />
-                  به‌روزرسانی
+                  {t.subscription.update}
                 </Button>
               </div>
             </div>
 
             {loadingServers ? (
-              <div className="text-center py-8 text-muted-foreground font-vazir">
-                در حال بارگذاری سرورها...
+              <div className={`text-center py-8 text-muted-foreground font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>
+                {t.subscription.loadingServers}
               </div>
             ) : servers.length === 0 ? (
               <Card className="border-muted">
                 <CardContent className="p-8 text-center">
-                  <p className="text-muted-foreground font-vazir">سروری یافت نشد</p>
+                  <p className={`text-muted-foreground font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.subscription.noServers}</p>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="mt-4 gap-2"
+                    className={`mt-4 gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}
                     onClick={handleRefreshServers}
                   >
                     <RefreshCw className="w-4 h-4" />
-                    تلاش مجدد
+                    {t.subscription.retry}
                   </Button>
                 </CardContent>
               </Card>
@@ -307,14 +309,14 @@ const ConfigsPage = () => {
                       className={`border ${typeColor.border} ${typeColor.bg} hover:bg-opacity-20 transition-colors`}
                     >
                       <CardContent className="p-4">
-                        <div className="flex items-center justify-between gap-4">
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className={`flex items-center justify-between gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                          <div className={`flex items-center gap-3 flex-1 min-w-0 ${isRTL ? 'flex-row-reverse' : ''}`}>
                             <div className={`p-2 rounded-xl ${typeColor.bg} ${typeColor.text} shrink-0`}>
                               <Server className="w-5 h-5" />
                             </div>
-                            <div className="text-right flex-1 min-w-0">
-                              <h3 className="font-bold font-vazir text-sm truncate">{server.name}</h3>
-                              <div className="flex items-center gap-2 mt-1">
+                            <div className={`flex-1 min-w-0 ${isRTL ? 'text-right' : 'text-left'}`}>
+                              <h3 className={`font-bold font-vazir text-sm truncate ${isRTL ? 'text-right' : 'text-left'}`}>{server.name}</h3>
+                              <div className={`flex items-center gap-2 mt-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
                                 <Badge variant="outline" className={`text-[10px] ${typeColor.border} ${typeColor.text}`}>
                                   {getTypeLabel(server.type)}
                                 </Badge>
@@ -326,23 +328,23 @@ const ConfigsPage = () => {
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className={`flex items-center gap-2 shrink-0 ${isRTL ? 'flex-row-reverse' : ''}`}>
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-9 gap-2 text-xs"
+                              className={`h-9 gap-2 text-xs ${isRTL ? 'flex-row-reverse' : ''}`}
                               onClick={() => handleImportServer(server.id)}
                               disabled={isRefreshing}
                             >
                               {isCopied ? (
                                 <>
                                   <Check className="w-4 h-4" />
-                                  کپی شد
+                                  {t.subscription.copied}
                                 </>
                               ) : (
                                 <>
                                   <Copy className="w-4 h-4" />
-                                  کپی
+                                  {t.subscription.copy}
                                 </>
                               )}
                             </Button>
@@ -365,9 +367,8 @@ const ConfigsPage = () => {
             )}
 
             <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
-              <p className="text-xs text-muted-foreground font-vazir text-right leading-relaxed">
-                💡 هر سرور را می‌توانید به صورت جداگانه کپی کرده و در اپلیکیشن VPN خود وارد کنید. 
-                برای به‌روزرسانی لیست سرورها، دکمه به‌روزرسانی را بزنید.
+              <p className={`text-xs text-muted-foreground font-vazir leading-relaxed ${isRTL ? 'text-right' : 'text-left'}`}>
+                {t.subscription.serverTip}
               </p>
             </div>
           </motion.div>
