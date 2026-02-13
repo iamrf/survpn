@@ -41,10 +41,15 @@ const initialState: UserState = {
  * Helper to extract user state from a sync/getCurrentUser response
  */
 function extractUserFromPayload(payload: any, userId?: number): UserState['currentUser'] {
+    // Ensure balance is properly extracted - handle both number and string formats
+    const balance = payload.balance !== undefined && payload.balance !== null 
+        ? (typeof payload.balance === 'string' ? parseFloat(payload.balance) : payload.balance)
+        : undefined;
+    
     return {
-        id: userId,
+        id: userId || payload.id,
         isAdmin: payload.isAdmin,
-        balance: payload.balance,
+        balance: balance,
         referralCode: payload.referralCode,
         phoneNumber: payload.phoneNumber,
         createdAt: payload.createdAt,
@@ -114,10 +119,15 @@ const userSlice = createSlice({
             api.endpoints.getCurrentUser.matchFulfilled,
             (state, action) => {
                 if (action.payload.success) {
-                    state.currentUser = extractUserFromPayload(
+                    // Extract userId from the query argument (user object)
+                    // The query takes the entire user object, so originalArgs is the user object
+                    const userId = action.meta.arg?.originalArgs?.id;
+                    const updatedUser = extractUserFromPayload(
                         action.payload,
-                        action.meta.arg?.originalArgs?.id
+                        userId
                     );
+                    // Always update the balance, even if it's the same, to ensure sync
+                    state.currentUser = updatedUser;
                     updateSubscriptionFromPayload(state, action.payload);
                 }
             }

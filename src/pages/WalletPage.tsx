@@ -71,7 +71,11 @@ const WalletPage = () => {
   const [cancelWithdrawal] = useCancelWithdrawalMutation();
 
   // Subscribe to user data query for automatic refresh via tag invalidation
-  useGetCurrentUserQuery(tgUser, { skip: !tgUser });
+  // Refetch when window regains focus to ensure balance is up-to-date
+  useGetCurrentUserQuery(tgUser, { 
+    skip: !tgUser,
+    refetchOnFocus: true,
+  });
   
   const { data: historyData, isLoading: historyLoading, refetch: refetchHistory } = useGetTransactionHistoryQuery(
     tgUser?.id || 0,

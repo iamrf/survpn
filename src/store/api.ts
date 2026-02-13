@@ -222,11 +222,12 @@ export const api = createApi({
             invalidatesTags: (result) => {
                 if (result?.updated) {
                     // Transaction was confirmed and balance credited → refresh everything
+                    // Force refetch of User to get updated balance
                     return ['User', 'Transactions', 'AdminTransactions', 'Stats', 'FinanceSummary'];
                 }
                 if (result?.already_completed) {
-                    // Already processed, just sync transaction list
-                    return ['Transactions'];
+                    // Already processed, but still refresh User to ensure balance is synced
+                    return ['User', 'Transactions'];
                 }
                 // No change (not_found, not_matched, still pending) → don't invalidate anything
                 // This prevents unnecessary refetches during polling of fake/unmatched transactions

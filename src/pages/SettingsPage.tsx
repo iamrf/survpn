@@ -39,15 +39,15 @@ const SettingsPage = () => {
   // Subscribe to user data for automatic refresh via tag invalidation
   useGetCurrentUserQuery(tgUser, { skip: !tgUser });
   
-  // Enable closing confirmation when forms have unsaved changes
-  const hasUnsavedChanges = (newWalletAddress !== walletAddress && newWalletAddress) || 
-                           (newPasskey.length === 4 && newPasskey !== '');
-  useTelegramClosingConfirmation({ enabled: hasUnsavedChanges });
-
   const phoneNumber = currentUser?.phoneNumber || null;
   const walletAddress = currentUser?.walletAddress || "";
   const hasPasskey = currentUser?.hasPasskey || false;
   const isAdmin = currentUser?.isAdmin || false;
+  
+  // Enable closing confirmation when forms have unsaved changes
+  const hasUnsavedChanges = (newWalletAddress !== walletAddress && newWalletAddress) || 
+                           (newPasskey.length === 4 && newPasskey !== '');
+  useTelegramClosingConfirmation({ enabled: hasUnsavedChanges });
   const extraData = {
     createdAt: currentUser?.createdAt,
     lastSeen: currentUser?.lastSeen,
