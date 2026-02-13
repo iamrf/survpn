@@ -48,7 +48,15 @@
   }
 
   html {
+    /* Direction will be set dynamically by I18nProvider */
+  }
+
+  html[dir="rtl"] {
     direction: rtl;
+  }
+
+  html[dir="ltr"] {
+    direction: ltr;
   }
 
   body {
@@ -56,6 +64,32 @@
     font-family: 'Vazirmatn', system-ui, sans-serif;
     background: linear-gradient(135deg, hsl(230 25% 8%) 0%, hsl(230 30% 12%) 50%, hsl(230 25% 8%) 100%);
     min-height: 100vh;
+  }
+
+  /* RTL/LTR text alignment utilities */
+  [dir="rtl"] .text-right {
+    text-align: right;
+  }
+
+  [dir="ltr"] .text-right {
+    text-align: left;
+  }
+
+  [dir="rtl"] .text-left {
+    text-align: left;
+  }
+
+  [dir="ltr"] .text-left {
+    text-align: right;
+  }
+
+  /* RTL/LTR flex direction */
+  [dir="rtl"] .flex-row-reverse {
+    flex-direction: row-reverse;
+  }
+
+  [dir="ltr"] .flex-row-reverse {
+    flex-direction: row;
   }
 
   /* Custom scrollbar */

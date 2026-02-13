@@ -1,27 +1,67 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Check, User as UserIcon, Phone, QrCode, Link2 } from "lucide-react";
+import { Copy, Check, User as UserIcon, Phone, QrCode, Link2, Globe } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getTelegramUser } from "@/lib/telegram";
+import { getTelegramUser, hapticSelection } from "@/lib/telegram";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger, DrawerClose } from "@/components/ui/drawer";
 import { toast } from "@/hooks/use-toast";
-import { useSyncUserMutation, useGetPlansQuery, useGetCurrentUserQuery } from "@/store/api";
+import { useSyncUserMutation, useGetPlansQuery, useGetCurrentUserQuery, useUpdateUserLanguageMutation } from "@/store/api";
 import { useAppSelector } from "@/store/hooks";
 import { getPlanInfo } from "@/lib/planUtils";
+import { useI18n, LanguageCode } from "@/lib/i18n";
 
 const ProfileCard = () => {
   const navigate = useNavigate();
   const tgUser = getTelegramUser();
+  const { t, language, setLanguage, dir, isRTL } = useI18n();
   const [copied, setCopied] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [isLanguageDrawerOpen, setIsLanguageDrawerOpen] = useState(false);
   const [syncUser] = useSyncUserMutation();
+  const [updateUserLanguage, { isLoading: updatingLanguage }] = useUpdateUserLanguageMutation();
   // Subscribe to getCurrentUser for automatic refresh via tag invalidation
   const { isLoading: loading } = useGetCurrentUserQuery(tgUser, { skip: !tgUser });
   const currentUser = useAppSelector((state) => state.user.currentUser);
+  
+  // Supported languages
+  const supportedLanguages = [
+    { code: 'fa' as LanguageCode, name: 'فارسی', flag: '🇮🇷', nativeName: 'فارسی' },
+    { code: 'en' as LanguageCode, name: 'English', flag: '🇺🇸', nativeName: 'English' },
+    { code: 'ar' as LanguageCode, name: 'العربية', flag: '🇸🇦', nativeName: 'العربية' },
+  ];
+  
+  const currentLanguage = supportedLanguages.find(lang => lang.code === language) || supportedLanguages[0];
+  
+  const handleLanguageChange = async (langCode: LanguageCode) => {
+    if (!tgUser) return;
+    hapticSelection();
+    try {
+      const result = await updateUserLanguage({
+        userId: tgUser.id,
+        languageCode: langCode
+      }).unwrap();
+      
+      if (result.success) {
+        setLanguage(langCode);
+        setIsLanguageDrawerOpen(false);
+        toast({ 
+          title: t.common.success, 
+          description: t.settings.languageChanged 
+        });
+      }
+    } catch (error: any) {
+      toast({ 
+        title: t.common.error, 
+        description: error?.data?.error || t.common.error,
+        variant: "destructive" 
+      });
+    }
+  };
   
   const referralCode = currentUser?.referralCode || "";
   const phoneNumber = currentUser?.phoneNumber || null;
@@ -130,24 +170,24 @@ const ProfileCard = () => {
               const result = await syncUser({ ...tgUser, phone_number: phoneToSync }).unwrap();
             if (result.success) {
               toast({
-                title: "موفقیت",
-                description: "شماره تماس شما تایید شد",
+                title: t.common.success,
+                description: t.settings.phoneVerified,
               });
                 // User data auto-refreshes via syncUser invalidating 'User' tag
             }
           } catch (error) {
               console.error("Error syncing phone number:", error);
               toast({
-                title: "خطا",
-                description: "خطا در ثبت شماره تماس. لطفاً دوباره تلاش کنید.",
+                title: t.common.error,
+                description: t.settings.phoneVerificationFailed,
                 variant: "destructive"
               });
             }
           } else {
             // Phone number not available yet, try again after a delay
             toast({
-              title: "در حال بررسی...",
-              description: "در حال دریافت اطلاعات از تلگرام",
+              title: t.settings.phoneChecking,
+              description: t.settings.phoneCheckingDescription,
             });
             setTimeout(async () => {
               const retryPhone = webApp.initDataUnsafe?.user?.phone_number;
@@ -155,16 +195,16 @@ const ProfileCard = () => {
                 try {
                   await syncUser({ ...tgUser, phone_number: retryPhone }).unwrap();
                   toast({
-                    title: "موفقیت",
-                    description: "شماره تماس شما تایید شد",
+                    title: t.common.success,
+                    description: t.settings.phoneVerified,
                   });
                 } catch (error) {
                   console.error("Error syncing phone number on retry:", error);
                 }
               } else {
                 toast({
-                  title: "خطا",
-                  description: "شماره تماس دریافت نشد. لطفاً دوباره تلاش کنید.",
+                  title: t.common.error,
+                  description: t.settings.phoneNotReceived,
                   variant: "destructive"
                 });
               }
@@ -172,8 +212,8 @@ const ProfileCard = () => {
           }
         } else {
           toast({
-            title: "لغو شد",
-            description: "تایید شماره تماس انجام نشد",
+            title: t.settings.cancelled,
+            description: t.settings.phoneVerificationCancelled,
             variant: "destructive"
           });
         }
@@ -181,8 +221,8 @@ const ProfileCard = () => {
       });
     } else {
       toast({
-        title: "خطا",
-        description: "قابلیت در این نسخه تلگرام در دسترس نیست",
+        title: t.common.error,
+        description: t.settings.telegramFeatureNotAvailable,
         variant: "destructive"
       });
     }
@@ -200,14 +240,14 @@ const ProfileCard = () => {
       await navigator.clipboard.writeText(referralCode);
       setCopied(true);
       toast({
-        title: "کپی شد!",
-        description: "کد معرف شما در کلیپ‌بورد کپی شد",
+        title: t.common.copied,
+        description: t.settings.referralCodeCopied,
       });
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast({
-        title: "خطا",
-        description: "کپی انجام نشد",
+        title: t.common.error,
+        description: t.common.error,
         variant: "destructive",
       });
     }
@@ -219,14 +259,14 @@ const ProfileCard = () => {
       await navigator.clipboard.writeText(subscriptionUrl);
       setCopiedLink(true);
       toast({
-        title: "کپی شد",
-        description: "لینک اشتراک با موفقیت کپی شد",
+        title: t.common.copied,
+        description: t.settings.subscriptionLinkCopied,
       });
       setTimeout(() => setCopiedLink(false), 2000);
     } catch {
       toast({
-        title: "خطا",
-        description: "کپی انجام نشد",
+        title: t.common.error,
+        description: t.common.error,
         variant: "destructive",
       });
     }
@@ -315,7 +355,7 @@ const ProfileCard = () => {
                   whileTap={{ scale: 0.98 }}
                 >
                   <Link2 className="w-4 h-4 text-primary" />
-                  <span className="text-xs font-bold text-foreground font-vazir">لینک اشتراک</span>
+                  <span className="text-xs font-bold text-foreground font-vazir">{t.subscription.subscriptionLink}</span>
                 </motion.div>
                 <div className="relative group">
                   <motion.div 
@@ -361,7 +401,7 @@ const ProfileCard = () => {
                       </DialogTrigger>
                       <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-xl border-white/10 rounded-[2.5rem] font-vazir">
                         <DialogHeader>
-                          <DialogTitle className="text-center text-xl font-black">اسکن کد QR</DialogTitle>
+                          <DialogTitle className="text-center text-xl font-black">{t.subscription.scanQR}</DialogTitle>
                         </DialogHeader>
                         <div className="flex flex-col items-center justify-center space-y-6 py-4">
                           <div className="p-6 bg-white rounded-[2rem] shadow-2xl">
@@ -372,11 +412,11 @@ const ProfileCard = () => {
                             />
                           </div>
                           <p className="text-sm text-center text-muted-foreground px-6">
-                            این کد را در اپلیکیشن v2ray (مانند v2rayNG یا Shadowrocket) اسکن کنید تا تنظیمات به صورت خودکار اعمال شود.
+                            {t.settings.qrCodeDescription}
                           </p>
                           <Button onClick={handleCopySubscriptionLink} variant="outline" className="rounded-xl gap-2 font-bold">
                             {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                            کپی لینک اشتراک
+                            {t.subscription.copyLink}
                           </Button>
                         </div>
                       </DialogContent>
@@ -387,10 +427,68 @@ const ProfileCard = () => {
             </div>
           ) : (
             <div className="mt-2">
-              <span className="text-xs text-muted-foreground font-vazir">اشتراکی فعال نیست</span>
+              <span className="text-xs text-muted-foreground font-vazir">{t.subscription.noSubscription}</span>
             </div>
           )}
         </div>
+        
+        {/* Language Switcher Button */}
+        <Drawer open={isLanguageDrawerOpen} onOpenChange={setIsLanguageDrawerOpen}>
+          <DrawerTrigger asChild>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                hapticSelection();
+                setIsLanguageDrawerOpen(true);
+              }}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary transition-colors font-vazir"
+              title={t.settings.language}
+            >
+              <span className="text-lg">{currentLanguage.flag}</span>
+              <span className="text-sm font-bold">{currentLanguage.nativeName}</span>
+            </motion.button>
+          </DrawerTrigger>
+          <DrawerContent className="font-vazir" dir={dir}>
+            <div className="mx-auto w-full max-w-sm p-6">
+              <DrawerHeader>
+                <DrawerTitle className={`text-xl font-bold ${isRTL ? 'text-right' : 'text-left'}`}>
+                  {t.settings.selectLanguage}
+                </DrawerTitle>
+              </DrawerHeader>
+              <div className="space-y-2 py-4 max-h-[60vh] overflow-y-auto">
+                {supportedLanguages.map((lang) => (
+                  <motion.button
+                    key={lang.code}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => handleLanguageChange(lang.code)}
+                    disabled={updatingLanguage}
+                    className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all duration-300 ${isRTL ? 'text-right' : 'text-left'} ${
+                      language === lang.code
+                        ? 'bg-primary/20 border-primary text-foreground'
+                        : 'bg-background border-white/10 text-foreground hover:border-primary/50'
+                    }`}
+                  >
+                    <div className={`flex items-center gap-3 flex-1 ${isRTL ? 'flex-row-reverse' : 'flex-row'}`}>
+                      <span className="text-2xl">{lang.flag}</span>
+                      <div className={`flex-1 ${isRTL ? 'text-right' : 'text-left'}`}>
+                        <p className="text-sm font-bold">{lang.nativeName}</p>
+                        <p className="text-xs text-muted-foreground">{lang.name}</p>
+                      </div>
+                    </div>
+                    {language === lang.code && (
+                      <div className="w-2 h-2 rounded-full bg-primary"></div>
+                    )}
+                  </motion.button>
+                ))}
+              </div>
+              <DrawerClose asChild>
+                <Button variant="outline" className="w-full mt-4">{t.common.close}</Button>
+              </DrawerClose>
+            </div>
+          </DrawerContent>
+        </Drawer>
       </div>
     </motion.div>
   );

@@ -4,23 +4,36 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAdmin } from "./AdminProvider";
 import { useNavBadges } from "@/hooks/useNavBadges";
 import { hapticSelection } from "@/lib/telegram";
+import { useI18n } from "@/lib/i18n";
 
 interface NavItem {
   icon: React.ElementType;
-  label: string;
   path: string;
   adminOnly?: boolean;
 }
 
-const navItems: NavItem[] = [
-  { icon: Home, label: "خانه", path: "/" },
-  { icon: Wallet, label: "کیف پول", path: "/wallet" },
-  { icon: Download, label: "اشتراک من", path: "/missions" },
-  { icon: Settings, label: "تنظیمات", path: "/settings" },
-  { icon: ShieldCheck, label: "مدیریت", path: "/admin", adminOnly: true },
-];
-
 const BottomNav = () => {
+  const { t } = useI18n();
+  
+  const navItems: NavItem[] = [
+    { icon: Home, path: "/" },
+    { icon: Wallet, path: "/wallet" },
+    { icon: Download, path: "/missions" },
+    { icon: Settings, path: "/settings" },
+    { icon: ShieldCheck, path: "/admin", adminOnly: true },
+  ];
+  
+  const getNavLabel = (path: string): string => {
+    switch (path) {
+      case '/': return t.nav.home;
+      case '/wallet': return t.nav.wallet;
+      case '/missions': return t.nav.subscription;
+      case '/settings': return t.nav.settings;
+      case '/admin': return t.nav.admin;
+      default: return '';
+    }
+  };
+
   const location = useLocation();
   const navigate = useNavigate();
   const { isAdmin } = useAdmin();
@@ -89,7 +102,7 @@ const BottomNav = () => {
                 className={`text-xs font-medium transition-colors duration-300 ${isActive ? "text-primary" : "text-muted-foreground"
                   }`}
               >
-                {item.label}
+                {getNavLabel(item.path)}
               </span>
 
               {/* Active indicator */}

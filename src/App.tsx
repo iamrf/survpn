@@ -29,6 +29,7 @@ import { store } from "./store";
 import { useGetCurrentUserQuery, useSyncUserMutation } from "./store/api";
 import { useAppSelector } from "./store/hooks";
 import { useTelegramTheme } from "./hooks/useTelegramTheme";
+import { I18nProvider } from "./lib/i18n";
 
 const queryClient = new QueryClient();
 
@@ -124,11 +125,13 @@ const AppContent = () => {
 const App = () => (
   <Provider store={store}>
     <QueryClientProvider client={queryClient}>
-      <AdminProvider>
-        <TelegramAccessGuard>
-          <AppContent />
-        </TelegramAccessGuard>
-      </AdminProvider>
+      <I18nProvider>
+        <AdminProvider>
+          <TelegramAccessGuard>
+            <AppContent />
+          </TelegramAccessGuard>
+        </AdminProvider>
+      </I18nProvider>
     </QueryClientProvider>
   </Provider>
 );

@@ -644,7 +644,7 @@ const WalletPage = () => {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-background pb-24 text-right" dir="rtl">
+    <div className="min-h-screen bg-background pb-24 text-right" dir="rtl">
       <div className="p-6 pt-12 space-y-4 max-w-lg mx-auto w-full">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -1145,7 +1145,7 @@ const WalletPage = () => {
                               <div className="flex items-center gap-2">
                                 <p className={`text-sm font-bold font-vazir ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
                                   {isPositive ? '+' : '-'}${tx.amount}
-                                </p>
+                              </p>
                                 {isBeingChecked && (
                                   <RefreshCw size={12} className="text-primary animate-spin" />
                                 )}
@@ -1234,9 +1234,9 @@ const WalletPage = () => {
           </Drawer>
         </div>
 
-        </div>
-        <BottomNav />
       </div>
+      <BottomNav />
+    </div>
     </ErrorBoundary>
   );
 };

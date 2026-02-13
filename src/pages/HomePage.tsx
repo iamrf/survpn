@@ -15,11 +15,13 @@ import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { useGetPlansQuery, usePurchasePlanMutation, useGetCurrentUserQuery } from "@/store/api";
 import { setSubscriptionData, setPurchasingPlanId } from "@/store/slices/index";
 import { getPlanInfo } from "@/lib/planUtils";
+import { useI18n } from "@/lib/i18n";
 
 const HomePage = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { t } = useI18n();
   
   // Redux state
   const subscriptionData = useAppSelector((state) => state.user.subscriptionData);
@@ -62,7 +64,7 @@ const HomePage = () => {
       const result = await purchasePlan({ userId: tgUser.id, planId: plan.id }).unwrap();
       if (result.success) {
         toast({
-          title: "خرید موفق",
+          title: t.home.purchaseSuccess,
           description: result.message,
         });
         // User data is auto-refreshed via RTK Query tag invalidation
@@ -70,15 +72,15 @@ const HomePage = () => {
       } else {
         toast({
           variant: "destructive",
-          title: "خطا در خرید",
-          description: result.error || "مشکلی پیش آمد",
+          title: t.home.purchaseError,
+          description: result.error || t.home.somethingWentWrong,
         });
       }
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Error",
-        description: error?.data?.error || "Failed to process purchase",
+        title: t.common.error,
+        description: error?.data?.error || t.home.failedToProcessPurchase,
       });
     } finally {
       dispatch(setPurchasingPlanId(null));
@@ -100,10 +102,10 @@ const HomePage = () => {
 
             <div className="py-16 flex flex-col items-center text-center space-y-4">
               <h2 className="text-3xl font-black tracking-tight font-vazir bg-clip-text text-transparent bg-gradient-to-r from-white to-white/50">
-                ساخته شده برای آزادی
+                {t.home.madeForFreedom}
               </h2>
               <p className="text-muted-foreground text-sm font-vazir">
-              سور وی پی ان همیشه همراه شماست
+              {t.home.alwaysWithYou}
               </p>
             </div>
           </motion.div>
@@ -133,15 +135,15 @@ const HomePage = () => {
             <Star className="w-24 h-24 text-primary" />
           </div>
           <div className="relative space-y-4 max-w-sm">
-            <h2 className="text-2xl font-black tracking-tight font-vazir">سرویس اختصاصی می‌خواهید؟</h2>
+            <h2 className="text-2xl font-black tracking-tight font-vazir">{t.home.wantCustomService}</h2>
             <p className="text-sm text-muted-foreground font-vazir leading-relaxed">
-              اگر نیاز به حجم یا زمان متفاوتی دارید، پلن سفارشی خود را بسازید.
+              {t.home.customServiceDescription}
             </p>
             {/* Quick Info */}
             <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/10">
                 <Zap className="w-4 h-4 text-yellow-500" />
                 <span className="text-xs text-yellow-600 dark:text-yellow-500">
-                    اشتراک بلافاصله پس از خرید فعال می‌شود
+                    {t.home.subscriptionActivatedImmediately}
                 </span>
             </div>
             <div className="pt-2">
