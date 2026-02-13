@@ -16,9 +16,9 @@ const LanguageSwitcher = () => {
 
   // Supported languages
   const supportedLanguages = [
-    { code: 'fa' as LanguageCode, name: 'فارسی', flag: '🇮🇷', nativeName: 'فارسی' },
+    { code: 'fa' as LanguageCode, name: 'Persian', flag: '🇮🇷', nativeName: 'فارسی' },
     { code: 'en' as LanguageCode, name: 'English', flag: '🇺🇸', nativeName: 'English' },
-    { code: 'ar' as LanguageCode, name: 'العربية', flag: '🇸🇦', nativeName: 'العربية' },
+    { code: 'ar' as LanguageCode, name: 'Arabic', flag: '🇸🇦', nativeName: 'العربية' },
   ];
 
   const currentLanguage = supportedLanguages.find(lang => lang.code === language) || supportedLanguages[0];
@@ -117,9 +117,9 @@ const LanguageSwitcher = () => {
                     : 'bg-background border-white/10 text-foreground hover:border-primary/50'
                 }`}
               >
-                <div className={`flex items-center gap-3 flex-1 ${isRTL ? 'flex-row-reverse' : 'flex-row'}`}>
+                <div className={`flex items-center gap-3 flex-1 ${isRTL ? 'flex-row' : 'flex-row-reverse'}`}>
                   <span className="text-2xl">{lang.flag}</span>
-                  <div className={`flex-1 ${isRTL ? 'text-right' : 'text-left'}`}>
+                  <div className={`flex-1}`}>
                     <p className="text-sm font-bold">{lang.nativeName}</p>
                     <p className="text-xs text-muted-foreground">{lang.name}</p>
                   </div>

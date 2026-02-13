@@ -13,7 +13,7 @@ interface NavItem {
 }
 
 const BottomNav = () => {
-  const { t } = useI18n();
+  const { t, isRTL } = useI18n();
   
   const navItems: NavItem[] = [
     { icon: Home, path: "/" },
@@ -59,8 +59,9 @@ const BottomNav = () => {
       animate={{ y: 0 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
       className="fixed bottom-0 left-0 right-0 glass border-t border-border/50 pb-safe z-50"
+      dir={dir}
     >
-      <div className="flex items-center justify-around py-3 px-4">
+      <div className={`flex items-center justify-around py-3 px-4 ${isRTL ? '' : ''}`}>
         {filteredNavItems.map((item) => {
           const isActive = location.pathname === item.path;
           const Icon = item.icon;
@@ -92,7 +93,7 @@ const BottomNav = () => {
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center px-1 rounded-full bg-red-500 text-white text-[10px] font-bold border-2 border-background shadow-lg"
+                    className={`absolute -top-1 min-w-[18px] h-[18px] flex items-center justify-center px-1 rounded-full bg-red-500 text-white text-[10px] font-bold border-2 border-background shadow-lg ${isRTL ? '-right-1' : '-left-1'}`}
                   >
                     {getBadgeCount(item.path) > 99 ? '99+' : getBadgeCount(item.path)}
                   </motion.div>

@@ -21,6 +21,7 @@ import { Cell, Pie, PieChart, RadialBar, RadialBarChart, ResponsiveContainer } f
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AnimatePresence } from 'framer-motion';
 import { useToast } from '@/components/ui/use-toast';
+import { useI18n } from '@/lib/i18n';
 
 interface SubscriptionInfoCardProps {
   subscriptionData: {
@@ -43,6 +44,7 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
   refreshing = false 
 }) => {
   const { toast } = useToast();
+  const { t, dir, isRTL } = useI18n();
   const [copiedLink, setCopiedLink] = React.useState(false);
 
   const formatBytes = (bytes: number) => {
@@ -72,15 +74,15 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
   const getStatusBadge = (status: string) => {
     // If expired by time, override status
     if (isExpired) {
-      return { label: 'منقضی شده', color: 'bg-red-500/10 text-red-500 border-red-500/20' };
+      return { label: t.subscription.expired, color: 'bg-red-500/10 text-red-500 border-red-500/20' };
     }
     
     switch (status) {
-      case 'active': return { label: 'فعال', color: 'bg-green-500/10 text-green-500 border-green-500/20' };
-      case 'limited': return { label: 'محدود شده', color: 'bg-orange-500/10 text-orange-500 border-orange-500/20' };
-      case 'expired': return { label: 'منقضی شده', color: 'bg-red-500/10 text-red-500 border-red-500/20' };
-      case 'disabled': return { label: 'غیرفعال', color: 'bg-gray-500/10 text-gray-500 border-gray-500/20' };
-      default: return { label: status || 'نامشخص', color: 'bg-primary/10 text-primary border-primary/20' };
+      case 'active': return { label: t.subscription.active, color: 'bg-green-500/10 text-green-500 border-green-500/20' };
+      case 'limited': return { label: t.subscription.limited, color: 'bg-orange-500/10 text-orange-500 border-orange-500/20' };
+      case 'expired': return { label: t.subscription.expired, color: 'bg-red-500/10 text-red-500 border-red-500/20' };
+      case 'disabled': return { label: t.subscription.disabled, color: 'bg-gray-500/10 text-gray-500 border-gray-500/20' };
+      default: return { label: status || t.subscription.inactive, color: 'bg-primary/10 text-primary border-primary/20' };
     }
   };
 
@@ -97,12 +99,12 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
   // Chart data for usage (handle limited subscriptions where limit might be 0)
   const usageChartData = subscriptionData.limit > 0 || subscriptionData.used > 0
     ? [
-        { name: 'استفاده شده', value: subscriptionData.used, fill: getUsageBarColor(usagePercent) },
-        { name: 'باقیمانده', value: remainingData, fill: '#1f2937' }
+        { name: t.subscription.used, value: subscriptionData.used, fill: getUsageBarColor(usagePercent) },
+        { name: t.subscription.remaining || 'Remaining', value: remainingData, fill: '#1f2937' }
       ]
     : [
-        { name: 'استفاده شده', value: 0, fill: '#1f2937' },
-        { name: 'باقیمانده', value: 1, fill: '#1f2937' } // Show empty chart
+        { name: t.subscription.used, value: 0, fill: '#1f2937' },
+        { name: t.subscription.remaining || 'Remaining', value: 1, fill: '#1f2937' } // Show empty chart
       ];
 
   // Chart data for radial progress
@@ -119,14 +121,14 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
       await navigator.clipboard.writeText(subscriptionData.url);
       setCopiedLink(true);
       toast({
-        title: "کپی شد",
-        description: "لینک اشتراک با موفقیت کپی شد",
+        title: t.common.copied,
+        description: t.settings.subscriptionLinkCopied,
       });
       setTimeout(() => setCopiedLink(false), 2000);
     } catch {
       toast({
-        title: "خطا",
-        description: "کپی انجام نشد",
+        title: t.common.error,
+        description: t.common.error,
         variant: "destructive",
       });
     }
@@ -134,9 +136,9 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
 
   const getTitle = () => {
     if (subscriptionData.isBonus) {
-      return 'اشتراک رایگان';
+      return t.subscription.freeSubscription || 'Free Subscription';
     }
-    return subscriptionData.planName || 'اشتراک حرفه‌ای';
+    return subscriptionData.planName || t.subscription.professionalSubscription || 'Professional Subscription';
   };
 
   return (
@@ -187,10 +189,10 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Circular Progress Chart */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                   <Activity className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-bold font-vazir">میزان استفاده</span>
+                  <span className={`text-sm font-bold font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.subscription.usageRate}</span>
                 </div>
                 <span className="text-2xl font-black font-mono" style={{ color: getUsageBarColor(usagePercent) }}>
                   {Math.round(usagePercent)}%
@@ -225,8 +227,8 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
                             return (
                               <div className="rounded-lg border bg-background p-2 shadow-sm">
                                 <div className="grid gap-2">
-                                  <div className="flex items-center justify-between gap-4">
-                                    <span className="text-sm font-medium font-vazir">استفاده شده</span>
+                                  <div className={`flex items-center justify-between gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                                    <span className={`text-sm font-medium font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.subscription.used}</span>
                                     <span className="text-sm font-bold font-mono">
                                       {payload[0].value?.toFixed(1)}%
                                     </span>
@@ -242,8 +244,8 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
                   </ResponsiveContainer>
                 </ChartContainer>
               </div>
-              <div className="text-center space-y-1">
-                <p className="text-xs text-muted-foreground font-vazir">از کل حجم</p>
+              <div className={`space-y-1 ${isRTL ? 'text-right' : 'text-left'}`}>
+                <p className={`text-xs text-muted-foreground font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.subscription.ofTotalVolume}</p>
                 <p className="text-lg font-bold font-mono" dir="ltr">
                   {formatBytes(subscriptionData.used)} / {formatBytes(subscriptionData.limit)}
                 </p>
@@ -252,19 +254,19 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
 
             {/* Pie Chart for Data Distribution */}
             <div className="space-y-3">
-              <div className="flex items-center gap-2">
+              <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                 <HardDrive className="w-4 h-4 text-primary" />
-                <span className="text-sm font-bold font-vazir">توزیع ترافیک</span>
+                <span className={`text-sm font-bold font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.subscription.trafficDistribution}</span>
               </div>
               <div className="h-48 flex items-center justify-center">
                 <ChartContainer
                   config={{
                     used: {
-                      label: "استفاده شده",
+                      label: t.subscription.used,
                       color: getUsageBarColor(usagePercent),
                     },
                     remaining: {
-                      label: "باقیمانده",
+                      label: t.subscription.remaining,
                       color: "#1f2937",
                     },
                   }}
@@ -310,14 +312,14 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
                   </ResponsiveContainer>
                 </ChartContainer>
               </div>
-              <div className="flex items-center justify-center gap-4 text-xs">
-                <div className="flex items-center gap-1.5">
+              <div className={`flex items-center justify-center gap-4 text-xs ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <div className={`flex items-center gap-1.5 ${isRTL ? 'flex-row-reverse' : ''}`}>
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: getUsageBarColor(usagePercent) }}></div>
-                  <span className="font-vazir text-muted-foreground">استفاده شده</span>
+                  <span className={`font-vazir text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{t.subscription.used}</span>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className={`flex items-center gap-1.5 ${isRTL ? 'flex-row-reverse' : ''}`}>
                   <div className="w-3 h-3 rounded-full bg-gray-700"></div>
-                  <span className="font-vazir text-muted-foreground">باقیمانده</span>
+                  <span className={`font-vazir text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>{t.subscription.remaining}</span>
                 </div>
               </div>
             </div>

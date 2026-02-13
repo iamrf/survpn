@@ -243,6 +243,28 @@ export interface Translations {
     other: string;
     noSubscription: string;
     used: string;
+    remaining: string;
+    freeSubscription: string;
+    professionalSubscription: string;
+    usageRate: string;
+    remainingData: string;
+    totalData: string;
+    expiredTime: string;
+    remainingTime: string;
+    expiresToday: string;
+    expiredDaysAgo: string;
+    status: string;
+    usageChart: string;
+    expiredNotice: string;
+    scanQRCode: string;
+    qrCodeDescription: string;
+    copySubscriptionLink: string;
+    username: string;
+    trafficDistribution: string;
+    ofTotalVolume: string;
+    days: string;
+    hours: string;
+    unknown: string;
   };
 
   // Admin Pages
@@ -262,6 +284,15 @@ export interface Translations {
     balance: string;
     updateBalance: string;
     transactionHistory: string;
+    completedDeposits: string;
+    allCompletedDeposits: string;
+    totalCompletedDeposits: string;
+    searchTransactions: string;
+    noTransactions: string;
+    transactionDetails: string;
+    depositTransactionInfo: string;
+    transactionId: string;
+    userId: string;
   };
   
   // Subscription Plan Component
@@ -511,6 +542,15 @@ export const translations: Record<LanguageCode, Translations> = {
       balance: 'موجودی',
       updateBalance: 'بروزرسانی موجودی',
       transactionHistory: 'تاریخچه تراکنش‌ها',
+      completedDeposits: 'واریزی‌های تکمیل شده',
+      allCompletedDeposits: 'تمام واریزی‌های تکمیل شده',
+      totalCompletedDeposits: 'مجموع واریزی‌های تکمیل شده',
+      searchTransactions: 'جستجو بر اساس شناسه، کاربر یا فاکتور...',
+      noTransactions: 'واریزی تکمیل شده‌ای یافت نشد',
+      transactionDetails: 'جزئیات تراکنش',
+      depositTransactionInfo: 'اطلاعات تراکنش واریزی',
+      transactionId: 'شناسه تراکنش',
+      userId: 'شناسه کاربر',
     },
     plan: {
       renew: 'تمدید',
@@ -724,6 +764,15 @@ export const translations: Record<LanguageCode, Translations> = {
       balance: 'Balance',
       updateBalance: 'Update Balance',
       transactionHistory: 'Transaction History',
+      completedDeposits: 'Completed Deposits',
+      allCompletedDeposits: 'All completed deposit transactions',
+      totalCompletedDeposits: 'Total Completed Deposits',
+      searchTransactions: 'Search by ID, User ID, Invoice ID...',
+      noTransactions: 'No completed deposits found',
+      transactionDetails: 'Transaction Details',
+      depositTransactionInfo: 'Deposit transaction information',
+      transactionId: 'Transaction ID',
+      userId: 'User ID',
     },
     plan: {
       renew: 'Renew',
@@ -931,6 +980,15 @@ export const translations: Record<LanguageCode, Translations> = {
       balance: 'الرصيد',
       updateBalance: 'تحديث الرصيد',
       transactionHistory: 'سجل المعاملات',
+      completedDeposits: 'الودائع المكتملة',
+      allCompletedDeposits: 'جميع معاملات الإيداع المكتملة',
+      totalCompletedDeposits: 'إجمالي الودائع المكتملة',
+      searchTransactions: 'البحث حسب المعرف، معرف المستخدم، معرف الفاتورة...',
+      noTransactions: 'لم يتم العثور على ودائع مكتملة',
+      transactionDetails: 'تفاصيل المعاملة',
+      depositTransactionInfo: 'معلومات معاملة الإيداع',
+      transactionId: 'معرف المعاملة',
+      userId: 'معرف المستخدم',
     },
     plan: {
       renew: 'تجديد',

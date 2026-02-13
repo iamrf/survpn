@@ -4,6 +4,7 @@ import BottomNav from "@/components/BottomNav";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import { useAppSelector } from "@/store/hooks";
+import { useI18n } from "@/lib/i18n";
 import {
     useGetUsersQuery,
     useGetAllWithdrawalsQuery,
@@ -83,6 +84,7 @@ const AdminPage = () => {
 
     const navigate = useNavigate();
     const { toast } = useToast();
+    const { dir, isRTL } = useI18n();
 
     // RTK Query hooks
     const { data: usersData } = useGetUsersQuery(undefined, { skip: activeTab !== 'overview' });
@@ -270,8 +272,10 @@ const AdminPage = () => {
     };
 
 
+    const { dir, isRTL } = useI18n();
+
     return (
-        <div className="min-h-screen flex flex-col pb-28 bg-background" dir="rtl">
+        <div className={`min-h-screen flex flex-col pb-28 bg-background ${isRTL ? 'text-right' : 'text-left'}`} dir={dir}>
             <div className="p-6 pt-12 max-w-lg mx-auto w-full">
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
@@ -281,9 +285,9 @@ const AdminPage = () => {
                     <div className="p-3 rounded-2xl bg-primary/10 text-primary">
                         <ShieldCheck className="h-8 w-8" />
                     </div>
-                    <div className="text-right">
-                        <h1 className="text-2xl font-bold font-vazir">پنل مدیریت</h1>
-                        <p className="text-muted-foreground text-sm font-vazir">مدیریت سیستم و امور مالی</p>
+                    <div className={isRTL ? 'text-right' : 'text-left'}>
+                        <h1 className={`text-2xl font-bold font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>پنل مدیریت</h1>
+                        <p className={`text-muted-foreground text-sm font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>مدیریت سیستم و امور مالی</p>
                     </div>
                 </motion.div>
 
@@ -331,6 +335,7 @@ const AdminPage = () => {
                                         onClick={() => {
                                             if (index === 0) navigate('/admin/users');
                                             if (index === 1) navigate('/admin/withdrawals/pending');
+                                            if (index === 2) navigate('/admin/deposits');
                                             if (index === 3) navigate('/admin/transactions');
                                         }}
                                         className={`glass p-5 rounded-3xl flex items-center justify-between border border-white/5 shadow-xl ${index <= 1 || index === 3 ? 'cursor-pointer hover:bg-white/5 active:scale-95 transition-all' : ''}`}
@@ -647,16 +652,16 @@ const AdminPage = () => {
 
             {/* Withdrawal Detail Drawer */}
             <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-                <DrawerContent className="max-w-lg mx-auto" dir="rtl">
+                <DrawerContent className={`max-w-lg mx-auto ${isRTL ? 'text-right' : 'text-left'}`} dir={dir}>
                     <div className="mx-auto mt-4 h-1.5 w-12 rounded-full bg-white/10" />
                     <ScrollArea className="max-h-[85vh] overflow-y-auto">
                         <div className="p-6 space-y-8">
-                            <DrawerHeader className="p-0 text-right">
-                                <DrawerTitle className="text-2xl w-full font-bold font-vazir flex items-center justify-end gap-2">
+                            <DrawerHeader className={`p-0 ${isRTL ? 'text-right' : 'text-left'}`}>
+                                <DrawerTitle className={`text-2xl w-full font-bold font-vazir flex items-center gap-2 ${isRTL ? 'justify-end flex-row-reverse' : 'justify-start'}`}>
                                     جزئیات درخواست برداشت
                                     <ArrowUpRight className="text-red-500" size={24} />
                                 </DrawerTitle>
-                                <DrawerDescription className="font-vazir text-muted-foreground">
+                                <DrawerDescription className={`font-vazir text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>
                                     بررسی اطلاعات مالی و تایید پرداخت
                                 </DrawerDescription>
                             </DrawerHeader>
@@ -841,7 +846,7 @@ const AdminPage = () => {
 
             {/* Referral Commission Config Drawer */}
             <Drawer open={isReferralDrawerOpen} onOpenChange={setIsReferralDrawerOpen}>
-                <DrawerContent className="max-w-md mx-auto bg-card/95 backdrop-blur-xl border-white/10 font-vazir" dir="rtl">
+                <DrawerContent className={`max-w-md mx-auto bg-card/95 backdrop-blur-xl border-white/10 font-vazir ${isRTL ? 'text-right' : 'text-left'}`} dir={dir}>
                     <div className="mx-auto mt-4 h-1.5 w-12 rounded-full bg-white/10" />
                     <div className="p-6 space-y-6">
                         <DrawerHeader className="p-0 text-right">
@@ -909,7 +914,7 @@ const AdminPage = () => {
 
             {/* Telegram Stars Pricing Drawer */}
             <Drawer open={isTelegramStarsDrawerOpen} onOpenChange={setIsTelegramStarsDrawerOpen}>
-                <DrawerContent className="max-w-md mx-auto bg-card/95 backdrop-blur-xl border-white/10 font-vazir" dir="rtl">
+                <DrawerContent className={`max-w-md mx-auto bg-card/95 backdrop-blur-xl border-white/10 font-vazir ${isRTL ? 'text-right' : 'text-left'}`} dir={dir}>
                     <div className="mx-auto mt-4 h-1.5 w-12 rounded-full bg-white/10" />
                     <div className="p-6 space-y-6">
                         <DrawerHeader className="p-0 text-right">
@@ -967,7 +972,7 @@ const AdminPage = () => {
 
             {/* Custom Subscription Pricing Drawer */}
             <Drawer open={isCustomSubscriptionDrawerOpen} onOpenChange={setIsCustomSubscriptionDrawerOpen}>
-                <DrawerContent className="max-w-md mx-auto bg-card/95 backdrop-blur-xl border-white/10 font-vazir" dir="rtl">
+                <DrawerContent className={`max-w-md mx-auto bg-card/95 backdrop-blur-xl border-white/10 font-vazir ${isRTL ? 'text-right' : 'text-left'}`} dir={dir}>
                     <div className="mx-auto mt-4 h-1.5 w-12 rounded-full bg-white/10" />
                     <div className="p-6 space-y-6">
                         <DrawerHeader className="p-0 text-right">
@@ -1034,7 +1039,7 @@ const AdminPage = () => {
 
             {/* Bonus Config Drawer */}
             <Drawer open={isBonusDrawerOpen} onOpenChange={setIsBonusDrawerOpen}>
-                <DrawerContent className="max-w-md mx-auto bg-card/95 backdrop-blur-xl border-white/10 font-vazir" dir="rtl">
+                <DrawerContent className={`max-w-md mx-auto bg-card/95 backdrop-blur-xl border-white/10 font-vazir ${isRTL ? 'text-right' : 'text-left'}`} dir={dir}>
                     <div className="mx-auto mt-4 h-1.5 w-12 rounded-full bg-white/10" />
                     <div className="p-6 space-y-6">
                         <DrawerHeader className="p-0 text-right">
@@ -1095,7 +1100,7 @@ const AdminPage = () => {
 
             {/* Plan Edit/Create Drawer */}
             <Drawer open={isPlanDrawerOpen} onOpenChange={setIsPlanDrawerOpen}>
-                <DrawerContent className="max-w-md mx-auto bg-card/95 backdrop-blur-xl border-white/10 font-vazir" dir="rtl">
+                <DrawerContent className={`max-w-md mx-auto bg-card/95 backdrop-blur-xl border-white/10 font-vazir ${isRTL ? 'text-right' : 'text-left'}`} dir={dir}>
                     <div className="mx-auto mt-4 h-1.5 w-12 rounded-full bg-white/10" />
                     <ScrollArea className="max-h-[85vh] overflow-y-auto">
                         <div className="p-6 space-y-6">
