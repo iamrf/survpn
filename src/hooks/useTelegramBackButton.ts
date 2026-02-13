@@ -1,29 +1,22 @@
-import { useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getTelegramWebApp } from '@/lib/telegram';
 
 /**
  * Hook to control Telegram WebApp BackButton
  * Automatically handles navigation when back button is clicked
- * Shows back button on sub-pages, hides on main pages
  * 
  * @example
  * ```tsx
- * // On a sub-page (show back button)
- * useTelegramBackButton();
- * 
- * // On a main page (hide back button)
- * useTelegramBackButton({ isVisible: false });
- * 
- * // Custom navigation
  * useTelegramBackButton({
- *   onClick: () => navigate('/custom'),
+ *   onClick: () => navigate('/home'),
+ *   isVisible: true,
  * });
  * ```
  */
 export function useTelegramBackButton({
   onClick,
-  isVisible,
+  isVisible = true,
   fallbackPath = '/',
 }: {
   onClick?: () => void;
@@ -31,25 +24,8 @@ export function useTelegramBackButton({
   fallbackPath?: string;
 } = {}) {
   const navigate = useNavigate();
-  const location = useLocation();
   const webApp = getTelegramWebApp();
   const backButton = webApp?.BackButton;
-  const onClickRef = useRef(onClick);
-  const navigateRef = useRef(navigate);
-  const fallbackPathRef = useRef(fallbackPath);
-
-  // Update refs when they change
-  useEffect(() => {
-    onClickRef.current = onClick;
-    navigateRef.current = navigate;
-    fallbackPathRef.current = fallbackPath;
-  }, [onClick, navigate, fallbackPath]);
-
-  // Determine if back button should be visible
-  // Default: show on sub-pages (not main nav pages), hide on main pages
-  const shouldShow = isVisible !== undefined 
-    ? isVisible 
-    : !['/', '/wallet', '/missions', '/settings'].includes(location.pathname);
 
   // Create stable no-op functions
   const noop = () => {};
@@ -59,7 +35,7 @@ export function useTelegramBackButton({
 
     try {
       // Show/hide button
-      if (shouldShow) {
+      if (isVisible) {
         backButton.show();
       } else {
         backButton.hide();
@@ -67,14 +43,14 @@ export function useTelegramBackButton({
 
       // Set up click handler
       const handleClick = () => {
-        if (onClickRef.current) {
-          onClickRef.current();
+        if (onClick) {
+          onClick();
         } else {
           // Default: navigate back or to fallback path
           if (window.history.length > 1) {
-            navigateRef.current(-1);
+            navigate(-1);
           } else {
-            navigateRef.current(fallbackPathRef.current);
+            navigate(fallbackPath);
           }
         }
       };
@@ -93,7 +69,7 @@ export function useTelegramBackButton({
     } catch (e) {
       console.warn('Error setting up Telegram BackButton:', e);
     }
-  }, [backButton, shouldShow]);
+  }, [backButton, isVisible, onClick, navigate, fallbackPath]);
 
   // Always return the same structure
   return {

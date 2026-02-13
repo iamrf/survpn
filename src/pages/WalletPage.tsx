@@ -3,10 +3,11 @@ import { useSearchParams } from "react-router-dom";
 import { Wallet, Plus, CreditCard, ArrowUpRight, History, ArrowDownLeft, X, CheckCircle2, Clock, Share2, Users, TrendingUp, Copy, Gift, Star, Coins, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TelegramButton } from "@/components/TelegramButton";
-import { useTelegramMainButton } from "@/hooks/useTelegramMainButton";
-import { useTelegramBackButton } from "@/hooks/useTelegramBackButton";
-import { TelegramPullToRefresh } from "@/components/TelegramPullToRefresh";
+// Temporarily disabled to debug crash
+// import { useTelegramMainButton } from "@/hooks/useTelegramMainButton";
+// import { useTelegramBackButton } from "@/hooks/useTelegramBackButton";
 import { hapticImpact, hapticNotification, hapticSelection } from "@/lib/telegram";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
@@ -58,7 +59,9 @@ const WalletPage = () => {
   const { isChecking, pendingTransactions: pollingPendingTxs, checkAllPendingTransactions } = useTransactionPolling();
 
   // Telegram BackButton - hide on wallet page (it's a main page)
-  useTelegramBackButton({ isVisible: false });
+  // Hook is safe - returns no-ops if Telegram WebApp is not available
+  // Temporarily disabled to debug crash
+  // useTelegramBackButton({ isVisible: false });
 
   // RTK Query hooks
   const [syncUser] = useSyncUserMutation();
@@ -324,21 +327,34 @@ const WalletPage = () => {
     }
   }, [amount, paymentMethod, paymentLoading, tgUser, createPayment, syncUser, balance, dispatch, toast]);
 
-  // Telegram MainButton hook - show when amount is entered
-  const numAmount = parseFloat(amount) || 0;
-  const { setText: setMainButtonText } = useTelegramMainButton({
-    text: paymentMethod === 'telegram_stars' ? 'شارژ با ستاره‌های تلگرام' : 'شارژ حساب با رمزارز',
-    onClick: handleTopUp,
-    isVisible: numAmount > 0 && !paymentLoading,
-    isActive: !paymentLoading && numAmount > 0,
-  });
+  // Telegram MainButton hook - temporarily disabled to debug crash
+  // const { show: showMainButton, hide: hideMainButton, setText: setMainButtonText } = useTelegramMainButton({
+  //   text: paymentMethod === 'telegram_stars' ? 'شارژ با ستاره‌های تلگرام' : 'شارژ حساب با رمزارز',
+  //   onClick: handleTopUp,
+  //   isVisible: false, // Will show when amount is entered
+  //   isActive: !paymentLoading && amount && parseFloat(amount) > 0,
+  // });
 
-  // Update MainButton text when payment method changes
-  useEffect(() => {
-    if (numAmount > 0) {
-      setMainButtonText(paymentMethod === 'telegram_stars' ? 'شارژ با ستاره‌های تلگرام' : 'شارژ حساب با رمزارز');
-    }
-  }, [paymentMethod, setMainButtonText, numAmount]);
+  // Show/hide MainButton based on amount input - temporarily disabled
+  // useEffect(() => {
+  //   if (!showMainButton || !hideMainButton || !setMainButtonText) return;
+  //   
+  //   const numAmount = parseFloat(amount);
+  //   if (numAmount > 0 && !paymentLoading) {
+  //     try {
+  //       setMainButtonText(paymentMethod === 'telegram_stars' ? 'شارژ با ستاره‌های تلگرام' : 'شارژ حساب با رمزارز');
+  //       showMainButton();
+  //     } catch (e) {
+  //       console.warn('Error updating MainButton:', e);
+  //     }
+  //   } else {
+  //     try {
+  //       hideMainButton();
+  //     } catch (e) {
+  //       console.warn('Error hiding MainButton:', e);
+  //     }
+  //   }
+  // }, [amount, paymentMethod, paymentLoading, showMainButton, hideMainButton, setMainButtonText]);
 
   const handleWithdraw = async () => {
     hapticImpact('medium');
@@ -627,16 +643,7 @@ const WalletPage = () => {
   };
 
   return (
-    <TelegramPullToRefresh onRefresh={async () => {
-      try {
-        await refetchHistory();
-        if (checkAllPendingTransactions) {
-          await checkAllPendingTransactions();
-        }
-      } catch (error) {
-        console.error('Error refreshing wallet:', error);
-      }
-    }}>
+    <ErrorBoundary>
       <div className="min-h-screen bg-background pb-24 text-right" dir="rtl">
       <div className="p-6 pt-12 space-y-4 max-w-lg mx-auto w-full">
         <motion.div
@@ -1230,7 +1237,7 @@ const WalletPage = () => {
         </div>
         <BottomNav />
       </div>
-    </TelegramPullToRefresh>
+    </ErrorBoundary>
   );
 };
 

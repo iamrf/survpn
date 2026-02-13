@@ -15,16 +15,11 @@ import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { useGetPlansQuery, usePurchasePlanMutation, useGetCurrentUserQuery } from "@/store/api";
 import { setSubscriptionData, setPurchasingPlanId } from "@/store/slices/index";
 import { getPlanInfo } from "@/lib/planUtils";
-import { useTelegramBackButton } from "@/hooks/useTelegramBackButton";
-import { TelegramPullToRefresh } from "@/components/TelegramPullToRefresh";
 
 const HomePage = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
-  // Telegram BackButton - hide on home page (it's a main page)
-  useTelegramBackButton({ isVisible: false });
   
   // Redux state
   const subscriptionData = useAppSelector((state) => state.user.subscriptionData);

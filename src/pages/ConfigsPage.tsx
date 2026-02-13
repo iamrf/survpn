@@ -13,10 +13,6 @@ import { getPlanInfo } from "@/lib/planUtils";
 import { useGetPlansQuery } from "@/store/api";
 import { setSubscriptionData } from "@/store/slices/index";
 import SubscriptionInfoCard from "@/components/SubscriptionInfoCard";
-import { useTelegramBackButton } from "@/hooks/useTelegramBackButton";
-import { TelegramPullToRefresh } from "@/components/TelegramPullToRefresh";
-import { TelegramButton } from "@/components/TelegramButton";
-import { hapticSelection } from "@/lib/telegram";
 
 interface ServerConfig {
   id: string;
@@ -32,9 +28,6 @@ const ConfigsPage = () => {
   const tgUser = getTelegramUser();
   const [syncUser] = useSyncUserMutation();
   const [copiedConfig, setCopiedConfig] = useState<string | null>(null);
-
-  // Telegram BackButton - hide on missions page (it's a main page)
-  useTelegramBackButton({ isVisible: false });
   const [refreshing, setRefreshing] = useState<string | null>(null);
   const [servers, setServers] = useState<ServerConfig[]>([]);
   const [loadingServers, setLoadingServers] = useState(false);

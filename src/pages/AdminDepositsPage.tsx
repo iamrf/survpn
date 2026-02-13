@@ -20,15 +20,8 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { Bar, BarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Pie, PieChart, Cell, Legend } from "recharts";
 import { useGetDepositsStatsQuery } from "@/store/api";
 import BottomNav from "@/components/BottomNav";
-import { useTelegramBackButton } from "@/hooks/useTelegramBackButton";
-import { TelegramButton } from "@/components/TelegramButton";
-import { TelegramPullToRefresh } from "@/components/TelegramPullToRefresh";
-import { hapticSelection } from "@/lib/telegram";
 
 const AdminDepositsPage = () => {
-    // Telegram BackButton - show on admin sub-pages
-    useTelegramBackButton();
-    
     const navigate = useNavigate();
     const { toast } = useToast();
     

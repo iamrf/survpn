@@ -4,10 +4,6 @@ import BottomNav from "@/components/BottomNav";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import { useAppSelector } from "@/store/hooks";
-import { useTelegramBackButton } from "@/hooks/useTelegramBackButton";
-import { TelegramPullToRefresh } from "@/components/TelegramPullToRefresh";
-import { TelegramButton } from "@/components/TelegramButton";
-import { hapticSelection } from "@/lib/telegram";
 import {
     useGetUsersQuery,
     useGetAllWithdrawalsQuery,
@@ -43,9 +39,6 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const AdminPage = () => {
-    // Telegram BackButton - hide on admin main page
-    useTelegramBackButton({ isVisible: false });
-    
     const [activeTab, setActiveTab] = useState<"overview" | "transactions" | "withdrawals" | "plans">("overview");
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 

@@ -13,14 +13,8 @@ import { getUsers } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import BottomNav from "@/components/BottomNav";
-import { useTelegramBackButton } from "@/hooks/useTelegramBackButton";
-import { TelegramButton } from "@/components/TelegramButton";
-import { hapticSelection } from "@/lib/telegram";
 
 const AdminUsersPage = () => {
-    // Telegram BackButton - show on admin sub-pages
-    useTelegramBackButton();
-    
     const [usersList, setUsersList] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
