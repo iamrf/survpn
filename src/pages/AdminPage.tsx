@@ -271,9 +271,6 @@ const AdminPage = () => {
         // Finance data is automatically fetched via RTK Query hook
     };
 
-
-    const { dir, isRTL } = useI18n();
-
     return (
         <div className={`min-h-screen flex flex-col pb-28 bg-background ${isRTL ? 'text-right' : 'text-left'}`} dir={dir}>
             <div className="p-6 pt-12 max-w-lg mx-auto w-full">
