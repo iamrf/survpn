@@ -2297,6 +2297,351 @@ app.get('/api/messages', async (req, res) => {
     }
 });
 
+// ──────────────────────────────────────────────────────────────
+// Tickets API Endpoints
+// ──────────────────────────────────────────────────────────────
+
+// User: Create Ticket
+app.post('/api/tickets', (req, res) => {
+    const { userId, subject, message, priority } = req.body;
+    
+    if (!userId || !subject || !message) {
+        return res.status(400).json({ error: 'User ID, subject, and message are required' });
+    }
+    
+    try {
+        const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        const ticketId = `ticket_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const ticketPriority = priority || 'normal';
+        
+        db.prepare(`
+            INSERT INTO tickets (id, user_id, subject, message, priority, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, 'open', datetime('now'), datetime('now'))
+        `).run(ticketId, userId, subject, message, ticketPriority);
+        
+        res.json({ success: true, message: 'Ticket created successfully', ticket: { id: ticketId } });
+    } catch (error) {
+        console.error('Error creating ticket:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// User: Get User Tickets
+app.get('/api/tickets', (req, res) => {
+    const { userId } = req.query;
+    
+    if (!userId) {
+        return res.status(400).json({ error: 'User ID is required' });
+    }
+    
+    try {
+        const tickets = db.prepare(`
+            SELECT t.*, 
+                   u.first_name, u.last_name, u.username,
+                   a.first_name as admin_first_name, a.last_name as admin_last_name
+            FROM tickets t
+            LEFT JOIN users u ON t.user_id = u.id
+            LEFT JOIN users a ON t.admin_id = a.id
+            WHERE t.user_id = ?
+            ORDER BY t.created_at DESC
+        `).all(userId);
+        
+        res.json({ success: true, tickets });
+    } catch (error) {
+        console.error('Error fetching tickets:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// User: Get Single Ticket
+app.get('/api/tickets/:id', (req, res) => {
+    const { id } = req.params;
+    const { userId } = req.query;
+    
+    if (!userId) {
+        return res.status(400).json({ error: 'User ID is required' });
+    }
+    
+    try {
+        const ticket = db.prepare(`
+            SELECT t.*, 
+                   u.first_name, u.last_name, u.username,
+                   a.first_name as admin_first_name, a.last_name as admin_last_name
+            FROM tickets t
+            LEFT JOIN users u ON t.user_id = u.id
+            LEFT JOIN users a ON t.admin_id = a.id
+            WHERE t.id = ? AND t.user_id = ?
+        `).get(id, userId);
+        
+        if (!ticket) {
+            return res.status(404).json({ error: 'Ticket not found' });
+        }
+        
+        res.json({ success: true, ticket });
+    } catch (error) {
+        console.error('Error fetching ticket:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: Get All Tickets
+app.get('/api/admin/tickets', (req, res) => {
+    try {
+        const { status, priority } = req.query;
+        
+        let query = `
+            SELECT t.*, 
+                   u.first_name, u.last_name, u.username, u.id as user_id,
+                   a.first_name as admin_first_name, a.last_name as admin_last_name
+            FROM tickets t
+            LEFT JOIN users u ON t.user_id = u.id
+            LEFT JOIN users a ON t.admin_id = a.id
+            WHERE 1=1
+        `;
+        
+        const params = [];
+        if (status) {
+            query += ' AND t.status = ?';
+            params.push(status);
+        }
+        if (priority) {
+            query += ' AND t.priority = ?';
+            params.push(priority);
+        }
+        
+        query += ' ORDER BY t.created_at DESC';
+        
+        const tickets = db.prepare(query).all(...params);
+        
+        res.json({ success: true, tickets });
+    } catch (error) {
+        console.error('Error fetching tickets:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: Get Ticket Counts (for badges)
+app.get('/api/admin/tickets/counts', (req, res) => {
+    try {
+        const openCount = db.prepare("SELECT COUNT(*) as count FROM tickets WHERE status = 'open'").get().count;
+        const inProgressCount = db.prepare("SELECT COUNT(*) as count FROM tickets WHERE status = 'in_progress'").get().count;
+        const newTicketsCount = openCount + inProgressCount;
+        
+        res.json({ 
+            success: true, 
+            counts: {
+                open: openCount,
+                in_progress: inProgressCount,
+                new: newTicketsCount,
+                total: db.prepare("SELECT COUNT(*) as count FROM tickets").get().count
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching ticket counts:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: Update Ticket Status
+app.put('/api/admin/tickets/:id/status', (req, res) => {
+    const { id } = req.params;
+    const { status, adminId } = req.body;
+    
+    if (!status || !['open', 'in_progress', 'resolved', 'closed'].includes(status)) {
+        return res.status(400).json({ error: 'Valid status is required' });
+    }
+    
+    try {
+        db.prepare(`
+            UPDATE tickets 
+            SET status = ?, admin_id = ?, updated_at = datetime('now'), resolved_at = ?
+            WHERE id = ?
+        `).run(status, adminId || null, status === 'resolved' || status === 'closed' ? new Date().toISOString() : null, id);
+        
+        res.json({ success: true, message: 'Ticket status updated successfully' });
+    } catch (error) {
+        console.error('Error updating ticket status:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: Respond to Ticket
+app.post('/api/admin/tickets/:id/respond', (req, res) => {
+    const { id } = req.params;
+    const { adminId, response } = req.body;
+    
+    if (!adminId || !response) {
+        return res.status(400).json({ error: 'Admin ID and response are required' });
+    }
+    
+    try {
+        // Check if ticket exists and is open
+        const ticket = db.prepare('SELECT status FROM tickets WHERE id = ?').get(id);
+        if (!ticket) {
+            return res.status(404).json({ error: 'Ticket not found' });
+        }
+        
+        if (ticket.status !== 'open' && ticket.status !== 'in_progress') {
+            return res.status(400).json({ error: 'Can only reply to open tickets' });
+        }
+        
+        // Add reply to ticket_replies table
+        const replyId = `reply_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        db.prepare(`
+            INSERT INTO ticket_replies (id, ticket_id, admin_id, message, created_at)
+            VALUES (?, ?, ?, ?, datetime('now'))
+        `).run(replyId, id, adminId, response);
+        
+        // Update ticket status to in_progress and update admin_response for backward compatibility
+        db.prepare(`
+            UPDATE tickets 
+            SET admin_response = ?, admin_id = ?, status = 'in_progress', updated_at = datetime('now')
+            WHERE id = ?
+        `).run(response, adminId, id);
+        
+        res.json({ success: true, message: 'Response added successfully' });
+    } catch (error) {
+        console.error('Error responding to ticket:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// User: Reply to Ticket
+app.post('/api/tickets/:id/reply', (req, res) => {
+    const { id } = req.params;
+    const { userId, message } = req.body;
+    
+    if (!userId || !message) {
+        return res.status(400).json({ error: 'User ID and message are required' });
+    }
+    
+    try {
+        // Check if ticket exists, belongs to user, and is open
+        const ticket = db.prepare('SELECT status, user_id FROM tickets WHERE id = ?').get(id);
+        if (!ticket) {
+            return res.status(404).json({ error: 'Ticket not found' });
+        }
+        
+        if (ticket.user_id !== userId) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+        
+        if (ticket.status !== 'open' && ticket.status !== 'in_progress') {
+            return res.status(400).json({ error: 'Can only reply to open tickets' });
+        }
+        
+        // Add reply to ticket_replies table
+        const replyId = `reply_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        db.prepare(`
+            INSERT INTO ticket_replies (id, ticket_id, user_id, message, created_at)
+            VALUES (?, ?, ?, ?, datetime('now'))
+        `).run(replyId, id, userId, message);
+        
+        // Update ticket status back to open and update timestamp
+        db.prepare(`
+            UPDATE tickets 
+            SET status = 'open', updated_at = datetime('now')
+            WHERE id = ?
+        `).run(id);
+        
+        res.json({ success: true, message: 'Reply added successfully' });
+    } catch (error) {
+        console.error('Error replying to ticket:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get Ticket Replies
+app.get('/api/tickets/:id/replies', (req, res) => {
+    const { id } = req.params;
+    
+    try {
+        const replies = db.prepare(`
+            SELECT r.*,
+                   u.first_name as user_first_name, u.last_name as user_last_name, u.username as user_username,
+                   a.first_name as admin_first_name, a.last_name as admin_last_name, a.username as admin_username
+            FROM ticket_replies r
+            LEFT JOIN users u ON r.user_id = u.id
+            LEFT JOIN users a ON r.admin_id = a.id
+            WHERE r.ticket_id = ?
+            ORDER BY r.created_at ASC
+        `).all(id);
+        
+        res.json({ success: true, replies });
+    } catch (error) {
+        console.error('Error fetching ticket replies:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// User: Update Ticket Status
+app.put('/api/tickets/:id/status', (req, res) => {
+    const { id } = req.params;
+    const { userId, status } = req.body;
+    
+    if (!userId || !status) {
+        return res.status(400).json({ error: 'User ID and status are required' });
+    }
+    
+    if (!['open', 'closed'].includes(status)) {
+        return res.status(400).json({ error: 'Status must be open or closed' });
+    }
+    
+    try {
+        // Check if ticket exists and belongs to user
+        const ticket = db.prepare('SELECT user_id FROM tickets WHERE id = ?').get(id);
+        if (!ticket) {
+            return res.status(404).json({ error: 'Ticket not found' });
+        }
+        
+        if (ticket.user_id !== userId) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+        
+        // Update ticket status
+        db.prepare(`
+            UPDATE tickets 
+            SET status = ?, updated_at = datetime('now')
+            WHERE id = ?
+        `).run(status, id);
+        
+        res.json({ success: true, message: 'Ticket status updated successfully' });
+    } catch (error) {
+        console.error('Error updating ticket status:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: Get Single Ticket
+app.get('/api/admin/tickets/:id', (req, res) => {
+    const { id } = req.params;
+    
+    try {
+        const ticket = db.prepare(`
+            SELECT t.*, 
+                   u.first_name, u.last_name, u.username, u.id as user_id,
+                   a.first_name as admin_first_name, a.last_name as admin_last_name
+            FROM tickets t
+            LEFT JOIN users u ON t.user_id = u.id
+            LEFT JOIN users a ON t.admin_id = a.id
+            WHERE t.id = ?
+        `).get(id);
+        
+        if (!ticket) {
+            return res.status(404).json({ error: 'Ticket not found' });
+        }
+        
+        res.json({ success: true, ticket });
+    } catch (error) {
+        console.error('Error fetching ticket:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });

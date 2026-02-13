@@ -195,6 +195,55 @@ function runMigrations() {
             console.log('admin_messages table created');
         }
         
+        // Check if tickets table exists
+        const ticketsTable = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='tickets'").get();
+        if (!ticketsTable) {
+            console.log('Creating tickets table...');
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS tickets (
+                    id TEXT PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    subject TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'open',
+                    priority TEXT DEFAULT 'normal',
+                    admin_response TEXT,
+                    admin_id INTEGER,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    resolved_at DATETIME,
+                    FOREIGN KEY (user_id) REFERENCES users (id),
+                    FOREIGN KEY (admin_id) REFERENCES users (id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_tickets_user_id ON tickets (user_id);
+                CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets (status);
+                CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON tickets (created_at DESC);
+            `);
+            console.log('tickets table created');
+        }
+        
+        // Check if ticket_replies table exists
+        const ticketRepliesTable = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='ticket_replies'").get();
+        if (!ticketRepliesTable) {
+            console.log('Creating ticket_replies table...');
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS ticket_replies (
+                    id TEXT PRIMARY KEY,
+                    ticket_id TEXT NOT NULL,
+                    user_id INTEGER,
+                    admin_id INTEGER,
+                    message TEXT NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (ticket_id) REFERENCES tickets (id) ON DELETE CASCADE,
+                    FOREIGN KEY (user_id) REFERENCES users (id),
+                    FOREIGN KEY (admin_id) REFERENCES users (id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_ticket_replies_ticket_id ON ticket_replies (ticket_id);
+                CREATE INDEX IF NOT EXISTS idx_ticket_replies_created_at ON ticket_replies (created_at);
+            `);
+            console.log('ticket_replies table created');
+        }
+        
         console.log('Migrations completed');
     } catch (error) {
         console.error('Error running migrations:', error);

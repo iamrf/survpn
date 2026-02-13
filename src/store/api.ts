@@ -115,6 +115,10 @@ export const api = createApi({
         'ReferralStats',
         'AdminMessages',
         'UserMessages',
+        'Tickets',
+        'AdminTickets',
+        'TicketCounts',
+        'TicketReplies',
     ],
     keepUnusedDataFor: 60,
     endpoints: (builder) => ({
@@ -647,6 +651,114 @@ export const api = createApi({
             providesTags: ['UserMessages'],
         }),
 
+        // ──────────────────────────────────────────────────────────────
+        // Tickets endpoints
+        // ──────────────────────────────────────────────────────────────
+        createTicket: builder.mutation<{ success: boolean; message?: string; ticket?: any; error?: string }, {
+            userId: number;
+            subject: string;
+            message: string;
+            priority?: 'low' | 'normal' | 'high' | 'urgent';
+        }>({
+            query: (ticket) => ({
+                url: '/api/tickets',
+                method: 'POST',
+                body: ticket,
+            }),
+            invalidatesTags: ['Tickets', 'TicketCounts'],
+        }),
+
+        getUserTickets: builder.query<{ success: boolean; tickets?: any[] }, number>({
+            query: (userId) => `/api/tickets?userId=${userId}`,
+            providesTags: ['Tickets'],
+        }),
+
+        getTicket: builder.query<{ success: boolean; ticket?: any }, { ticketId: string; userId: number }>({
+            query: ({ ticketId, userId }) => `/api/tickets/${ticketId}?userId=${userId}`,
+            providesTags: (result, error, { ticketId }) => [{ type: 'Tickets', id: ticketId }],
+        }),
+
+        // Admin tickets
+        getAdminTickets: builder.query<{ success: boolean; tickets?: any[] }, { status?: string; priority?: string }>({
+            query: (params) => {
+                const queryParams = new URLSearchParams();
+                if (params.status) queryParams.append('status', params.status);
+                if (params.priority) queryParams.append('priority', params.priority);
+                return `/api/admin/tickets?${queryParams.toString()}`;
+            },
+            providesTags: ['AdminTickets', 'TicketCounts'],
+        }),
+
+        getTicketCounts: builder.query<{ success: boolean; counts?: { open: number; in_progress: number; new: number; total: number } }, void>({
+            query: () => '/api/admin/tickets/counts',
+            providesTags: ['TicketCounts'],
+        }),
+
+        getAdminTicket: builder.query<{ success: boolean; ticket?: any }, string>({
+            query: (ticketId) => `/api/admin/tickets/${ticketId}`,
+            providesTags: (result, error, ticketId) => [{ type: 'AdminTickets', id: ticketId }],
+        }),
+
+        updateTicketStatus: builder.mutation<{ success: boolean; message?: string; error?: string }, {
+            ticketId: string;
+            status: 'open' | 'in_progress' | 'resolved' | 'closed';
+            adminId: number;
+        }>({
+            query: ({ ticketId, status, adminId }) => ({
+                url: `/api/admin/tickets/${ticketId}/status`,
+                method: 'PUT',
+                body: { status, adminId },
+            }),
+            invalidatesTags: ['AdminTickets', 'Tickets', 'TicketCounts'],
+        }),
+
+        respondToTicket: builder.mutation<{ success: boolean; message?: string; error?: string }, {
+            ticketId: string;
+            adminId: number;
+            response: string;
+        }>({
+            query: ({ ticketId, adminId, response }) => ({
+                url: `/api/admin/tickets/${ticketId}/respond`,
+                method: 'POST',
+                body: { adminId, response },
+            }),
+            invalidatesTags: ['AdminTickets', 'Tickets', 'TicketReplies'],
+        }),
+
+        // User: Reply to Ticket
+        replyToTicket: builder.mutation<{ success: boolean; message?: string; error?: string }, {
+            ticketId: string;
+            userId: number;
+            message: string;
+        }>({
+            query: ({ ticketId, userId, message }) => ({
+                url: `/api/tickets/${ticketId}/reply`,
+                method: 'POST',
+                body: { userId, message },
+            }),
+            invalidatesTags: ['Tickets', 'TicketReplies'],
+        }),
+
+        // Get Ticket Replies
+        getTicketReplies: builder.query<{ success: boolean; replies?: any[] }, string>({
+            query: (ticketId) => `/api/tickets/${ticketId}/replies`,
+            providesTags: (result, error, ticketId) => [{ type: 'TicketReplies', id: ticketId }],
+        }),
+
+        // User: Update Ticket Status
+        updateUserTicketStatus: builder.mutation<{ success: boolean; message?: string; error?: string }, {
+            ticketId: string;
+            userId: number;
+            status: 'open' | 'closed';
+        }>({
+            query: ({ ticketId, userId, status }) => ({
+                url: `/api/tickets/${ticketId}/status`,
+                method: 'PUT',
+                body: { userId, status },
+            }),
+            invalidatesTags: ['Tickets', 'TicketReplies'],
+        }),
+
         // Health check
         checkBackendHealth: builder.query<boolean, void>({
             query: () => '/health',
@@ -727,6 +839,27 @@ export const {
     // User Messages hooks
     useGetUserMessagesQuery,
     useLazyGetUserMessagesQuery,
+    
+    // Tickets hooks
+    useCreateTicketMutation,
+    useGetUserTicketsQuery,
+    useLazyGetUserTicketsQuery,
+    useGetTicketQuery,
+    useLazyGetTicketQuery,
+    
+    // Admin Tickets hooks
+    useGetAdminTicketsQuery,
+    useLazyGetAdminTicketsQuery,
+    useGetTicketCountsQuery,
+    useLazyGetTicketCountsQuery,
+    useGetAdminTicketQuery,
+    useLazyGetAdminTicketQuery,
+    useUpdateTicketStatusMutation,
+    useRespondToTicketMutation,
+    useReplyToTicketMutation,
+    useGetTicketRepliesQuery,
+    useLazyGetTicketRepliesQuery,
+    useUpdateUserTicketStatusMutation,
     
     // Health check
     useCheckBackendHealthQuery,

@@ -1,4 +1,4 @@
-import { useGetAllWithdrawalsQuery } from "@/store/api";
+import { useGetAllWithdrawalsQuery, useGetTicketCountsQuery } from "@/store/api";
 import { useAdmin } from "@/components/AdminProvider";
 
 export interface NavBadge {
@@ -26,13 +26,23 @@ export const useNavBadges = (): NavBadges => {
     pollingInterval: 30000, // Poll every 30 seconds to keep badge updated
   });
   
+  // Fetch ticket counts for admin badge
+  const { data: ticketCountsData } = useGetTicketCountsQuery(undefined, {
+    skip: !isAdmin, // Only fetch if user is admin
+    pollingInterval: 30000, // Poll every 30 seconds to keep badge updated
+  });
+  
   const withdrawalsList = withdrawalsData?.withdrawals || [];
   const pendingWithdrawalsCount = withdrawalsList.filter((w: any) => w.status === 'pending').length;
+  const newTicketsCount = ticketCountsData?.counts?.new || 0;
+  
+  // Admin badge shows both pending withdrawals and new tickets
+  const totalAdminBadgeCount = pendingWithdrawalsCount + newTicketsCount;
   
   return {
     admin: {
-      count: pendingWithdrawalsCount,
-      show: isAdmin && pendingWithdrawalsCount > 0,
+      count: totalAdminBadgeCount,
+      show: isAdmin && totalAdminBadgeCount > 0,
     },
   };
 };

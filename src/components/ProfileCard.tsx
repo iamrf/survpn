@@ -287,7 +287,7 @@ const ProfileCard = () => {
               >
                 {/* Usage Bar */}
                 {dataLimit > 0 && (
-                  <div className="space-y-1.5" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex-1 space-y-1.5" onClick={(e) => e.stopPropagation()}>
                     <div className={`flex items-center justify-between text-xs font-vazir ${isRTL ? 'flex-row-reverse' : ''}`}>
                       <span className={`text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>
                         {Math.round(usagePercent)}% {t.subscription.used}
@@ -302,6 +302,7 @@ const ProfileCard = () => {
                         animate={{ width: `${usagePercent}%` }}
                         transition={{ duration: 0.5, ease: "easeOut" }}
                         className={`h-full rounded-full bg-gradient-to-l ${usageBarColor}`}
+                        onClick={() => navigate('/missions')}
                       />
                     </div>
                   </div>

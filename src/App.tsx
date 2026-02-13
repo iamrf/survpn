@@ -19,6 +19,8 @@ const AdminPendingWithdrawalsPage = lazy(() => import("./pages/AdminPendingWithd
 const AdminUsersPage = lazy(() => import("./pages/AdminUsersPage"));
 const AdminTransactionsPage = lazy(() => import("./pages/AdminTransactionsPage"));
 const AdminDepositsPage = lazy(() => import("./pages/AdminDepositsPage"));
+const AdminTicketsPage = lazy(() => import("./pages/AdminTicketsPage"));
+const TicketsPage = lazy(() => import("./pages/TicketsPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 import { useEffect, useRef } from "react";
@@ -117,8 +119,9 @@ const AppContent = () => {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/wallet" element={<WalletPage />} />
-              <Route path="/missions" element={<ConfigsPage />} />
+            <Route path="/missions" element={<ConfigsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/tickets" element={<TicketsPage />} />
             {isAdmin &&
               <>
                 <Route path="/admin" element={<AdminPage />} />
@@ -127,6 +130,7 @@ const AppContent = () => {
                 <Route path="/admin/withdrawals/pending" element={<AdminPendingWithdrawalsPage />} />
                 <Route path="/admin/transactions" element={<AdminTransactionsPage />} />
                 <Route path="/admin/deposits" element={<AdminDepositsPage />} />
+                <Route path="/admin/tickets" element={<AdminTicketsPage />} />
               </>
             }
             <Route path="*" element={<NotFound />} />

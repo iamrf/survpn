@@ -21,6 +21,7 @@ import {
     useCreateMessageMutation,
     useUpdateMessageMutation,
     useDeleteMessageMutation,
+    useGetTicketCountsQuery,
 } from "@/store/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -94,6 +95,7 @@ const AdminPage = () => {
     const [isMessageDeleteConfirmOpen, setIsMessageDeleteConfirmOpen] = useState(false);
     const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
     const [saveMessageLoading, setSaveMessageLoading] = useState(false);
+
     const [messageForm, setMessageForm] = useState({
         id: '',
         title: '',
@@ -136,6 +138,11 @@ const AdminPage = () => {
     });
     const messagesList = messagesData?.messages || [];
     
+    const { data: ticketCountsData } = useGetTicketCountsQuery(undefined, {
+        pollingInterval: 30000,
+    });
+    const newTicketsCount = ticketCountsData?.counts?.new || 0;
+    
     // Mutations
     const [updateWithdrawalStatus] = useUpdateWithdrawalStatusMutation();
     const [updateConfig] = useUpdateConfigMutation();
@@ -152,10 +159,11 @@ const AdminPage = () => {
     const userFinance = userFinanceData?.summary;
 
     const stats = [
-        { label: "تعداد کاربران", value: usersList.length.toLocaleString('fa-IR') || "...", icon: Users, color: "text-blue-400" },
-        { label: "درخواست برداشت", value: withdrawalsList.filter((w: any) => w.status === 'pending').length.toLocaleString('fa-IR') || "۰", icon: ArrowUpRight, color: "text-yellow-400" },
-        { label: "مجموع واریزی‌ها", value: totalDeposits !== null ? `$${totalDeposits.toLocaleString()}` : "...", icon: Banknote, color: "text-green-400" },
-        { label: "تراکنش‌ها", value: "مشاهده همه", icon: Database, color: "text-purple-400" },
+        { label: "تعداد کاربران", value: usersList.length.toLocaleString('fa-IR') || "...", icon: Users, color: "text-blue-400", onClick: () => navigate('/admin/users') },
+        { label: "درخواست برداشت", value: withdrawalsList.filter((w: any) => w.status === 'pending').length.toLocaleString('fa-IR') || "۰", icon: ArrowUpRight, color: "text-yellow-400", onClick: () => navigate('/admin/withdrawals/pending') },
+        { label: "مجموع واریزی‌ها", value: totalDeposits !== null ? `$${totalDeposits.toLocaleString()}` : "...", icon: Banknote, color: "text-green-400", onClick: () => navigate('/admin/deposits') },
+        { label: "تیکت‌های جدید", value: newTicketsCount > 0 ? `${newTicketsCount}` : "0", icon: MessageSquare, color: "text-blue-400", onClick: () => navigate('/admin/tickets'), badge: newTicketsCount > 0 },
+        { label: "تراکنش‌ها", value: "مشاهده همه", icon: Database, color: "text-purple-400", onClick: () => navigate('/admin/transactions') },
     ];
 
     const handleUpdateConfig = async (key: string, value: string) => {
@@ -501,23 +509,29 @@ const AdminPage = () => {
                                         animate={{ opacity: 1, scale: 1 }}
                                         transition={{ delay: index * 0.1 }}
                                         onClick={() => {
-                                            if (index === 0) navigate('/admin/users');
-                                            if (index === 1) navigate('/admin/withdrawals/pending');
-                                            if (index === 2) navigate('/admin/deposits');
-                                            if (index === 3) navigate('/admin/transactions');
+                                            if (stat.onClick) {
+                                                stat.onClick();
+                                            }
                                         }}
-                                        className={`glass p-5 rounded-3xl flex items-center justify-between border border-white/5 shadow-xl ${index <= 1 || index === 3 ? 'cursor-pointer hover:bg-white/5 active:scale-95 transition-all' : ''}`}
+                                        className={`glass p-5 rounded-3xl flex items-center justify-between border border-white/5 shadow-xl ${stat.onClick ? 'cursor-pointer hover:bg-white/5 active:scale-95 transition-all' : ''}`}
                                     >
                                         <div className="flex items-center gap-4">
-                                            <div className={`p-3 rounded-2xl bg-white/5 ${stat.color}`}>
-                                                <stat.icon size={24} />
+                                            <div className="relative">
+                                                <div className={`p-3 rounded-2xl bg-white/5 ${stat.color}`}>
+                                                    <stat.icon size={24} />
+                                                </div>
+                                                {stat.badge && newTicketsCount > 0 && (
+                                                    <div className={`absolute -top-1 ${isRTL ? '-right-1' : '-left-1'} min-w-[20px] h-[20px] flex items-center justify-center px-1 rounded-full bg-red-500 text-white text-[10px] font-bold border-2 border-background`}>
+                                                        {newTicketsCount > 99 ? '99+' : newTicketsCount}
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-muted-foreground text-xs font-vazir">{stat.label}</p>
                                                 <p className="text-xl font-bold font-mono">{stat.value}</p>
                                             </div>
                                         </div>
-                                        {(index <= 1 || index === 3) && <ChevronRight size={16} className="text-muted-foreground rotate-180" />}
+                                        {stat.onClick && <ChevronRight size={16} className="text-muted-foreground rotate-180" />}
                                     </motion.div>
                                 ))}
                             </div>
