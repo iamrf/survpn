@@ -6,6 +6,7 @@ import BottomNav from "@/components/BottomNav";
 import SubscriptionPlan from "@/components/SubscriptionPlan";
 import CustomSubscriptionDrawer from "@/components/CustomSubscriptionDrawer";
 import MinimalSubscriptionCard from "@/components/MinimalSubscriptionCard";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { SubscriptionPlanSkeleton, SubscriptionCardSkeleton } from "@/components/skeletons";
 import { getTelegramUser } from "@/lib/telegram";
 import { useToast } from "@/components/ui/use-toast";
@@ -90,6 +91,12 @@ const HomePage = () => {
   return (
     <div className="min-h-screen flex flex-col pb-24 bg-background selection:bg-primary/30">
       <ProfileCard />
+
+      <div className="px-5 pt-6">
+        <div className="flex items-center justify-end">
+          <LanguageSwitcher />
+        </div>
+      </div>
 
       <div className="px-5 space-y-12 my-6">
 

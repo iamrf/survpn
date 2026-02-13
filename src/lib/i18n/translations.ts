@@ -241,6 +241,7 @@ export interface Translations {
     subscriptionDescription: string;
     vpnServers: string;
     other: string;
+    noSubscription: string;
   };
 
   // Admin Pages
