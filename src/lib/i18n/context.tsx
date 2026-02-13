@@ -48,17 +48,23 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   // Update document direction when language changes
   useEffect(() => {
-    const dir = getTextDirection(language);
-    document.documentElement.dir = dir;
-    document.documentElement.lang = language;
+    if (typeof document === 'undefined') return;
     
-    // Add/remove RTL class for styling
-    if (isRTL(language)) {
-      document.documentElement.classList.add('rtl');
-      document.documentElement.classList.remove('ltr');
-    } else {
-      document.documentElement.classList.add('ltr');
-      document.documentElement.classList.remove('rtl');
+    try {
+      const dir = getTextDirection(language);
+      document.documentElement.dir = dir;
+      document.documentElement.lang = language;
+      
+      // Add/remove RTL class for styling
+      if (isRTL(language)) {
+        document.documentElement.classList.add('rtl');
+        document.documentElement.classList.remove('ltr');
+      } else {
+        document.documentElement.classList.add('ltr');
+        document.documentElement.classList.remove('rtl');
+      }
+    } catch (e) {
+      console.warn('Error updating document direction:', e);
     }
   }, [language]);
 

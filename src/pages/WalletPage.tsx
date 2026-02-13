@@ -316,7 +316,41 @@ const WalletPage = () => {
               created_at: new Date().toISOString(),
             }));
           }
-        window.location.href = result.invoice_url;
+          
+          // Open payment gateway in new tab using Telegram SDK
+          // This keeps the Mini App open while user completes payment
+          // Reference: https://docs.telegram-mini-apps.com/platform/methods#web_app_open_link
+          import('@/lib/telegram-sdk').then(({ TelegramSDK }) => {
+            try {
+              // Use web_app_open_link which opens in default browser (new tab/window)
+              // Mini App will NOT be closed, allowing user to return after payment
+              TelegramSDK.openLinkInNewTab(result.invoice_url);
+              hapticNotification('success');
+              toast({
+                title: t.common.success,
+                description: t.wallet.paymentLinkError, // TODO: Update translation key
+              });
+            } catch (e) {
+              console.error('Error opening payment link:', e);
+              // Fallback to direct API if SDK not available
+              const webApp = window.Telegram?.WebApp;
+              if (webApp?.openLink) {
+                webApp.openLink(result.invoice_url);
+              } else {
+                // Last resort: open in new window
+                window.open(result.invoice_url, '_blank');
+              }
+            }
+          }).catch((e) => {
+            console.error('Error loading Telegram SDK:', e);
+            // Fallback
+            const webApp = window.Telegram?.WebApp;
+            if (webApp?.openLink) {
+              webApp.openLink(result.invoice_url);
+            } else {
+              window.open(result.invoice_url, '_blank');
+            }
+          });
         } else {
           toast({
             title: t.common.error,

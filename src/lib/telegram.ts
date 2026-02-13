@@ -222,12 +222,48 @@ export function hapticSelection(): void {
 }
 
 // Initialize Telegram WebApp
+// Based on: https://core.telegram.org/api/bots/webapps
 export function initTelegramWebApp(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
   const webApp = getTelegramWebApp();
-  if (webApp) {
+  if (!webApp) {
+    console.warn('Telegram WebApp not available');
+    return;
+  }
+
+  try {
     // Expand the app to full height
     webApp.expand?.();
+    
     // Call ready to notify Telegram that the app is ready
+    // This is critical - must be called before using any SDK methods
     webApp.ready?.();
+    
+    // Initialize event manager after WebApp is ready
+    import('./telegram-sdk').then(({ getTelegramEvents, TelegramSDK }) => {
+      try {
+        // Initialize event listeners
+        const events = getTelegramEvents();
+        events.initialize();
+        
+        // Notify iframe is ready (Web only)
+        if (TelegramSDK.getPlatform() === 'web') {
+          TelegramSDK.iframeReady(true); // Support native reloading
+        }
+        
+        // Expand the app (redundant but safe)
+        TelegramSDK.expand();
+      } catch (e) {
+        console.warn('Error initializing Telegram SDK:', e);
+      }
+    }).catch((e) => {
+      // Fallback to direct API if SDK not available
+      console.warn('Telegram SDK not available, using fallback:', e);
+    });
+  } catch (e) {
+    console.error('Error initializing Telegram WebApp:', e);
   }
 }

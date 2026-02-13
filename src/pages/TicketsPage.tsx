@@ -63,20 +63,20 @@ const TicketsPage = () => {
   
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'open': return <Badge variant="secondary" className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-xs">باز</Badge>;
-      case 'in_progress': return <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-400 border-yellow-500/20 text-xs">در حال بررسی</Badge>;
-      case 'resolved': return <Badge variant="secondary" className="bg-green-500/10 text-green-400 border-green-500/20 text-xs">حل شده</Badge>;
-      case 'closed': return <Badge variant="secondary" className="bg-gray-500/10 text-gray-400 border-gray-500/20 text-xs">بسته شده</Badge>;
+      case 'open': return <Badge variant="secondary" className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-xs">{t.tickets.open}</Badge>;
+      case 'in_progress': return <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-400 border-yellow-500/20 text-xs">{t.tickets.inProgress}</Badge>;
+      case 'resolved': return <Badge variant="secondary" className="bg-green-500/10 text-green-400 border-green-500/20 text-xs">{t.tickets.resolved}</Badge>;
+      case 'closed': return <Badge variant="secondary" className="bg-gray-500/10 text-gray-400 border-gray-500/20 text-xs">{t.tickets.closed}</Badge>;
       default: return <Badge variant="outline" className="text-xs">{status}</Badge>;
     }
   };
   
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
-      case 'low': return <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/20 text-xs">کم</Badge>;
-      case 'normal': return <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-xs">عادی</Badge>;
-      case 'high': return <Badge variant="outline" className="bg-orange-500/10 text-orange-400 border-orange-500/20 text-xs">بالا</Badge>;
-      case 'urgent': return <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/20 text-xs">فوری</Badge>;
+      case 'low': return <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/20 text-xs">{t.tickets.low}</Badge>;
+      case 'normal': return <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-xs">{t.tickets.normal}</Badge>;
+      case 'high': return <Badge variant="outline" className="bg-orange-500/10 text-orange-400 border-orange-500/20 text-xs">{t.tickets.high}</Badge>;
+      case 'urgent': return <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/20 text-xs">{t.tickets.urgent}</Badge>;
       default: return <Badge variant="outline" className="text-xs">{priority}</Badge>;
     }
   };
@@ -84,8 +84,8 @@ const TicketsPage = () => {
   const handleCreateTicket = async () => {
     if (!ticketForm.subject || !ticketForm.message) {
       toast({
-        title: "خطا",
-        description: "لطفا موضوع و متن تیکت را پر کنید",
+        title: t.common.error,
+        description: t.tickets.fillSubjectAndMessage,
         variant: "destructive",
       });
       return;
@@ -93,8 +93,8 @@ const TicketsPage = () => {
     
     if (!tgUser?.id) {
       toast({
-        title: "خطا",
-        description: "کاربر یافت نشد",
+        title: t.common.error,
+        description: t.tickets.userNotFound,
         variant: "destructive",
       });
       return;
@@ -110,23 +110,23 @@ const TicketsPage = () => {
       
       if (result.success) {
         toast({
-          title: "موفقیت",
-          description: "تیکت با موفقیت ایجاد شد",
+          title: t.common.success,
+          description: t.tickets.ticketCreated,
         });
         setIsCreateDrawerOpen(false);
         setTicketForm({ subject: '', message: '', priority: 'normal' });
         refetch();
       } else {
         toast({
-          title: "خطا",
-          description: result.error || "خطا در ایجاد تیکت",
+          title: t.common.error,
+          description: result.error || t.tickets.errorCreating,
           variant: "destructive",
         });
       }
     } catch (error: any) {
       toast({
-        title: "خطا",
-        description: error?.data?.error || "خطا در ایجاد تیکت",
+        title: t.common.error,
+        description: error?.data?.error || t.tickets.errorCreating,
         variant: "destructive",
       });
     }
@@ -141,8 +141,8 @@ const TicketsPage = () => {
   const handleReply = async () => {
     if (!replyMessage.trim() || !selectedTicket || !tgUser?.id) {
       toast({
-        title: "خطا",
-        description: "لطفا پیام خود را وارد کنید",
+        title: t.common.error,
+        description: t.tickets.enterMessage,
         variant: "destructive",
       });
       return;
@@ -150,8 +150,8 @@ const TicketsPage = () => {
     
     if (selectedTicket.status !== 'open' && selectedTicket.status !== 'in_progress') {
       toast({
-        title: "خطا",
-        description: "فقط می‌توانید به تیکت‌های باز پاسخ دهید",
+        title: t.common.error,
+        description: t.tickets.onlyOpenTickets,
         variant: "destructive",
       });
       return;
@@ -167,8 +167,8 @@ const TicketsPage = () => {
       
       if (result.success) {
         toast({
-          title: "موفقیت",
-          description: "پاسخ شما ارسال شد",
+          title: t.common.success,
+          description: t.tickets.replySent,
         });
         setReplyMessage('');
         refetch();
@@ -181,15 +181,15 @@ const TicketsPage = () => {
         }
       } else {
         toast({
-          title: "خطا",
-          description: result.error || "خطا در ارسال پاسخ",
+          title: t.common.error,
+          description: result.error || t.tickets.errorSending,
           variant: "destructive",
         });
       }
     } catch (error: any) {
       toast({
-        title: "خطا",
-        description: error?.data?.error || "خطا در ارسال پاسخ",
+        title: t.common.error,
+        description: error?.data?.error || t.tickets.errorSending,
         variant: "destructive",
       });
     } finally {
@@ -209,8 +209,8 @@ const TicketsPage = () => {
       
       if (result.success) {
         toast({
-          title: "موفقیت",
-          description: `تیکت ${newStatus === 'open' ? 'باز' : 'بسته'} شد`,
+          title: t.common.success,
+          description: newStatus === 'open' ? t.tickets.ticketOpened : t.tickets.ticketClosed,
         });
         refetch();
         // Update selected ticket
@@ -221,15 +221,15 @@ const TicketsPage = () => {
         }
       } else {
         toast({
-          title: "خطا",
-          description: result.error || "خطا در تغییر وضعیت",
+          title: t.common.error,
+          description: result.error || t.tickets.errorChangingStatus,
           variant: "destructive",
         });
       }
     } catch (error: any) {
       toast({
-        title: "خطا",
-        description: error?.data?.error || "خطا در تغییر وضعیت",
+        title: t.common.error,
+        description: error?.data?.error || t.tickets.errorChangingStatus,
         variant: "destructive",
       });
     }
@@ -248,8 +248,8 @@ const TicketsPage = () => {
               <MessageSquare className="h-8 w-8" />
             </div>
             <div className={isRTL ? 'text-right' : 'text-left'}>
-              <h1 className={`text-2xl font-bold font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>تیکت‌های پشتیبانی</h1>
-              <p className={`text-muted-foreground text-sm font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>مدیریت درخواست‌های پشتیبانی</p>
+              <h1 className={`text-2xl font-bold font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.tickets.supportTickets}</h1>
+              <p className={`text-muted-foreground text-sm font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.tickets.title}</p>
             </div>
           </div>
           <Button
@@ -258,12 +258,12 @@ const TicketsPage = () => {
             size="sm"
           >
             <Plus size={16} />
-            تیکت جدید
+            {t.tickets.newTicket}
           </Button>
         </motion.div>
         
         {isLoading ? (
-          <div className="py-12 text-center text-muted-foreground text-sm font-vazir">در حال بارگذاری...</div>
+          <div className="py-12 text-center text-muted-foreground text-sm font-vazir">{t.tickets.loading}</div>
         ) : tickets.length > 0 ? (
           <div className="space-y-3">
             {tickets.map((ticket: any) => (
@@ -289,7 +289,7 @@ const TicketsPage = () => {
                 {ticket.admin_response && (
                   <div className="flex items-center gap-2 text-xs text-green-400">
                     <CheckCircle2 size={14} />
-                    <span>پاسخ دریافت شده</span>
+                    <span>{t.tickets.responseReceived}</span>
                   </div>
                 )}
               </motion.div>
@@ -300,13 +300,13 @@ const TicketsPage = () => {
             <div className="p-6 rounded-3xl bg-white/5 border border-white/10 inline-block">
               <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto" />
             </div>
-            <p className="text-muted-foreground text-sm font-vazir">تیکتی وجود ندارد</p>
+            <p className="text-muted-foreground text-sm font-vazir">{t.tickets.noTickets}</p>
             <Button
               onClick={() => setIsCreateDrawerOpen(true)}
               className="rounded-xl gap-2 font-vazir"
             >
               <Plus size={16} />
-              ایجاد تیکت جدید
+              {t.tickets.createNewTicket}
             </Button>
           </div>
         )}
@@ -319,48 +319,48 @@ const TicketsPage = () => {
           <ScrollArea className="max-h-[85vh] overflow-y-auto">
             <div className="p-6 space-y-6">
               <DrawerHeader className="p-0">
-                <DrawerTitle className="text-xl font-black">ایجاد تیکت جدید</DrawerTitle>
+                <DrawerTitle className="text-xl font-black">{t.tickets.createNewTicket}</DrawerTitle>
                 <DrawerDescription className="font-vazir text-muted-foreground">
-                  درخواست پشتیبانی خود را ثبت کنید
+                  {t.tickets.registerSupportRequest}
                 </DrawerDescription>
               </DrawerHeader>
               
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="ticket-subject">موضوع</Label>
+                  <Label htmlFor="ticket-subject">{t.tickets.ticketSubject}</Label>
                   <Input
                     id="ticket-subject"
                     className="bg-white/5 border-white/10 rounded-xl font-vazir"
                     value={ticketForm.subject}
                     onChange={(e) => setTicketForm({ ...ticketForm, subject: e.target.value })}
-                    placeholder="موضوع تیکت"
+                    placeholder={t.tickets.ticketSubjectPlaceholder}
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="ticket-priority">اولویت</Label>
+                  <Label htmlFor="ticket-priority">{t.tickets.priority}</Label>
                   <select
                     id="ticket-priority"
                     className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 font-vazir text-sm"
                     value={ticketForm.priority}
                     onChange={(e) => setTicketForm({ ...ticketForm, priority: e.target.value as any })}
                   >
-                    <option value="low">کم</option>
-                    <option value="normal">عادی</option>
-                    <option value="high">بالا</option>
-                    <option value="urgent">فوری</option>
+                    <option value="low">{t.tickets.low}</option>
+                    <option value="normal">{t.tickets.normal}</option>
+                    <option value="high">{t.tickets.high}</option>
+                    <option value="urgent">{t.tickets.urgent}</option>
                   </select>
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="ticket-message">متن تیکت</Label>
+                  <Label htmlFor="ticket-message">{t.tickets.ticketMessage}</Label>
                   <Textarea
                     id="ticket-message"
                     className="bg-white/5 border-white/10 rounded-xl font-vazir resize-none"
                     rows={6}
                     value={ticketForm.message}
                     onChange={(e) => setTicketForm({ ...ticketForm, message: e.target.value })}
-                    placeholder="توضیحات کامل درخواست خود را بنویسید..."
+                    placeholder={t.tickets.writeFullDescription}
                   />
                 </div>
               </div>
@@ -371,10 +371,10 @@ const TicketsPage = () => {
                   onClick={handleCreateTicket}
                   disabled={isCreating}
                 >
-                  {isCreating ? 'در حال ایجاد...' : 'ایجاد تیکت'}
+                  {isCreating ? t.tickets.sending : t.tickets.createTicket}
                 </Button>
                 <DrawerClose asChild>
-                  <Button variant="ghost" className="rounded-xl h-12">انصراف</Button>
+                  <Button variant="ghost" className="rounded-xl h-12">{t.tickets.cancel}</Button>
                 </DrawerClose>
               </DrawerFooter>
             </div>
@@ -409,7 +409,7 @@ const TicketsPage = () => {
                         <p className="text-sm font-vazir whitespace-pre-wrap text-white">{selectedTicket?.message}</p>
                         <p className="text-xs text-blue-200/70 mt-1.5">{safeFormatDate(selectedTicket?.created_at)}</p>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1 px-1 font-vazir">شما</p>
+                      <p className="text-xs text-muted-foreground mt-1 px-1 font-vazir">{t.tickets.you}</p>
                     </div>
                   </div>
 
@@ -436,8 +436,8 @@ const TicketsPage = () => {
                           </div>
                           <p className="text-xs text-muted-foreground mt-1 px-1 font-vazir">
                             {isAdmin
-                              ? `${reply.admin_first_name} ${reply.admin_last_name} (پشتیبانی)`
-                              : 'شما'
+                              ? `${reply.admin_first_name} ${reply.admin_last_name} (${t.tickets.support})`
+                              : t.tickets.you
                             }
                           </p>
                         </div>
@@ -449,14 +449,14 @@ const TicketsPage = () => {
                 {/* Reply Section - Only show if ticket is open */}
                 {(selectedTicket?.status === 'open' || selectedTicket?.status === 'in_progress') && (
                   <div className="space-y-2 pt-4 border-t border-white/10">
-                    <Label htmlFor="reply-message">پاسخ شما:</Label>
+                    <Label htmlFor="reply-message">{t.tickets.yourReply}</Label>
                     <Textarea
                       id="reply-message"
                       className="bg-white/5 border-white/10 rounded-xl font-vazir resize-none"
                       rows={4}
                       value={replyMessage}
                       onChange={(e) => setReplyMessage(e.target.value)}
-                      placeholder="پاسخ خود را بنویسید..."
+                      placeholder={t.tickets.replyPlaceholder}
                     />
                     <Button
                       onClick={handleReply}
@@ -464,7 +464,7 @@ const TicketsPage = () => {
                       className="w-full rounded-xl gap-2 font-vazir"
                     >
                       <Send size={16} />
-                      {isReplying ? 'در حال ارسال...' : 'ارسال پاسخ'}
+                      {isReplying ? t.tickets.sending : t.tickets.sendReply}
                     </Button>
                   </div>
                 )}
@@ -478,7 +478,7 @@ const TicketsPage = () => {
                       className="flex-1 rounded-xl gap-2 font-vazir border-red-500/20 text-red-400 hover:bg-red-500/10"
                     >
                       <Lock size={16} />
-                      بستن تیکت
+                      {t.tickets.closeTicket}
                     </Button>
                   ) : (
                     <Button
@@ -487,7 +487,7 @@ const TicketsPage = () => {
                       className="flex-1 rounded-xl gap-2 font-vazir border-green-500/20 text-green-400 hover:bg-green-500/10"
                     >
                       <Unlock size={16} />
-                      باز کردن تیکت
+                      {t.tickets.openTicket}
                     </Button>
                   )}
                 </div>
@@ -495,7 +495,7 @@ const TicketsPage = () => {
               
               <DrawerFooter className="p-0">
                 <DrawerClose asChild>
-                  <Button variant="ghost" className="w-full rounded-xl h-12">بستن</Button>
+                  <Button variant="ghost" className="w-full rounded-xl h-12">{t.tickets.close}</Button>
                 </DrawerClose>
               </DrawerFooter>
             </div>

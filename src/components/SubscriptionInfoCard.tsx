@@ -125,7 +125,7 @@ const SubscriptionInfoCard: React.FC<SubscriptionInfoCardProps> = ({
   // Chart data for time-based radial progress (first chart)
   const timeChartData = [
     {
-      name: t.subscription.remainingTimeLabel || t.subscription.remainingTime,
+      name: t.subscription.remainingTime,
       value: timeRemainingPercent,
       fill: isExpired ? '#ef4444' : getUsageBarColor(timeRemainingPercent)
     }

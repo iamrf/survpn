@@ -107,7 +107,7 @@ const AdminTicketsPage = () => {
                 }).unwrap();
             }
             
-            toast({ title: "موفقیت", description: "تیکت با موفقیت به‌روزرسانی شد" });
+            toast({ title: t.common.success, description: t.tickets.ticketUpdated });
             setTicketResponse('');
             await refetchReplies();
             // Update selected ticket
@@ -118,7 +118,7 @@ const AdminTicketsPage = () => {
                 setTicketStatus(updatedTicket.status);
             }
         } catch (err: any) {
-            toast({ title: "خطا", description: err?.data?.error || "خطا در به‌روزرسانی تیکت", variant: "destructive" });
+            toast({ title: t.common.error, description: err?.data?.error || t.tickets.errorUpdating, variant: "destructive" });
         } finally {
             setSaveLoading(false);
         }
@@ -126,20 +126,20 @@ const AdminTicketsPage = () => {
 
     const getStatusBadge = (status: string) => {
         switch (status) {
-            case 'open': return <Badge variant="secondary" className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-xs">باز</Badge>;
-            case 'in_progress': return <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-400 border-yellow-500/20 text-xs">در حال بررسی</Badge>;
-            case 'resolved': return <Badge variant="secondary" className="bg-green-500/10 text-green-400 border-green-500/20 text-xs">حل شده</Badge>;
-            case 'closed': return <Badge variant="secondary" className="bg-gray-500/10 text-gray-400 border-gray-500/20 text-xs">بسته شده</Badge>;
+            case 'open': return <Badge variant="secondary" className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-xs">{t.tickets.open}</Badge>;
+            case 'in_progress': return <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-400 border-yellow-500/20 text-xs">{t.tickets.inProgress}</Badge>;
+            case 'resolved': return <Badge variant="secondary" className="bg-green-500/10 text-green-400 border-green-500/20 text-xs">{t.tickets.resolved}</Badge>;
+            case 'closed': return <Badge variant="secondary" className="bg-gray-500/10 text-gray-400 border-gray-500/20 text-xs">{t.tickets.closed}</Badge>;
             default: return <Badge variant="outline" className="text-xs">{status}</Badge>;
         }
     };
 
     const getPriorityBadge = (priority: string) => {
         switch (priority) {
-            case 'low': return <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/20 text-xs">کم</Badge>;
-            case 'normal': return <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-xs">عادی</Badge>;
-            case 'high': return <Badge variant="outline" className="bg-orange-500/10 text-orange-400 border-orange-500/20 text-xs">بالا</Badge>;
-            case 'urgent': return <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/20 text-xs">فوری</Badge>;
+            case 'low': return <Badge variant="outline" className="bg-gray-500/10 text-gray-400 border-gray-500/20 text-xs">{t.tickets.low}</Badge>;
+            case 'normal': return <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-xs">{t.tickets.normal}</Badge>;
+            case 'high': return <Badge variant="outline" className="bg-orange-500/10 text-orange-400 border-orange-500/20 text-xs">{t.tickets.high}</Badge>;
+            case 'urgent': return <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/20 text-xs">{t.tickets.urgent}</Badge>;
             default: return <Badge variant="outline" className="text-xs">{priority}</Badge>;
         }
     };
@@ -165,8 +165,8 @@ const AdminTicketsPage = () => {
                             <MessageSquare className="h-8 w-8" />
                         </div>
                         <div className={isRTL ? 'text-right' : 'text-left'}>
-                            <h1 className={`text-2xl font-bold font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>مدیریت تیکت‌ها</h1>
-                            <p className={`text-muted-foreground text-sm font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>بررسی و پاسخ به تیکت‌های کاربران</p>
+                            <h1 className={`text-2xl font-bold font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.tickets.manageTickets}</h1>
+                            <p className={`text-muted-foreground text-sm font-vazir ${isRTL ? 'text-right' : 'text-left'}`}>{t.tickets.reviewAndRespond}</p>
                         </div>
                     </div>
                     <button
@@ -187,16 +187,16 @@ const AdminTicketsPage = () => {
                             onClick={() => setStatusFilter(status)}
                             className="rounded-xl font-vazir whitespace-nowrap"
                         >
-                            {status === 'all' ? 'همه' :
-                             status === 'open' ? 'باز' :
-                             status === 'in_progress' ? 'در حال بررسی' :
-                             status === 'resolved' ? 'حل شده' : 'بسته شده'}
+                            {status === 'all' ? t.tickets.all :
+                             status === 'open' ? t.tickets.open :
+                             status === 'in_progress' ? t.tickets.inProgress :
+                             status === 'resolved' ? t.tickets.resolved : t.tickets.closed}
                         </Button>
                     ))}
                 </div>
 
                 {isLoading ? (
-                    <div className="py-12 text-center text-muted-foreground text-sm font-vazir">در حال بارگذاری...</div>
+                    <div className="py-12 text-center text-muted-foreground text-sm font-vazir">{t.tickets.loading}</div>
                 ) : filteredTickets.length > 0 ? (
                     <div className="space-y-3">
                         {filteredTickets.map((ticket: any) => (
@@ -227,7 +227,7 @@ const AdminTicketsPage = () => {
                                     {ticket.admin_response && (
                                         <div className="flex items-center gap-2 text-xs text-green-400">
                                             <CheckCircle2 size={14} />
-                                            <span>پاسخ داده شده</span>
+                                            <span>{t.tickets.replied}</span>
                                         </div>
                                     )}
                                 </div>
@@ -239,7 +239,7 @@ const AdminTicketsPage = () => {
                         <div className="p-6 rounded-3xl bg-white/5 border border-white/10 inline-block">
                             <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto" />
                         </div>
-                        <p className="text-muted-foreground text-sm font-vazir">تیکتی یافت نشد</p>
+                        <p className="text-muted-foreground text-sm font-vazir">{t.tickets.noTicketsFound}</p>
                     </div>
                 )}
             </div>
@@ -267,7 +267,7 @@ const AdminTicketsPage = () => {
                                     <div className="pb-4 border-b border-white/10">
                                         <h4 className="font-semibold text-sm mb-2 font-vazir flex items-center gap-2">
                                             <User size={16} />
-                                            کاربر:
+                                            {t.tickets.user}:
                                         </h4>
                                         <p className="text-sm font-vazir">
                                             {selectedTicket.first_name} {selectedTicket.last_name} (@{selectedTicket.username || 'N/A'})
@@ -314,7 +314,7 @@ const AdminTicketsPage = () => {
                                                         </div>
                                                         <p className="text-xs text-muted-foreground mt-1 px-1 font-vazir">
                                                             {isAdmin
-                                                                ? `${reply.admin_first_name || ''} ${reply.admin_last_name || ''} (پشتیبانی)`
+                                                                ? `${reply.admin_first_name || ''} ${reply.admin_last_name || ''} (${t.tickets.support})`
                                                                 : `${reply.user_first_name || ''} ${reply.user_last_name || ''}`
                                                             }
                                                         </p>
@@ -325,38 +325,38 @@ const AdminTicketsPage = () => {
                                     </div>
 
                                     <div className="space-y-2">
-                                        <Label htmlFor="ticket-status">وضعیت</Label>
+                                        <Label htmlFor="ticket-status">{t.tickets.status}</Label>
                                         <select
                                             id="ticket-status"
                                             className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 font-vazir text-sm"
                                             value={ticketStatus}
                                             onChange={(e) => setTicketStatus(e.target.value as any)}
                                         >
-                                            <option value="open">باز</option>
-                                            <option value="in_progress">در حال بررسی</option>
-                                            <option value="resolved">حل شده</option>
-                                            <option value="closed">بسته شده</option>
+                                            <option value="open">{t.tickets.open}</option>
+                                            <option value="in_progress">{t.tickets.inProgress}</option>
+                                            <option value="resolved">{t.tickets.resolved}</option>
+                                            <option value="closed">{t.tickets.closed}</option>
                                         </select>
                                     </div>
 
                                     {/* Reply Section - Only show if ticket is open */}
                                     {(selectedTicket.status === 'open' || selectedTicket.status === 'in_progress') && (
                                         <div className="space-y-2">
-                                            <Label htmlFor="ticket-response">پاسخ پشتیبانی</Label>
+                                            <Label htmlFor="ticket-response">{t.tickets.adminResponse}</Label>
                                             <Textarea
                                                 id="ticket-response"
                                                 className="bg-white/5 border-white/10 rounded-xl font-vazir resize-none"
                                                 rows={6}
                                                 value={ticketResponse}
                                                 onChange={(e) => setTicketResponse(e.target.value)}
-                                                placeholder="پاسخ خود را بنویسید..."
+                                                placeholder={t.tickets.writeResponse}
                                             />
                                         </div>
                                     )}
                                 </div>
                             ) : (
                                 <div className="py-12 text-center">
-                                    <p className="text-muted-foreground font-vazir">در حال بارگذاری...</p>
+                                    <p className="text-muted-foreground font-vazir">{t.tickets.loading}</p>
                                 </div>
                             )}
 
@@ -366,10 +366,10 @@ const AdminTicketsPage = () => {
                                     onClick={handleUpdateTicket}
                                     disabled={saveLoading}
                                 >
-                                    {saveLoading ? 'در حال ذخیره...' : 'ذخیره تغییرات'}
+                                    {saveLoading ? t.tickets.saving : t.tickets.saveChanges}
                                 </Button>
                                 <DrawerClose asChild>
-                                    <Button variant="ghost" className="w-full rounded-xl h-12">انصراف</Button>
+                                    <Button variant="ghost" className="w-full rounded-xl h-12">{t.tickets.cancel}</Button>
                                 </DrawerClose>
                             </DrawerFooter>
                         </div>

@@ -21,6 +21,7 @@ export interface Translations {
     copy: string;
     copied: string;
     share: string;
+    processing: string;
   };
 
   // Navigation
@@ -49,6 +50,7 @@ export interface Translations {
     customServiceDescription: string;
     subscriptionActivatedImmediately: string;
     failedToProcessPurchase: string;
+    supportTickets: string;
   };
 
   // Wallet Page
@@ -65,6 +67,7 @@ export interface Translations {
     crypto: string;
     enterAmount: string;
     processing: string;
+    loading: string;
     checkingPayment: string;
     paymentSuccess: string;
     paymentPending: string;
@@ -249,8 +252,11 @@ export interface Translations {
     usageRate: string;
     remainingData: string;
     totalData: string;
+    remainingVolume: string;
+    totalVolume: string;
     expiredTime: string;
     remainingTime: string;
+    remainingTimeLabel: string;
     expiresToday: string;
     expiredDaysAgo: string;
     status: string;
@@ -340,6 +346,69 @@ export interface Translations {
     max: string;
   };
 
+  // Tickets
+  tickets: {
+    title: string;
+    supportTickets: string;
+    manageTickets: string;
+    newTicket: string;
+    createTicket: string;
+    createNewTicket: string;
+    ticketSubject: string;
+    ticketMessage: string;
+    ticketPriority: string;
+    priority: string;
+    low: string;
+    normal: string;
+    high: string;
+    urgent: string;
+    status: string;
+    open: string;
+    inProgress: string;
+    resolved: string;
+    closed: string;
+    all: string;
+    loading: string;
+    noTickets: string;
+    noTicketsFound: string;
+    ticketCreated: string;
+    ticketUpdated: string;
+    replySent: string;
+    ticketOpened: string;
+    ticketClosed: string;
+    reply: string;
+    yourReply: string;
+    sendReply: string;
+    sending: string;
+    closeTicket: string;
+    openTicket: string;
+    user: string;
+    support: string;
+    you: string;
+    replied: string;
+    responseReceived: string;
+    fillSubjectAndMessage: string;
+    userNotFound: string;
+    onlyOpenTickets: string;
+    enterMessage: string;
+    statusChanged: string;
+    errorCreating: string;
+    errorUpdating: string;
+    errorSending: string;
+    errorChangingStatus: string;
+    adminResponse: string;
+    writeResponse: string;
+    saveChanges: string;
+    saving: string;
+    cancel: string;
+    close: string;
+    reviewAndRespond: string;
+    ticketDetails: string;
+    registerSupportRequest: string;
+    writeFullDescription: string;
+    ticketSubjectPlaceholder: string;
+    replyPlaceholder: string;
+  };
   // Errors
   errors: {
     notFound: string;
@@ -578,6 +647,68 @@ export const translations: Record<LanguageCode, Translations> = {
       transactionId: 'شناسه تراکنش',
       userId: 'شناسه کاربر',
     },
+    tickets: {
+      title: 'تیکت‌ها',
+      supportTickets: 'تیکت‌های پشتیبانی',
+      manageTickets: 'مدیریت تیکت‌ها',
+      newTicket: 'تیکت جدید',
+      createTicket: 'ایجاد تیکت',
+      createNewTicket: 'ایجاد تیکت جدید',
+      ticketSubject: 'موضوع',
+      ticketMessage: 'متن تیکت',
+      ticketPriority: 'اولویت',
+      priority: 'اولویت',
+      low: 'کم',
+      normal: 'عادی',
+      high: 'بالا',
+      urgent: 'فوری',
+      status: 'وضعیت',
+      open: 'باز',
+      inProgress: 'در حال بررسی',
+      resolved: 'حل شده',
+      closed: 'بسته شده',
+      all: 'همه',
+      loading: 'در حال بارگذاری...',
+      noTickets: 'تیکتی وجود ندارد',
+      noTicketsFound: 'تیکتی یافت نشد',
+      ticketCreated: 'تیکت با موفقیت ایجاد شد',
+      ticketUpdated: 'تیکت با موفقیت به‌روزرسانی شد',
+      replySent: 'پاسخ شما ارسال شد',
+      ticketOpened: 'تیکت باز شد',
+      ticketClosed: 'تیکت بسته شد',
+      reply: 'پاسخ',
+      yourReply: 'پاسخ شما:',
+      sendReply: 'ارسال پاسخ',
+      sending: 'در حال ارسال...',
+      closeTicket: 'بستن تیکت',
+      openTicket: 'باز کردن تیکت',
+      user: 'کاربر',
+      support: 'پشتیبانی',
+      you: 'شما',
+      replied: 'پاسخ داده شده',
+      responseReceived: 'پاسخ دریافت شده',
+      fillSubjectAndMessage: 'لطفا موضوع و متن تیکت را پر کنید',
+      userNotFound: 'کاربر یافت نشد',
+      onlyOpenTickets: 'فقط می‌توانید به تیکت‌های باز پاسخ دهید',
+      enterMessage: 'لطفا پیام خود را وارد کنید',
+      statusChanged: 'تیکت {status} شد',
+      errorCreating: 'خطا در ایجاد تیکت',
+      errorUpdating: 'خطا در به‌روزرسانی تیکت',
+      errorSending: 'خطا در ارسال پاسخ',
+      errorChangingStatus: 'خطا در تغییر وضعیت',
+      adminResponse: 'پاسخ پشتیبانی',
+      writeResponse: 'پاسخ خود را بنویسید...',
+      saveChanges: 'ذخیره تغییرات',
+      saving: 'در حال ذخیره...',
+      cancel: 'انصراف',
+      close: 'بستن',
+      reviewAndRespond: 'بررسی و پاسخ به تیکت‌های کاربران',
+      ticketDetails: 'جزئیات تیکت',
+      registerSupportRequest: 'درخواست پشتیبانی خود را ثبت کنید',
+      writeFullDescription: 'توضیحات کامل درخواست خود را بنویسید...',
+      ticketSubjectPlaceholder: 'موضوع تیکت',
+      replyPlaceholder: 'پاسخ خود را بنویسید...',
+    },
     plan: {
       renew: 'تمدید',
       purchaseAndActivate: 'خرید و فعالسازی با یک کلیک',
@@ -799,6 +930,68 @@ export const translations: Record<LanguageCode, Translations> = {
       depositTransactionInfo: 'Deposit transaction information',
       transactionId: 'Transaction ID',
       userId: 'User ID',
+    },
+    tickets: {
+      title: 'Tickets',
+      supportTickets: 'Support Tickets',
+      manageTickets: 'Manage Tickets',
+      newTicket: 'New Ticket',
+      createTicket: 'Create Ticket',
+      createNewTicket: 'Create New Ticket',
+      ticketSubject: 'Subject',
+      ticketMessage: 'Ticket Message',
+      ticketPriority: 'Priority',
+      priority: 'Priority',
+      low: 'Low',
+      normal: 'Normal',
+      high: 'High',
+      urgent: 'Urgent',
+      status: 'Status',
+      open: 'Open',
+      inProgress: 'In Progress',
+      resolved: 'Resolved',
+      closed: 'Closed',
+      all: 'All',
+      loading: 'Loading...',
+      noTickets: 'No tickets',
+      noTicketsFound: 'No tickets found',
+      ticketCreated: 'Ticket created successfully',
+      ticketUpdated: 'Ticket updated successfully',
+      replySent: 'Your reply has been sent',
+      ticketOpened: 'Ticket opened',
+      ticketClosed: 'Ticket closed',
+      reply: 'Reply',
+      yourReply: 'Your Reply:',
+      sendReply: 'Send Reply',
+      sending: 'Sending...',
+      closeTicket: 'Close Ticket',
+      openTicket: 'Open Ticket',
+      user: 'User',
+      support: 'Support',
+      you: 'You',
+      replied: 'Replied',
+      responseReceived: 'Response Received',
+      fillSubjectAndMessage: 'Please fill in subject and message',
+      userNotFound: 'User not found',
+      onlyOpenTickets: 'You can only reply to open tickets',
+      enterMessage: 'Please enter your message',
+      statusChanged: 'Ticket {status}',
+      errorCreating: 'Error creating ticket',
+      errorUpdating: 'Error updating ticket',
+      errorSending: 'Error sending reply',
+      errorChangingStatus: 'Error changing status',
+      adminResponse: 'Support Response',
+      writeResponse: 'Write your response...',
+      saveChanges: 'Save Changes',
+      saving: 'Saving...',
+      cancel: 'Cancel',
+      close: 'Close',
+      reviewAndRespond: 'Review and respond to user tickets',
+      ticketDetails: 'Ticket Details',
+      registerSupportRequest: 'Register your support request',
+      writeFullDescription: 'Write a complete description of your request...',
+      ticketSubjectPlaceholder: 'Ticket Subject',
+      replyPlaceholder: 'Write your reply...',
     },
     plan: {
       renew: 'Renew',
@@ -1082,6 +1275,68 @@ export const translations: Record<LanguageCode, Translations> = {
       somethingWentWrong: 'حدث خطأ ما',
       min: 'الحد الأدنى',
       max: 'الحد الأقصى',
+    },
+    tickets: {
+      title: 'التذاكر',
+      supportTickets: 'تذاكر الدعم',
+      manageTickets: 'إدارة التذاكر',
+      newTicket: 'تذكرة جديدة',
+      createTicket: 'إنشاء تذكرة',
+      createNewTicket: 'إنشاء تذكرة جديدة',
+      ticketSubject: 'الموضوع',
+      ticketMessage: 'نص التذكرة',
+      ticketPriority: 'الأولوية',
+      priority: 'الأولوية',
+      low: 'منخفض',
+      normal: 'عادي',
+      high: 'عالٍ',
+      urgent: 'عاجل',
+      status: 'الحالة',
+      open: 'مفتوح',
+      inProgress: 'قيد المراجعة',
+      resolved: 'تم الحل',
+      closed: 'مغلق',
+      all: 'الكل',
+      loading: 'جاري التحميل...',
+      noTickets: 'لا توجد تذاكر',
+      noTicketsFound: 'لم يتم العثور على تذاكر',
+      ticketCreated: 'تم إنشاء التذكرة بنجاح',
+      ticketUpdated: 'تم تحديث التذكرة بنجاح',
+      replySent: 'تم إرسال الرد',
+      ticketOpened: 'تم فتح التذكرة',
+      ticketClosed: 'تم إغلاق التذكرة',
+      reply: 'الرد',
+      yourReply: 'ردك:',
+      sendReply: 'إرسال الرد',
+      sending: 'جاري الإرسال...',
+      closeTicket: 'إغلاق التذكرة',
+      openTicket: 'فتح التذكرة',
+      user: 'المستخدم',
+      support: 'الدعم',
+      you: 'أنت',
+      replied: 'تم الرد',
+      responseReceived: 'تم استلام الرد',
+      fillSubjectAndMessage: 'يرجى ملء الموضوع والنص',
+      userNotFound: 'لم يتم العثور على المستخدم',
+      onlyOpenTickets: 'يمكنك الرد فقط على التذاكر المفتوحة',
+      enterMessage: 'يرجى إدخال رسالتك',
+      statusChanged: 'تم تغيير الحالة',
+      errorCreating: 'خطأ في إنشاء التذكرة',
+      errorUpdating: 'خطأ في تحديث التذكرة',
+      errorSending: 'خطأ في إرسال الرد',
+      errorChangingStatus: 'خطأ في تغيير الحالة',
+      adminResponse: 'رد الدعم',
+      writeResponse: 'اكتب ردك...',
+      saveChanges: 'حفظ التغييرات',
+      saving: 'جاري الحفظ...',
+      cancel: 'إلغاء',
+      close: 'إغلاق',
+      reviewAndRespond: 'مراجعة والرد على تذاكر المستخدمين',
+      ticketDetails: 'تفاصيل التذكرة',
+      registerSupportRequest: 'سجل طلب الدعم الخاص بك',
+      writeFullDescription: 'اكتب وصفاً كاملاً لطلبك...',
+      ticketSubjectPlaceholder: 'موضوع التذكرة',
+      replyPlaceholder: 'اكتب ردك...',
     },
     errors: {
       notFound: 'الصفحة غير موجودة',

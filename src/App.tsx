@@ -28,10 +28,14 @@ import { getTelegramUser, initTelegramWebApp } from "./lib/telegram";
 import { AdminProvider, useAdmin } from "./components/AdminProvider";
 import { TelegramAccessGuard } from "./components/TelegramAccessGuard";
 import { store } from "./store";
-import { useGetCurrentUserQuery, useSyncUserMutation } from "./store/api";
+import { useGetCurrentUserQuery } from "./store/api";
 import { useAppSelector } from "./store/hooks";
 import { useTelegramTheme } from "./hooks/useTelegramTheme";
 import { I18nProvider } from "./lib/i18n";
+import { useReferralRegistration } from "./hooks/useReferralRegistration";
+import { useTelegramEvents } from "./hooks/useTelegramEvents";
+import { useTelegramSwipeBehavior } from "./hooks/useTelegramSwipeBehavior";
+import { useTransactionCallback } from "./hooks/useTransactionCallback";
 
 const queryClient = new QueryClient();
 
@@ -39,21 +43,36 @@ const AppContent = () => {
   const { isAdmin, setIsAdmin } = useAdmin();
   const tgUser = getTelegramUser();
   const currentUser = useAppSelector((state) => state.user.currentUser);
-  const initialSyncDone = useRef(false);
-  const [syncUser] = useSyncUserMutation();
-
-  // Initialize Telegram WebApp on mount
+  
+  // Initialize Telegram WebApp FIRST (before any other hooks that depend on it)
   useEffect(() => {
-    initTelegramWebApp();
+    // Delay to ensure DOM is ready
+    const timer = setTimeout(() => {
+      try {
+        if (typeof window !== 'undefined') {
+          initTelegramWebApp();
+        }
+      } catch (e) {
+        console.error('Error initializing Telegram WebApp:', e);
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
   }, []);
 
-  // Apply Telegram theme colors
+  // Apply Telegram theme colors (safe - has internal guards)
   useTelegramTheme();
+
+  // Handle referral registration (safe - has internal guards)
+  useReferralRegistration();
+
+  // Enable swipe gestures (safe - has internal guards)
+  useTelegramSwipeBehavior(true);
 
   // Use getCurrentUser query - this provides the 'User' tag
   // When 'User' tag is invalidated (by payment verification, plan purchase, etc.),
   // this query automatically refetches and updates Redux via extraReducers
-  const { data: userData } = useGetCurrentUserQuery(tgUser, {
+  const { data: userData } = useGetCurrentUserQuery(tgUser || null, {
     skip: !tgUser,
     // Refetch when window regains focus (user comes back to app)
     refetchOnFocus: true,
@@ -66,53 +85,12 @@ const AppContent = () => {
     }
   }, [currentUser?.isAdmin, setIsAdmin]);
 
-  // Handle referral code from start parameter (must run BEFORE initial sync for new users)
-  useEffect(() => {
-    const handleReferralCode = async () => {
-      if (initialSyncDone.current || !tgUser) return;
-
-      try {
-        // Check for start parameter from Telegram direct link mini app
-        // Reference: https://core.telegram.org/bots/webapps#direct-link-mini-apps
-        const { getReferralCodeFromStartParam } = await import('@/lib/telegram');
-        const startParam = getReferralCodeFromStartParam();
-
-        if (startParam) {
-          // Only handle referral codes here (payment and wallet redirects handled by StartParamNavigator)
-          if (!startParam.startsWith('payment_tx_') && startParam !== 'wallet') {
-            console.log('[REFERRAL] Referral code detected from start param:', startParam);
-            try {
-              // Sync user with referral code - backend will only process for new users
-              const result = await syncUser({
-                ...tgUser,
-                referral_code: startParam,
-              }).unwrap();
-              
-              if (result.success) {
-                console.log('[REFERRAL] User synced successfully with referral code:', startParam);
-                // Redux state is automatically updated via extraReducers in userSlice
-              }
-            } catch (syncError: any) {
-              console.error("[REFERRAL] Error syncing user with referral code:", syncError);
-              // Don't block app initialization if referral sync fails
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error in referral code handler:", error);
-      }
-    };
-    
-    // Process referral code immediately (before getCurrentUser query runs)
-    // This ensures new users get their referral processed during initial registration
-    handleReferralCode();
-  }, [tgUser, syncUser]);
-
   return (
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <TelegramRouterHooks />
         <StartParamNavigator />
         <AnimatePresence mode="wait">
           <Suspense fallback={<LoadingFallback />}>
@@ -142,13 +120,23 @@ const AppContent = () => {
   );
 };
 
+// Component to handle Telegram hooks that require Router context
+// Must be inside BrowserRouter
+const TelegramRouterHooks = () => {
+  // Handle Telegram Mini Apps events (requires Router context)
+  useTelegramEvents();
+  
+  // Handle transaction callbacks (requires Router context)
+  useTransactionCallback();
+  
+  return null;
+};
+
 // Component to handle navigation from Telegram Direct Links and ?start= parameters
 const StartParamNavigator = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const navigatedRef = useRef(false);
-  const referralProcessedRef = useRef(false);
-  const [syncUser] = useSyncUserMutation();
 
   useEffect(() => {
     const handleNavigation = async () => {
@@ -172,32 +160,8 @@ const StartParamNavigator = () => {
           }
         }
         
-        // Handle referral code from Direct Link: ?ref=CODE
-        const refCode = params.get('ref');
-        if (refCode && !referralProcessedRef.current) {
-          console.log('[REFERRAL] Referral code detected from Direct Link query param:', refCode);
-          referralProcessedRef.current = true;
-          const { getTelegramUser } = await import('@/lib/telegram');
-          const tgUser = getTelegramUser();
-          if (tgUser) {
-            try {
-              // Sync user with referral code - backend will only process for new users
-              const result = await syncUser({
-                ...tgUser,
-                referral_code: refCode,
-              }).unwrap();
-              
-              if (result.success) {
-                console.log('[REFERRAL] User synced successfully with referral code:', refCode);
-                // Redux state is automatically updated via extraReducers in userSlice
-              }
-            } catch (error: any) {
-              console.error("[REFERRAL] Error syncing user with referral code:", error);
-              // Don't block navigation if referral sync fails
-            }
-          }
-          // Don't return here - allow navigation to continue
-        }
+        // Referral codes are now handled by useReferralRegistration hook
+        // No need to process them here
         
         // Handle start_param (fallback for ?start= links)
         const { getReferralCodeFromStartParam } = await import('@/lib/telegram');
@@ -230,7 +194,7 @@ const StartParamNavigator = () => {
     };
     
     handleNavigation();
-  }, [navigate, location.pathname, location.search, syncUser]);
+  }, [navigate, location.pathname, location.search]);
 
   return null;
 };
